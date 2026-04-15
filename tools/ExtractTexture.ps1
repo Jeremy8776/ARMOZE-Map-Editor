@@ -1,6 +1,7 @@
-# MapSave Texture Extractor Helper Script
-# This script searches all PAK files for a texture and extracts/converts it
-# Can be run from Workbench (automated) or manually (interactive)
+# MapSave PAK Extractor
+# Searches and extracts assets from Arma Reforger PAK files.
+# Supports targeted search or bulk extraction with optional .edds conversion.
+# Can be run from Workbench (automated) or manually (interactive).
 
 param(
     [Parameter(Mandatory = $false)]
@@ -23,13 +24,11 @@ param(
 $ErrorActionPreference = "Continue"
 
 # --- Setup Tools Directory ---
-# If ToolsDir wasn't passed, or if the passed one doesn't have the files, try PSScriptRoot
 if (-not $ToolsDir -or -not (Test-Path (Join-Path $ToolsDir "PakInspector.exe"))) {
     if ($PSScriptRoot) {
         $ToolsDir = $PSScriptRoot
     }
     else {
-        # Fallback for some PS environments where PSScriptRoot might be empty (rare)
         $ToolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
     }
 }
@@ -37,9 +36,8 @@ if (-not $ToolsDir -or -not (Test-Path (Join-Path $ToolsDir "PakInspector.exe"))
 $pakInspector = Join-Path $ToolsDir "PakInspector.exe"
 $edds2image = Join-Path $ToolsDir "edds2image.exe"
 
-Write-Host "=== MapSave Texture Extractor ===" -ForegroundColor Cyan
+Write-Host "=== MapSave PAK Extractor ===" -ForegroundColor Cyan
 Write-Host "Tools Dir: $ToolsDir" -ForegroundColor Gray
-Write-Host "PakInspector: $pakInspector" -ForegroundColor Gray
 
 # --- Validate Tools ---
 if (-not (Test-Path $pakInspector)) {
@@ -55,14 +53,12 @@ if (-not (Test-Path $edds2image)) {
 }
 
 # --- Interactive Mode Input ---
-# If ResourcePath is not provided via arguments, we assume interactive mode
 $interactiveMode = [string]::IsNullOrWhiteSpace($ResourcePath)
 
 if ($interactiveMode) {
-    Write-Host "Interactive Mode Enabled" -ForegroundColor Green
+    Write-Host "Interactive Mode" -ForegroundColor Green
     Write-Host ""
     
-    # 1. Ask for Scan Directory
     $defaultScan = Join-Path $GameDir "addons\data"
     Write-Host "Enter directory to scan for PAK files."
     Write-Host "Default: $defaultScan" -ForegroundColor Gray
@@ -75,7 +71,6 @@ if ($interactiveMode) {
         $ScanDir = $defaultScan
     }
     
-    # 2. Ask for Output Directory
     $defaultOut = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "MapSave_Exports"
     Write-Host ""
     Write-Host "Enter output directory."
@@ -90,77 +85,225 @@ if ($interactiveMode) {
     }
 }
 
-# Ensure output directory exists
+# --- Derive Addon Name from Scan Directory ---
+# Strips trailing hex hash suffixes (e.g. "Anizay_6266DCA9193C705E" -> "Anizay")
+$scanLeaf = Split-Path $ScanDir -Leaf
+$addonName = $scanLeaf
+if ($scanLeaf -match '^(.+)_[0-9A-Fa-f]{8,}$') {
+    $addonName = $Matches[1]
+}
+if ($addonName -eq "data") {
+    $addonName = "Vanilla"
+}
+
+$OutputDir = Join-Path $OutputDir $addonName
+
 if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 }
 
-# Define temp working directory
-$tempDir = Join-Path $OutputDir "_temp_extract"
+# Temp dir sits alongside the addon folder
+$tempDir = Join-Path (Split-Path $OutputDir -Parent) "_temp_extract"
 
 # --- Scan for PAKs ---
-Write-Host "Scanning for PAK files in: $ScanDir" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Addon:  $addonName" -ForegroundColor Cyan
+Write-Host "Scan:   $ScanDir" -ForegroundColor Gray
+Write-Host "Output: $OutputDir" -ForegroundColor Gray
+
 if (Test-Path $ScanDir) {
     $pakFiles = Get-ChildItem -Path $ScanDir -Filter "*.pak" -Recurse
-    Write-Host "Found $($pakFiles.Count) PAK files." -ForegroundColor Green
+    Write-Host "Found $($pakFiles.Count) PAK file(s)." -ForegroundColor Green
 }
 else {
-    Write-Host "WARNING: Scan Directory not found!" -ForegroundColor Yellow
+    Write-Host "WARNING: Scan directory not found!" -ForegroundColor Yellow
     $pakFiles = @()
 }
 
-# --- Main Loop ---
-$doLoop = $true
+# ============================================================
+# Extraction Helpers
+# ============================================================
 
-do {
-    # 3. Ask for Search Term (Interactive Mode)
-    # If not interactive (ResourcePath passed), we just run once and exit
-    if ($interactiveMode) {
-        Write-Host ""
-        $searchTerm = Read-Host "What are you looking for? (e.g. 'M4A1', 'Arland', 'Tree')"
-        
-        if ([string]::IsNullOrWhiteSpace($searchTerm)) {
-            Write-Host "No search term entered. Exiting." -ForegroundColor Yellow
-            break
+function Extract-FromPak {
+    # Extracts a single file from a PAK. Tries filtered first, falls back to full extraction.
+    param(
+        [object]$Pak,
+        [string]$InternalPath,
+        [string]$TempDir,
+        [string]$PakInspectorPath
+    )
+    
+    if (Test-Path $TempDir) { Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+    
+    $targetName = [System.IO.Path]::GetFileName($InternalPath)
+    
+    # Method 1: Filtered extraction
+    & $PakInspectorPath extract $Pak.FullName $TempDir -f $InternalPath 2>&1 | Out-Null
+    $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
+    
+    # Method 2: Filtered with raw flag
+    if (-not $found -or $found.Count -eq 0) {
+        & $PakInspectorPath extract $Pak.FullName $TempDir -f $InternalPath -r 2>&1 | Out-Null
+        $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
+    }
+    
+    # Method 3: Full extraction, locate target by name
+    if (-not $found -or $found.Count -eq 0) {
+        Write-Host "  Filtered extract unavailable, extracting full PAK..." -ForegroundColor DarkGray
+        & $PakInspectorPath extract $Pak.FullName $TempDir 2>&1 | Out-Null
+        $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
+    }
+    
+    return $found
+}
+
+function Extract-FullPak {
+    # Extracts an entire PAK to the temp directory.
+    param(
+        [object]$Pak,
+        [string]$TempDir,
+        [string]$PakInspectorPath
+    )
+    
+    if (Test-Path $TempDir) { Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+    
+    & $PakInspectorPath extract $Pak.FullName $TempDir 2>&1 | Out-Null
+}
+
+function Get-EddsFormatChoice {
+    # Prompts the user for their preferred .edds output format.
+    # Returns: "png", "tif", "dds", or "raw"
+    Write-Host ""
+    Write-Host "  Convert .edds to:" -ForegroundColor Cyan
+    Write-Host "  [1] PNG  (recommended)"
+    Write-Host "  [2] TIF"
+    Write-Host "  [3] DDS"
+    Write-Host "  [4] Raw  (keep as .edds, no conversion)"
+    $choice = Read-Host "Choose [default: 1]"
+    
+    switch ($choice) {
+        "2" { return "tif" }
+        "3" { return "dds" }
+        "4" { return "raw" }
+        default { return "png" }
+    }
+}
+
+function Convert-EddsToImage {
+    # Converts an .edds file and returns the path matching the preferred format, or $null.
+    param(
+        [string]$EddsFilePath,
+        [string]$Edds2ImagePath,
+        [string]$PreferredFormat = "png"  # "png", "tif", "dds", "raw"
+    )
+    
+    # Raw mode — no conversion, return the .edds file itself
+    if ($PreferredFormat -eq "raw") {
+        return $EddsFilePath
+    }
+    
+    $dir = [System.IO.Path]::GetDirectoryName($EddsFilePath)
+    $name = [System.IO.Path]::GetFileName($EddsFilePath)
+    
+    Push-Location $dir
+    & $Edds2ImagePath $name 2>&1 | Out-Null
+    Pop-Location
+    
+    # edds2image outputs into format-named subdirectories (png/, tif/, dds/)
+    $targetExt = ".$PreferredFormat"
+    $match = Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq $targetExt } | Select-Object -First 1
+    
+    if ($match) { return $match.FullName }
+    
+    # Fallback: return any converted image if preferred format wasn't produced
+    $fallback = Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object {
+        $_.Extension -match "\.(png|tif|dds|tga|jpg)$"
+    } | Select-Object -First 1
+    
+    if ($fallback) { return $fallback.FullName }
+    return $null
+}
+
+function Save-ToOutput {
+    # Copies a file to the output folder with collision-safe naming.
+    param(
+        [string]$SourcePath,
+        [string]$DesiredName,
+        [string]$OutputDir
+    )
+    
+    $ext = [System.IO.Path]::GetExtension($SourcePath)
+    $baseOutput = Join-Path $OutputDir "$DesiredName$ext"
+    $finalOutput = $baseOutput
+    $counter = 1
+    while (Test-Path $finalOutput) {
+        $finalOutput = Join-Path $OutputDir "${DesiredName}_${counter}$ext"
+        $counter++
+    }
+    
+    Copy-Item $SourcePath $finalOutput -Force
+    return $finalOutput
+}
+
+function Process-ExtractedFile {
+    # Handles a single extracted file: converts .edds to chosen format, copies everything else raw.
+    param(
+        [string]$FilePath,
+        [string]$OutputDir,
+        [string]$Edds2ImagePath,
+        [string]$EddsFormat = "png"  # "png", "tif", "dds", "raw"
+    )
+    
+    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($FilePath)
+    $ext = [System.IO.Path]::GetExtension($FilePath).ToLower()
+    
+    if ($ext -eq ".edds") {
+        $imagePath = Convert-EddsToImage -EddsFilePath $FilePath -Edds2ImagePath $Edds2ImagePath -PreferredFormat $EddsFormat
+        if ($imagePath) {
+            return (Save-ToOutput -SourcePath $imagePath -DesiredName $baseName -OutputDir $OutputDir)
         }
+        return $null
     }
     else {
-        $searchTerm = $ResourcePath
+        return (Save-ToOutput -SourcePath $FilePath -DesiredName $baseName -OutputDir $OutputDir)
     }
+}
 
-    # Escape regex special characters for safe matching
+# ============================================================
+# Mode: Search & Extract
+# ============================================================
+
+function Invoke-SearchMode {
+    param(
+        [array]$PakFiles,
+        [string]$TempDir,
+        [string]$OutputDir,
+        [string]$PakInspectorPath,
+        [string]$Edds2ImagePath
+    )
+    
+    $searchTerm = Read-Host "Search term (e.g. 'M4A1', 'Arland', 'Tree', '.smap')"
+    if ([string]::IsNullOrWhiteSpace($searchTerm)) {
+        Write-Host "No search term entered." -ForegroundColor Yellow
+        return
+    }
+    
     $searchPattern = [regex]::Escape($searchTerm)
-    $fileName = [System.IO.Path]::GetFileNameWithoutExtension($searchTerm)
-
-    Write-Host ""
-    Write-Host "Configuration:"
-    Write-Host "  Search: $searchTerm"
-    Write-Host "  Scan:   $ScanDir"
-    Write-Host "  Output: $OutputDir"
-    Write-Host ""
-
-    # --- Search ---
     Write-Host "Scanning PAK files for '$searchTerm'..." -ForegroundColor Yellow
-
-    # Store matches as objects: { Pak, Path }
+    
     $allMatches = @()
-
-    foreach ($pak in $pakFiles) {
-        # Check if the output contains our term loosely first
-        # We assume pakFiles is already populated from the setup phase
-        $inspectOutput = & $pakInspector inspect $pak.FullName 2>&1
-        
+    foreach ($pak in $PakFiles) {
+        $inspectOutput = & $PakInspectorPath inspect $pak.FullName 2>&1
         if ($inspectOutput -match $searchPattern) {
             $lines = $inspectOutput -split "`r`n"
             foreach ($line in $lines) {
                 if ($line -match $searchPattern -and $line -notmatch "^\.\.\.") {
-                    # Clean up line to get just the internal path
                     $cleanPath = $line.Trim()
                     if ($cleanPath.Contains("  ")) {
                         $cleanPath = ($cleanPath -split '\s+')[0]
                     }
-                    
-                    # Add to results
                     $allMatches += [PSCustomObject]@{
                         Pak      = $pak
                         Path     = $cleanPath
@@ -170,154 +313,263 @@ do {
             }
         }
     }
-
+    
     if ($allMatches.Count -eq 0) {
         Write-Host "No matches found for '$searchTerm'." -ForegroundColor Red
-        if (-not $interactiveMode) {
-            exit 1
-        }
+        return
+    }
+    
+    # --- Selection ---
+    $foundPak = $null
+    $foundPath = $null
+    
+    if ($allMatches.Count -eq 1) {
+        $sel = $allMatches[0]
+        Write-Host "Found 1 match: $($sel.Path)" -ForegroundColor Green
+        $foundPak = $sel.Pak
+        $foundPath = $sel.Path
     }
     else {
-        # --- Selection ---
-        $selectedMatch = $null
-        $foundPak = $null
-        $foundPath = $null
+        $uniqueMatches = $allMatches | Sort-Object Path -Unique
+        Write-Host ""
+        Write-Host "Found $($uniqueMatches.Count) matches:" -ForegroundColor Cyan
         
-        if ($allMatches.Count -eq 1) {
-            $selectedMatch = $allMatches[0]
-            Write-Host "Found 1 match: $($selectedMatch.Path)" -ForegroundColor Green
-            $foundPak = $selectedMatch.Pak
-            $foundPath = $selectedMatch.Path
-            $fileName = [System.IO.Path]::GetFileNameWithoutExtension($selectedMatch.FileName)
+        $i = 1
+        foreach ($m in $uniqueMatches) {
+            Write-Host "  [$i] $($m.Path)  (in $($m.Pak.Name))"
+            $i++
+        }
+        
+        $selection = 0
+        while ($selection -lt 1 -or $selection -gt $uniqueMatches.Count) {
+            $inputStr = Read-Host "Select (1-$($uniqueMatches.Count))"
+            if ([int]::TryParse($inputStr, [ref]$selection)) {
+                if ($selection -lt 1 -or $selection -gt $uniqueMatches.Count) {
+                    Write-Host "Invalid." -ForegroundColor Red
+                }
+            }
+        }
+        
+        $sel = $uniqueMatches[$selection - 1]
+        $foundPak = $sel.Pak
+        $foundPath = $sel.Path
+        Write-Host "Selected: $foundPath" -ForegroundColor Green
+    }
+    
+    $foundPath = $foundPath.Replace("\", "/")
+    
+    # Ask format choice if the selected file is .edds
+    $eddsFormat = "png"
+    $selExt = [System.IO.Path]::GetExtension($foundPath).ToLower()
+    if ($selExt -eq ".edds") {
+        $eddsFormat = Get-EddsFormatChoice
+    }
+    
+    Write-Host "Extracting from $($foundPak.Name)..." -ForegroundColor Yellow
+    $extractedFiles = Extract-FromPak -Pak $foundPak -InternalPath $foundPath `
+        -TempDir $TempDir -PakInspectorPath $PakInspectorPath
+    
+    if (-not $extractedFiles) {
+        Write-Host "ERROR: Extraction failed." -ForegroundColor Red
+        return
+    }
+    
+    $result = Process-ExtractedFile -FilePath $extractedFiles[0].FullName `
+        -OutputDir $OutputDir -Edds2ImagePath $Edds2ImagePath -EddsFormat $eddsFormat
+    
+    if ($result) {
+        Write-Host ""
+        Write-Host "SUCCESS! -> $result" -ForegroundColor Green
+    }
+    else {
+        Write-Host "ERROR: Processing failed." -ForegroundColor Red
+    }
+}
+
+# ============================================================
+# Mode: Bulk Extract
+# ============================================================
+
+function Invoke-ExtractAllMode {
+    param(
+        [array]$PakFiles,
+        [string]$TempDir,
+        [string]$OutputDir,
+        [string]$PakInspectorPath,
+        [string]$Edds2ImagePath
+    )
+    
+    # Let the user choose what to extract
+    Write-Host ""
+    Write-Host "  Extract what?" -ForegroundColor Cyan
+    Write-Host "  [1] Everything          - All files from the PAK(s)"
+    Write-Host "  [2] Textures (.edds)    - Extract and convert to images"
+    Write-Host "  [3] By extension        - Filter by type (e.g. .et, .emat, .smap)"
+    Write-Host "  [4] Cancel"
+    $filterChoice = Read-Host "Choose"
+    
+    $extensionFilter = $null  # null = everything
+    $convertEdds = $false
+    $eddsFormat = "png"
+    
+    switch ($filterChoice) {
+        "1" {
+            $extensionFilter = $null
+            $convertEdds = $true
+            $eddsFormat = Get-EddsFormatChoice
+            Write-Host "Extracting all files (.edds -> $eddsFormat)." -ForegroundColor Gray
+        }
+        "2" {
+            $extensionFilter = ".edds"
+            $convertEdds = $true
+            $eddsFormat = Get-EddsFormatChoice
+            Write-Host "Extracting textures only (-> $eddsFormat)." -ForegroundColor Gray
+        }
+        "3" {
+            $extInput = Read-Host "Extension to filter (e.g. .et, .emat, .smap)"
+            if ([string]::IsNullOrWhiteSpace($extInput)) {
+                Write-Host "No extension entered. Cancelled." -ForegroundColor Yellow
+                return
+            }
+            if (-not $extInput.StartsWith(".")) { $extInput = ".$extInput" }
+            $extensionFilter = $extInput.ToLower()
+            if ($extensionFilter -eq ".edds") {
+                $convertEdds = $true
+                $eddsFormat = Get-EddsFormatChoice
+            }
+            Write-Host "Extracting *$extensionFilter files." -ForegroundColor Gray
+        }
+        "4" { Write-Host "Cancelled." -ForegroundColor Gray; return }
+        default { Write-Host "Invalid choice." -ForegroundColor Red; return }
+    }
+    
+    Write-Host "From $($PakFiles.Count) PAK file(s) -> $OutputDir" -ForegroundColor Gray
+    $confirm = Read-Host "Continue? (Y/N)"
+    if ($confirm -notmatch "^[Yy]") {
+        Write-Host "Cancelled." -ForegroundColor Gray
+        return
+    }
+    
+    $totalProcessed = 0
+    $totalFailed = 0
+    
+    foreach ($pak in $PakFiles) {
+        Write-Host ""
+        Write-Host "Extracting: $($pak.Name)..." -ForegroundColor Cyan
+        
+        Extract-FullPak -Pak $pak -TempDir $TempDir -PakInspectorPath $PakInspectorPath
+        
+        # Gather files based on filter
+        if ($extensionFilter) {
+            $files = @(Get-ChildItem $TempDir -Recurse -Filter "*$extensionFilter" -ErrorAction SilentlyContinue)
         }
         else {
-            # Simple deduplication just in case
-            $uniqueMatches = $allMatches | Sort-Object Path -Unique
-            
-            Write-Host ""
-            Write-Host "Found $($uniqueMatches.Count) matches. Please select one:" -ForegroundColor Cyan
-            
-            $i = 1
-            foreach ($m in $uniqueMatches) {
-                Write-Host "  [$i] $($m.Path)  (in $($m.Pak.Name))"
-                $i++
-            }
-            
-            $selection = 0
-            while ($selection -lt 1 -or $selection -gt $uniqueMatches.Count) {
-                Write-Host ""
-                $inputStr = Read-Host "Select a number (1-$($uniqueMatches.Count))"
-                if ([int]::TryParse($inputStr, [ref]$selection)) {
-                    if ($selection -lt 1 -or $selection -gt $uniqueMatches.Count) {
-                        Write-Host "Invalid selection." -ForegroundColor Red
-                    }
-                }
-            }
-            
-            $selectedMatch = $uniqueMatches[$selection - 1]
-            $foundPak = $selectedMatch.Pak
-            $foundPath = $selectedMatch.Path
-            $fileName = [System.IO.Path]::GetFileNameWithoutExtension($selectedMatch.FileName)
-            
-            Write-Host "Selected: $($foundPath)" -ForegroundColor Green
-        }
-
-        # Normalize path for extraction
-        $foundPath = $foundPath.Replace("\", "/")
-        
-        # --- Extract ---
-        Write-Host "Extracting..." -ForegroundColor Yellow
-        
-        # Clean temp dir for this run
-        if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
-        New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-        
-
-        
-        # Method 1: Extract with filter (-f)
-        & $pakInspector extract $foundPak.FullName $tempDir -f $foundPath 2>&1 | Out-Null
-        $extractedFiles = Get-ChildItem $tempDir -Recurse -Filter "*.edds" -ErrorAction SilentlyContinue
-
-        # Method 2: Try -f -r (raw) flag
-        if (-not $extractedFiles -or $extractedFiles.Count -eq 0) {
-            & $pakInspector extract $foundPak.FullName $tempDir -f $foundPath -r 2>&1 | Out-Null
-            $extractedFiles = Get-ChildItem $tempDir -Recurse -Filter "*.edds" -ErrorAction SilentlyContinue
+            $files = @(Get-ChildItem $TempDir -Recurse -File -ErrorAction SilentlyContinue)
         }
         
-        if ($extractedFiles) {
-            $extractedFile = $extractedFiles[0].FullName
-            $extractedDir = [System.IO.Path]::GetDirectoryName($extractedFile)
-            $extractedName = [System.IO.Path]::GetFileName($extractedFile)
+        Write-Host "  Found $($files.Count) file(s) to process." -ForegroundColor Gray
+        if ($files.Count -eq 0) { continue }
+        
+        $current = 0
+        foreach ($file in $files) {
+            $current++
+            $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+            $ext = $file.Extension.ToLower()
+            $pct = [math]::Round(($current / $files.Count) * 100)
+            Write-Host "`r  Processing: $current/$($files.Count) ($pct%) - $($file.Name)       " -NoNewline -ForegroundColor DarkGray
             
-            Write-Host "  Extracted: $extractedName" -ForegroundColor Green
-            
-            # --- Convert ---
-            Write-Host "Converting to Image..." -ForegroundColor Yellow
-            
-            Push-Location $extractedDir
-            $convertOutput = & $edds2image $extractedName 2>&1
-            Pop-Location
-            
-            # edds2image often creates subfolders (png/, tif/) for output. 
-            $allImages = @(Get-ChildItem $extractedDir -Recurse | Where-Object { $_.Extension -match "\.(png|tif|tga|jpg)$" })
-            
-            if ($allImages.Count -gt 0) {
-                # Prioritize PNG, then TIF, then others
-                $bestImage = $allImages | Sort-Object { 
-                    switch ($_.Extension) {
-                        ".png" { 1 }
-                        ".tif" { 2 }
-                        ".tga" { 3 }
-                        Default { 9 }
-                    }
-                } | Select-Object -First 1
-
-                $outputImage = $bestImage.FullName
-                $ext = [System.IO.Path]::GetExtension($outputImage)
-                
-                # Ensure unique output name if file exists
-                $baseOutput = Join-Path $OutputDir "$fileName$ext"
-                $finalOutput = $baseOutput
-                $counter = 1
-                while (Test-Path $finalOutput) {
-                    $finalOutput = Join-Path $OutputDir "${fileName}_${counter}$ext"
-                    $counter++
+            if ($ext -eq ".edds" -and $convertEdds) {
+                $imagePath = Convert-EddsToImage -EddsFilePath $file.FullName -Edds2ImagePath $Edds2ImagePath -PreferredFormat $eddsFormat
+                if ($imagePath) {
+                    Save-ToOutput -SourcePath $imagePath -DesiredName $baseName -OutputDir $OutputDir | Out-Null
+                    $totalProcessed++
                 }
-                
-                Copy-Item $outputImage $finalOutput -Force
-                
-                Write-Host ""
-                Write-Host "SUCCESS! Exported to: $finalOutput" -ForegroundColor Green
-                
-                if ($OpenFolder -eq "1" -and -not $interactiveMode) {
-                    Invoke-Item $OutputDir
-                }
+                else { $totalFailed++ }
             }
             else {
-                Write-Host "ERROR: Conversion failed. No image found." -ForegroundColor Red
+                # Copy raw file as-is
+                Save-ToOutput -SourcePath $file.FullName -DesiredName $baseName -OutputDir $OutputDir | Out-Null
+                $totalProcessed++
             }
         }
-        else {
-            Write-Host "ERROR: Extraction failed. No .edds files found." -ForegroundColor Red
+        Write-Host ""
+    }
+    
+    Write-Host ""
+    Write-Host "Done! Processed: $totalProcessed | Failed: $totalFailed" -ForegroundColor Green
+    Write-Host "Output: $OutputDir" -ForegroundColor Cyan
+}
+
+# ============================================================
+# Main Loop (Interactive) / One-Shot (Automated)
+# ============================================================
+
+if ($interactiveMode) {
+    $running = $true
+    while ($running) {
+        Write-Host ""
+        Write-Host "-----------------------------------" -ForegroundColor DarkGray
+        Write-Host "  [1] Search   - Find a specific file"
+        Write-Host "  [2] Extract  - Bulk extract from PAK"
+        Write-Host "  [3] Exit"
+        Write-Host "-----------------------------------" -ForegroundColor DarkGray
+        $mode = Read-Host "Choose"
+        
+        switch ($mode) {
+            "1" {
+                Invoke-SearchMode -PakFiles $pakFiles -TempDir $tempDir -OutputDir $OutputDir `
+                    -PakInspectorPath $pakInspector -Edds2ImagePath $edds2image
+            }
+            "2" {
+                Invoke-ExtractAllMode -PakFiles $pakFiles -TempDir $tempDir -OutputDir $OutputDir `
+                    -PakInspectorPath $pakInspector -Edds2ImagePath $edds2image
+            }
+            "3" { $running = $false }
+            default { Write-Host "Invalid choice." -ForegroundColor Red }
         }
     }
-
-    # Loop check
-    if ($interactiveMode) {
-        Write-Host ""
-        $choice = Read-Host "Do you want to extract another file? (Y/N)"
-        if ($choice -notmatch "^[Yy]") {
-            $doLoop = $false
+}
+else {
+    # Automated one-shot mode — uses ResourcePath directly
+    $searchPattern = [regex]::Escape($ResourcePath)
+    $foundPath = $ResourcePath.Replace("\", "/")
+    
+    $targetPak = $null
+    foreach ($pak in $pakFiles) {
+        $inspectOutput = & $pakInspector inspect $pak.FullName 2>&1
+        if ($inspectOutput -match $searchPattern) {
+            $targetPak = $pak
+            break
         }
+    }
+    
+    if (-not $targetPak) {
+        Write-Host "ERROR: '$ResourcePath' not found in any PAK." -ForegroundColor Red
+        exit 1
+    }
+    
+    $extractedFiles = Extract-FromPak -Pak $targetPak -InternalPath $foundPath `
+        -TempDir $tempDir -PakInspectorPath $pakInspector
+    
+    if (-not $extractedFiles) {
+        Write-Host "ERROR: Extraction failed." -ForegroundColor Red
+        exit 1
+    }
+    
+    $result = Process-ExtractedFile -FilePath $extractedFiles[0].FullName `
+        -OutputDir $OutputDir -Edds2ImagePath $edds2image
+    
+    if ($result) {
+        Write-Host "SUCCESS! -> $result" -ForegroundColor Green
+        if ($OpenFolder -eq "1") { Invoke-Item $OutputDir }
     }
     else {
-        # One-shot mode, exit loop
-        $doLoop = $false
+        Write-Host "ERROR: Processing failed." -ForegroundColor Red
+        exit 1
     }
+}
 
-} while ($doLoop)
-
-# Cleanup temp directory
+# Cleanup
 if (Test-Path $tempDir) {
     Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }
