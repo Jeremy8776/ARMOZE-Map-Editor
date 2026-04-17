@@ -134,7 +134,7 @@ const UITemplates = {
                                     <label>Pattern Angle</label>
                                     <div class="slider-row">
                                         <input type="range" id="patternAngle" min="0" max="180" value="0">
-                                        <span id="patternAngleVal" class="slider-val">0deg</span>
+                                        <span id="patternAngleVal" class="slider-val">0°</span>
                                     </div>
                                 </div>
 
@@ -216,6 +216,14 @@ const UITemplates = {
                                         <div class="slider-row">
                                             <input type="range" id="labelFontSize" min="10" max="100" step="1" value="14">
                                             <span id="labelFontSizeVal" class="slider-val">14px</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="property-item">
+                                        <label>Text Rotation</label>
+                                        <div class="slider-row">
+                                            <input type="range" id="labelRotation" min="0" max="360" step="1" value="0">
+                                            <span id="labelRotationVal" class="slider-val">0°</span>
                                         </div>
                                     </div>
 

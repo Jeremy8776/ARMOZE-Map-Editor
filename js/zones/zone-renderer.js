@@ -99,7 +99,7 @@ class ZoneRenderer {
             ctx.setLineDash([]);
 
             // Draw zone label
-            if (this.core.zoom > 0.3) {
+            if (this.core.zoom > 0.0) {
                 this.drawZoneLabel(zone);
             }
 
@@ -351,7 +351,9 @@ class ZoneRenderer {
 
         if (zone.shape === 'circle') {
             const segments = [];
-            const steps = 16;
+            // Reduced steps to ensure segments are long enough to hold text at larger font sizes
+            // circumference / steps should be > tokenWidth + 12
+            const steps = 12; 
             for (let i = 0; i < steps; i++) {
                 const startAngle = (i / steps) * Math.PI * 2;
                 const endAngle = ((i + 1) / steps) * Math.PI * 2;
@@ -433,9 +435,15 @@ class ZoneRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        ctx.save();
+        ctx.translate(layout.centerX, layout.centerY);
+        if (zone.labelRotation) {
+            ctx.rotate((zone.labelRotation * Math.PI) / 180);
+        }
+
         if (layout.bgOpacity > 0) {
             ctx.fillStyle = Utils.hexToRgba(layout.bgColor, layout.bgOpacity);
-            this.roundRect(ctx, layout.boxX, layout.boxY, layout.bgWidth, layout.bgHeight, layout.radius);
+            this.roundRect(ctx, -layout.bgWidth / 2, -layout.bgHeight / 2, layout.bgWidth, layout.bgHeight, layout.radius);
             ctx.fill();
         }
 
@@ -447,12 +455,8 @@ class ZoneRenderer {
         }
 
         ctx.fillStyle = Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1);
-        ctx.fillText(layout.text, layout.centerX, layout.centerY);
-
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+        ctx.fillText(layout.text, 0, 0);
+        ctx.restore();
     }
 
     getPatternLabelRotation(zone) {
@@ -482,21 +486,20 @@ class ZoneRenderer {
         const metrics = ctx.measureText(text);
         const spacingX = metrics.width + 44;
         const spacingY = fontSize * 2.4;
-        const rotation = this.getPatternLabelRotation(zone);
+        const rotation = (zone.labelRotation !== undefined) ? (zone.labelRotation * Math.PI) / 180 : this.getPatternLabelRotation(zone);
         const centerX = bounds.x + bounds.width / 2;
         const centerY = bounds.y + bounds.height / 2;
-        const alpha = Math.min(0.55, 0.18 + ((zone.fillOpacity ?? zone.opacity ?? 0.4) * 0.5));
 
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         ctx.translate(-centerX, -centerY);
 
         if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-            ctx.shadowBlur = 2;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 3;
         }
 
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || '#ffffff', alpha * (zone.labelOpacity ?? 1));
+        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1);
         let rowIndex = 0;
         for (let y = bounds.y - spacingY; y <= bounds.y + bounds.height + spacingY; y += spacingY) {
             const offsetX = rowIndex % 2 === 0 ? 0 : spacingX / 2;
@@ -518,9 +521,11 @@ class ZoneRenderer {
         if (!length) return;
 
         let angle = Math.atan2(dy, dx);
-        if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
-            angle += Math.PI;
-        }
+        
+        // Ensure text is always readable (not upside down)
+        // Normalizing angle to (-PI/2, PI/2]
+        if (angle > Math.PI / 2) angle -= Math.PI;
+        if (angle <= -Math.PI / 2) angle += Math.PI;
 
         const ux = dx / length;
         const uy = dy / length;
@@ -599,36 +604,53 @@ class ZoneRenderer {
         const text = this.getLabelText(zone);
         if (!text) return;
 
-        const segments = this.getZoneSegments(zone);
-        if (!segments.length) return;
-
         const renderOptions = { ...options, worldStatic: true };
         const borderWidth = zone.borderWidth || 3;
-        const dashLength = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 5;
-        const dashGap = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 3;
         const fontSize = this.getLabelFontSize(zone, renderOptions);
 
         ctx.save();
         ctx.font = this.getLabelFontString(zone, renderOptions);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-            ctx.shadowBlur = 3;
-        }
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || zone.color || '#ffffff', 0.9 * (zone.labelOpacity ?? 1));
+        
         const metrics = ctx.measureText(text);
         const textWidth = metrics.width;
         const tokenPaddingX = 8;
         const tokenPaddingY = 3;
         const tokenWidth = textWidth + tokenPaddingX * 2;
         const tokenHeight = fontSize + tokenPaddingY * 2;
-        const textOutsideOffset = borderWidth + (fontSize * 0.8);
         const outsideOffset = borderWidth + (tokenHeight / 2) + 5;
+
+        // Specialized handling for circles to ensure perfect wrapping and smoothness
+        if (zone.shape === 'circle') {
+            this.drawCircleBorderLabel(zone, text, mode, ctx, renderOptions, {
+                tokenWidth, tokenHeight, outsideOffset, tokenPaddingX, tokenPaddingY, fontSize
+            });
+            ctx.restore();
+            return;
+        }
+
+        const segments = this.getZoneSegments(zone);
+        if (!segments.length) {
+            ctx.restore();
+            return;
+        }
+
+        const dashLength = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 5;
+        const dashGap = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 3;
+        
+        if (zone.labelShadow) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 3;
+        }
+        
+        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || zone.color || '#ffffff', 0.9 * (zone.labelOpacity ?? 1));
 
         for (const segment of segments) {
             const segLength = Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1);
-            if (segLength < tokenWidth + 12) continue;
+            // Relaxed culling for circles to allow larger font sizes to render
+            const minSpace = zone.shape === 'circle' ? tokenWidth * 0.5 : tokenWidth + 12;
+            if (segLength < minSpace) continue;
 
             const placements = [];
             if (mode === 'border_dash_alt') {
@@ -649,29 +671,74 @@ class ZoneRenderer {
             }
 
             for (const distance of placements) {
-                this.drawTextOnSegment(ctx, text, segment, distance, zone, mode === 'border_dash_alt'
-                    ? {
-                        drawToken: true,
-                        width: tokenWidth,
-                        height: tokenHeight,
-                        fontSize: fontSize,
-                        paddingX: tokenPaddingX,
-                        paddingY: tokenPaddingY,
-                        lineOffset: outsideOffset,
-                        offsetMode: 'outside',
-                        tokenFill: Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95),
-                        tokenStroke: Utils.hexToRgba(zone.color || '#00ff88', 1),
-                        tokenStrokeWidth: 1,
-                        textColor: Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1)
-                    }
-                    : {
-                        lineOffset: textOutsideOffset,
-                        offsetMode: 'outside'
-                    });
+                this.drawTextOnSegment(ctx, text, segment, distance, zone, {
+                    ...renderOptions,
+                    lineOffset: outsideOffset,
+                    offsetMode: 'outside',
+                    drawToken: mode === 'border_dash_alt',
+                    width: tokenWidth,
+                    height: tokenHeight,
+                    fontSize: fontSize,
+                    paddingX: tokenPaddingX,
+                    paddingY: tokenPaddingY,
+                    tokenFill: Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95),
+                    tokenStroke: Utils.hexToRgba(zone.color || '#00ff88', 1),
+                    tokenStrokeWidth: 1,
+                    textColor: Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1)
+                });
             }
         }
 
         ctx.restore();
+    }
+
+    drawCircleBorderLabel(zone, text, mode, ctx, renderOptions, metrics) {
+        const circumference = 2 * Math.PI * zone.radius;
+        const interval = metrics.tokenWidth + 40;
+        const count = Math.max(1, Math.floor(circumference / interval));
+        const angleStep = (Math.PI * 2) / count;
+
+        if (zone.labelShadow) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 3;
+        }
+        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || zone.color || '#ffffff', 0.9 * (zone.labelOpacity ?? 1));
+
+        for (let i = 0; i < count; i++) {
+            const angle = i * angleStep;
+            // Point on the circle
+            const px = zone.cx + Math.cos(angle) * zone.radius;
+            const py = zone.cy + Math.sin(angle) * zone.radius;
+            
+            // Tangent direction
+            const tx = -Math.sin(angle);
+            const ty = Math.cos(angle);
+            
+            // Create a virtual segment for drawTextOnSegment
+            // The segment is a tangent at (px, py)
+            const segment = {
+                x1: px - tx * 10,
+                y1: py - ty * 10,
+                x2: px + tx * 10,
+                y2: py + ty * 10
+            };
+
+            this.drawTextOnSegment(ctx, text, segment, 10, zone, {
+                ...renderOptions,
+                lineOffset: metrics.outsideOffset,
+                offsetMode: 'outside',
+                drawToken: mode === 'border_dash_alt',
+                width: metrics.tokenWidth,
+                height: metrics.tokenHeight,
+                fontSize: metrics.fontSize,
+                paddingX: metrics.tokenPaddingX,
+                paddingY: metrics.tokenPaddingY,
+                tokenFill: Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95),
+                tokenStroke: Utils.hexToRgba(zone.color || '#00ff88', 1),
+                tokenStrokeWidth: 1,
+                textColor: Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1)
+            });
+        }
     }
 
     /**

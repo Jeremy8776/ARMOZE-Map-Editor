@@ -57,6 +57,8 @@ class ZonePropertiesUI {
             labelBold: document.getElementById('labelBold'),
             labelItalic: document.getElementById('labelItalic'),
             labelShadow: document.getElementById('labelShadow'),
+            labelRotation: document.getElementById('labelRotation'),
+            labelRotationVal: document.getElementById('labelRotationVal'),
             btnResetLabelPosition: document.getElementById('btnResetLabelPosition'),
             labelPositionInfo: document.getElementById('labelPositionInfo'),
             zoneCoords: document.getElementById('zoneCoords'),
@@ -272,7 +274,8 @@ class ZonePropertiesUI {
             labelFontFamily: this.elements.labelFontFamily?.value || 'rajdhani',
             labelBold: !!this.elements.labelBold?.checked,
             labelItalic: !!this.elements.labelItalic?.checked,
-            labelShadow: !!this.elements.labelShadow?.checked
+            labelShadow: !!this.elements.labelShadow?.checked,
+            labelRotation: parseInt(this.elements.labelRotation?.value || '0', 10)
         };
         
         this.saveProfiles();
@@ -324,7 +327,7 @@ class ZonePropertiesUI {
         setSlider('borderWidth', p.borderWidth || 3, 'px');
         setSlider('patternThickness', p.patternThickness || 2, 'px');
         setSlider('patternDensity', p.patternDensity || 20, '');
-        setSlider('patternAngle', p.patternAngle || 0, 'deg');
+        setSlider('patternAngle', p.patternAngle || 0, '°');
 
         if (this.elements.showLabel) this.elements.showLabel.checked = p.showLabel !== false;
         if (this.elements.labelText) this.elements.labelText.value = p.labelText || p.name || '';
@@ -352,6 +355,7 @@ class ZonePropertiesUI {
         if (this.elements.labelBold) this.elements.labelBold.checked = !!p.labelBold;
         if (this.elements.labelItalic) this.elements.labelItalic.checked = !!p.labelItalic;
         if (this.elements.labelShadow) this.elements.labelShadow.checked = !!p.labelShadow;
+        setSlider('labelRotation', p.labelRotation || 0, '°');
         this.updateIntegratedLabelControls(p);
         this.updateLabelOptionsVisibility();
         this.syncAccordionSummaries();
@@ -423,8 +427,9 @@ class ZonePropertiesUI {
         attachSlider('borderWidth', 'px');
         attachSlider('patternThickness', 'px');
         attachSlider('patternDensity', '');
-        attachSlider('patternAngle', 'deg');
+        attachSlider('patternAngle', '°');
         attachSlider('labelFontSize', 'px');
+        attachSlider('labelRotation', '°');
 
         if (this.elements.btnDeleteZone) this.elements.btnDeleteZone.addEventListener('click', () => this.deleteSelectedZone());
 
@@ -546,8 +551,11 @@ class ZonePropertiesUI {
                 if (!zone) return;
                 this.showNamePrompt('Rename Zone', zone.name, (newName) => {
                     zone.name = newName;
+                    zone.labelText = newName; // Keep label text in sync with name
+                    if (this.elements.labelText) this.elements.labelText.value = newName;
                     this.elements.floatingZoneName.textContent = newName;
                     this.app.zoneListUI.updateZoneList();
+                    this.updateSelectedZone(); // Refresh everything
                 });
             });
         }
@@ -881,7 +889,7 @@ class ZonePropertiesUI {
         setSlider('borderWidth', zone.borderWidth || 3, 'px');
         setSlider('patternThickness', zone.patternThickness || 2, 'px');
         setSlider('patternDensity', zone.patternDensity || 20, '');
-        setSlider('patternAngle', zone.patternAngle || 0, 'deg');
+        setSlider('patternAngle', zone.patternAngle || 0, '°');
 
         // Label styling
         if (this.elements.showLabel) this.elements.showLabel.checked = zone.showLabel !== false;
@@ -1102,8 +1110,12 @@ class ZonePropertiesUI {
             ? (this.elements.patternLabelMode?.value || 'checker_embed')
             : 'none';
 
+        const labelTextValue = this.elements.labelText ? this.elements.labelText.value.trim() : '';
+        const currentName = this.elements.floatingZoneName ? this.elements.floatingZoneName.textContent : 'Zone';
+        const finalName = labelTextValue || currentName;
+
         this.app.zoneManager.updateZone(this.app.zoneManager.selectedZoneId, {
-            name: this.elements.floatingZoneName ? this.elements.floatingZoneName.textContent : 'Zone',
+            name: finalName,
             profileId: this.elements.zoneProfile ? this.elements.zoneProfile.value : 'custom',
             style: this.elements.zoneStyle ? this.elements.zoneStyle.value : 'solid',
             fillPattern: this.elements.zoneFillPattern ? this.elements.zoneFillPattern.value : 'solid',
@@ -1133,7 +1145,8 @@ class ZonePropertiesUI {
             labelFontFamily: this.elements.labelFontFamily ? this.elements.labelFontFamily.value : 'rajdhani',
             labelBold: this.elements.labelBold ? this.elements.labelBold.checked : false,
             labelItalic: this.elements.labelItalic ? this.elements.labelItalic.checked : false,
-            labelShadow: this.elements.labelShadow ? this.elements.labelShadow.checked : true
+            labelShadow: this.elements.labelShadow ? this.elements.labelShadow.checked : true,
+            labelRotation: this.elements.labelRotation ? parseInt(this.elements.labelRotation.value, 10) : 0
         });
 
         // Refresh the properties with updated data (isRefresh = true to preserve UI state)
