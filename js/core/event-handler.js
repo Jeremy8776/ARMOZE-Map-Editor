@@ -28,6 +28,7 @@ class EventHandler {
     }
 
     onMouseDown(e) {
+        e.preventDefault();
         const pos = this.core.getMousePos(e);
         const mapPos = this.core.screenToMap(pos.x, pos.y);
 
@@ -45,6 +46,9 @@ class EventHandler {
     }
 
     onMouseMove(e) {
+        if (this.isPanning) {
+            e.preventDefault();
+        }
         const pos = this.core.getMousePos(e);
         const mapPos = this.core.screenToMap(pos.x, pos.y);
         this.lastMousePos = mapPos;
@@ -70,6 +74,7 @@ class EventHandler {
     }
 
     onMouseUp(e) {
+        e.preventDefault();
         if (this.isPanning) {
             this.isPanning = false;
             this.dragStart = null;

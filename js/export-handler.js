@@ -1,8 +1,6 @@
 /**
- * Arma Reforger Map Overlay Zone Editor
- * Export Handler - Generates various export formats
+ * Export Handler - Orchestrates various export formats
  */
-
 class ExportHandler {
     constructor(core, zoneManager, renderer) {
         this.core = core;
@@ -10,686 +8,96 @@ class ExportHandler {
         this.renderer = renderer;
     }
 
-    /**
-     * Export zones in the specified format
-     */
     export(format, settings = {}) {
         const zones = this.zoneManager.getZones();
-
-        if (zones.length === 0) {
-            alert('No zones to export. Create some zones first!');
-            return;
-        }
+        if (zones.length === 0) return alert('No zones to export!');
 
         const scale = settings.mapScale || 1;
-        const originX = settings.originX || 0;
-        const originY = settings.originY || 0;
-        const invertY = settings.invertY !== false; // Default true (HTML checkbox is checked by default)
-
-        // Transform coordinates based on settings
-        const transformedZones = zones.map(zone => this.transformZone(zone, scale, originX, originY, settings.invertY));
+        const oX = settings.originX || 0;
+        const oY = settings.originY || 0;
+        const transformedZones = zones.map(z => this.transformZone(z, scale, oX, oY, settings.invertY));
 
         switch (format) {
-            case 'enfusion':
-                this.exportEnfusion(transformedZones);
-                break;
-            case 'json':
-                this.exportJSON(transformedZones);
-                break;
-            case 'image':
-                this.exportImage(settings);
-                break;
-            case 'tiff':
-                this.exportTIFF(settings);
-                break;
-            case 'workbench':
-                this.exportWorkbenchPlugin(transformedZones);
-                break;
-            case 'all':
-                this.exportAll(transformedZones, settings);
-                break;
+            case 'enfusion': this.exportEnfusion(transformedZones); break;
+            case 'json': this.exportJSON(transformedZones); break;
+            case 'image': this.exportImage(settings); break;
+            case 'tiff': this.exportTIFF(settings); break;
+            case 'workbench': this.exportWorkbenchPlugin(transformedZones); break;
+            case 'all': this.exportAll(transformedZones, settings); break;
         }
     }
 
-    /**
-     * Transform zone coordinates based on map scale and origin
-     */
-    transformZone(zone, scale, originX, originY, invertY = false) {
-        const transformed = { ...zone };
+    transformZone(zone, scale, oX, oY, invY = false) {
+        const t = { ...zone };
+        const trY = (y) => invY ? oY - (y * scale) : (y * scale) + oY;
 
-        // Helper for Y coordinate
-        const transformY = (y) => {
-            if (invertY) {
-                return originY - (y * scale);
-            }
-            return (y * scale) + originY;
-        };
-
-        // Scale and translate based on available properties
-        if (transformed.cx !== undefined) {
-            transformed.cx = (transformed.cx * scale) + originX;
-            transformed.cy = transformY(transformed.cy);
-            transformed.radius = transformed.radius * scale;
+        if (t.cx !== undefined) {
+            t.cx = (t.cx * scale) + oX;
+            t.cy = trY(t.cy);
+            t.radius *= scale;
+        } else if (t.x !== undefined) {
+            t.x = (t.x * scale) + oX;
+            t.y = trY(t.y);
+            t.width *= scale;
+            t.height *= scale;
         }
 
-        if (transformed.x !== undefined) {
-            transformed.x = (transformed.x * scale) + originX;
-            transformed.y = transformY(transformed.y);
-
-            // Width/Height scalar is simple
-            transformed.width = transformed.width * scale;
-            transformed.height = transformed.height * scale;
-
-            // Handle rectangle corner cases with inversion
-            // When calculating bounds or corners, simple Y transformation might flip the rectangle "inside out" relative to top-left
-            // usage, but for simple center/points it's fine. 
-            // However, usually rects are defined by TopLeft in 2D. 
-            // In 3D (inverted), specific implementation depends on if 'y' is Top or Bottom.
-            // If invertY is true, 'y' (originally top) becomes a higher Z value (North), effectively "bottom" of the shape in 2D array logic but "top" in coords.
-            // But width/height are positive scalars.
+        if (t.points) {
+            t.points = t.points.map(p => ({ x: (p.x * scale) + oX, y: trY(p.y) }));
         }
-
-        if (transformed.points) {
-            transformed.points = transformed.points.map(p => ({
-                x: (p.x * scale) + originX,
-                y: transformY(p.y)
-            }));
-        }
-
-        return transformed;
+        return t;
     }
 
-    /**
-     * Export as EnfusionScript format
-     */
-    /**
-     * Export as EnfusionScript format (GameModeComponent)
-     */
     exportEnfusion(zones) {
-        const timestamp = new Date().toISOString();
-
-        let script = `// ============================================
-// Arma Reforger Zone Definitions
-// Generated by Zone Editor
-// Date: ${timestamp}
-// ============================================
-
-// Zone Type Enumeration
-enum EZoneType
-{
-    SAFE,
-    RESTRICTED,
-    PVP,
-    SPAWN,
-    OBJECTIVE,
-    CUSTOM,
-    // Military Markers
-    MIL_INFANTRY,
-    MIL_MOTORIZED,
-    MIL_ARMOR,
-    MIL_RECON,
-    MIL_ARTILLERY,
-    MIL_MORTAR,
-    MIL_MACHINEGUN,
-    MIL_ANTITANK,
-    MIL_ANTIAIR,
-    MIL_SNIPER,
-    MIL_MEDICAL,
-    MIL_SUPPLY,
-    MIL_MAINTENANCE,
-    MIL_HQ,
-    // Map Markers
-    MARKER_FLAG,
-    MARKER_WARNING,
-    MARKER_WAYPOINT,
-    MARKER_RALLY,
-    MARKER_ATTACK,
-    MARKER_DEFEND
-}
-
-// Zone Definition Class
-class ZoneDefinition
-{
-    string Name;
-    EZoneType Type;
-    string Shape;
-    ref array<vector> Points;
-    vector Center;
-    float Radius;
-    int Color;
-    float Opacity;
-    
-    void ZoneDefinition(string name, EZoneType type, string shape)
-    {
-        Name = name;
-        Type = type;
-        Shape = shape;
-        Points = new array<vector>();
-    }
-    
-    bool ContainsPoint(vector pos)
-    {
-        if (Shape == "circle")
-        {
-            return vector.Distance(pos, Center) <= Radius;
-        }
-        else
-        {
-            return PointInPolygon(pos);
-        }
-    }
-    
-    protected bool PointInPolygon(vector point)
-    {
-        bool inside = false;
-        int count = Points.Count();
-        
-        for (int i = 0, j = count - 1; i < count; j = i++)
-        {
-            vector pi = Points[i];
-            vector pj = Points[j];
-            
-            if (((pi[2] > point[2]) != (pj[2] > point[2])) &&
-                (point[0] < (pj[0] - pi[0]) * (point[2] - pi[2]) / (pj[2] - pi[2]) + pi[0]))
-            {
-                inside = !inside;
-            }
-        }
-        
-        return inside;
-    }
-}
-
-// Zone Manager Component
-// Add this component to your SCR_BaseGameMode entity in World Editor
-[ComponentEditorProps(category: "Game Mode Component", description: "Manages custom map zones")]
-class SCR_ZoneManagerComponentClass: SCR_BaseGameModeComponentClass
-{
-}
-
-class SCR_ZoneManagerComponent: SCR_BaseGameModeComponent
-{
-    protected ref array<ref ZoneDefinition> m_Zones;
-    protected static SCR_ZoneManagerComponent s_Instance;
-
-    // Get the global instance
-    static SCR_ZoneManagerComponent GetInstance()
-    {
-        if (!s_Instance)
-        {
-            SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
-            if (gameMode)
-                s_Instance = SCR_ZoneManagerComponent.Cast(gameMode.FindComponent(SCR_ZoneManagerComponent));
-        }
-        return s_Instance;
-    }
-
-    override void OnGameModeStart()
-    {
-        super.OnGameModeStart();
-        s_Instance = this;
-        InitZones();
-        Print("[ZoneManager] Zones initialized.", LogLevel.NORMAL);
-    }
-    
-    protected void InitZones()
-    {
-        m_Zones = new array<ref ZoneDefinition>();
-        
-`;
-
-        // Add zone definitions
-        for (const zone of zones) {
-            const typeEnum = this.getEnfusionType(zone.type);
-            const colorInt = this.hexToInt(zone.color);
-
-            script += `        // ${zone.name}\n`;
-            script += `        {\n`;
-            script += `            ZoneDefinition zone = new ZoneDefinition("${this.escapeString(zone.name)}", ${typeEnum}, "${zone.shape}");\n`;
-
-            if (zone.shape === 'circle') {
-                script += `            zone.Center = Vector(${zone.cx.toFixed(2)}, 0, ${zone.cy.toFixed(2)});\n`;
-                script += `            zone.Radius = ${zone.radius.toFixed(2)};\n`;
-            } else if (zone.points) {
-                for (const point of zone.points) {
-                    script += `            zone.Points.Insert(Vector(${point.x.toFixed(2)}, 0, ${point.y.toFixed(2)}));\n`;
-                }
-            }
-
-            script += `            zone.Color = ${colorInt};\n`;
-            script += `            zone.Opacity = ${zone.opacity.toFixed(2)};\n`;
-            script += `            m_Zones.Insert(zone);\n`;
-            script += `        }\n\n`;
-        }
-
-        script += `    }
-    
-    ZoneDefinition GetZoneAtPosition(vector pos)
-    {
-        if (!m_Zones) return null;
-        
-        foreach (ZoneDefinition zone : m_Zones)
-        {
-            if (zone.ContainsPoint(pos))
-                return zone;
-        }
-        return null;
-    }
-    
-    bool IsInSafeZone(vector pos)
-    {
-        ZoneDefinition zone = GetZoneAtPosition(pos);
-        return zone && zone.Type == EZoneType.SAFE;
-    }
-    
-    bool IsInRestrictedZone(vector pos)
-    {
-        ZoneDefinition zone = GetZoneAtPosition(pos);
-        return zone && zone.Type == EZoneType.RESTRICTED;
-    }
-    
-    array<ref ZoneDefinition> GetAllZones()
-    {
-        return m_Zones;
-    }
-}
-`;
-
+        const script = ScriptGenerator.generateEnfusionManager(zones, this.getEnfusionType, this.hexToInt, this.escapeString);
         Utils.downloadFile(script, 'SCR_ZoneManagerComponent.c', 'text/plain');
     }
 
-    /**
-     * Export as JSON format
-     */
     exportJSON(zones) {
-        const exportData = {
-            version: "1.3.2",
-            generated: new Date().toISOString(),
-            generator: "Arma Reforger Zone Editor",
-            mapInfo: {
-                width: this.core.mapWidth,
-                height: this.core.mapHeight
-            },
-            zones: zones.map(zone => {
-                const zoneData = {
-                    id: zone.id,
-                    name: zone.name,
-                    type: zone.type,
-                    shape: zone.shape,
-                    color: zone.color,
-                    opacity: zone.opacity,
-                    visible: zone.visible
-                };
-
-                if (zone.shape === 'circle') {
-                    zoneData.center = { x: zone.cx, y: zone.cy };
-                    zoneData.radius = zone.radius;
-                }
-
-                if (zone.points) {
-                    zoneData.points = zone.points.map(p => ({ x: p.x, y: p.y }));
-
-                    // Also include bounds for convenience
-                    const bounds = Utils.getPolygonBounds(zone.points);
-                    zoneData.bounds = bounds;
-                }
-
-                return zoneData;
-            })
-        };
-
-        const json = JSON.stringify(exportData, null, 2);
-        Utils.downloadFile(json, 'zones.json', 'application/json');
+        const data = { version: "1.3.2", generated: new Date().toISOString(), zones: zones.map(z => ({...z, bounds: z.points ? Utils.getPolygonBounds(z.points) : null})) };
+        Utils.downloadFile(JSON.stringify(data, null, 2), 'zones.json', 'application/json');
     }
 
-    /**
-     * Export as PNG image overlay (Enfusion-compatible)
-     * Following Arma Reforger texture guidelines:
-     * - Power of 2 dimensions recommended
-     * - Proper suffix naming (_A for alpha/opacity, _BCR for color+roughness)
-     * - 8-bit per channel
-     */
     exportImage(settings = {}) {
         const canvas = this.renderer.exportAsImage();
         if (!canvas) return;
-
-        // Get export settings
-        const suffix = settings.textureSuffix || '_A'; // Default to opacity mask
-        const resizeToPow2 = settings.resizeToPow2 !== false;
-        const baseName = settings.baseName || 'zone_overlay';
-
-        let exportCanvas = canvas;
-
-        // Optionally resize to power of 2 for better Enfusion compatibility
-        if (resizeToPow2) {
-            exportCanvas = this.resizeToPowerOf2(canvas);
-        }
-
-        // Generate filename with proper Enfusion suffix
-        const filename = `${baseName}${suffix}.png`;
-
-        Utils.downloadCanvas(exportCanvas, filename);
-
-        // Also provide instructions
-        console.log(`
-=== Enfusion Import Instructions ===
-1. Place ${filename} in your mod's data folder
-2. In Resource Browser, right-click → Register and Import
-3. The '${suffix}' suffix will auto-configure import settings:
-   ${this.getSuffixDescription(suffix)}
-4. After import, an .edds file will be created
-================================
-        `);
+        const finalCanvas = settings.resizeToPow2 !== false ? this.resizeToPowerOf2(canvas) : canvas;
+        Utils.downloadCanvas(finalCanvas, `${settings.baseName || 'zone_overlay'}${settings.textureSuffix || '_A'}.png`);
     }
 
-    /**
-     * Export as TIFF image overlay
-     */
     exportTIFF(settings = {}) {
         const canvas = this.renderer.exportAsImage();
         if (!canvas) return;
-
-        // Get export settings
-        const suffix = settings.textureSuffix || '_A';
-        const resizeToPow2 = settings.resizeToPow2 !== false;
-        const baseName = settings.baseName || 'zone_overlay';
-
-        let exportCanvas = canvas;
-        if (resizeToPow2) {
-            exportCanvas = this.resizeToPowerOf2(canvas);
-        }
-
-        const ctx = exportCanvas.getContext('2d');
-        const imageData = ctx.getImageData(0, 0, exportCanvas.width, exportCanvas.height);
-
-        // Convert RGBA to TIFF format using UTIF
-        const tiffData = UTIF.encodeImage(imageData.data, exportCanvas.width, exportCanvas.height);
-
-        // Create binary blob
-        const blob = new Blob([tiffData], { type: 'image/tiff' });
-        const url = URL.createObjectURL(blob);
-
-        const filename = `${baseName}${suffix}.tiff`;
-
-        // Helper to trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        const finalCanvas = settings.resizeToPow2 !== false ? this.resizeToPowerOf2(canvas) : canvas;
+        const imageData = finalCanvas.getContext('2d').getImageData(0, 0, finalCanvas.width, finalCanvas.height);
+        const tiffData = UTIF.encodeImage(imageData.data, finalCanvas.width, finalCanvas.height);
+        Utils.downloadFile(new Blob([tiffData], { type: 'image/tiff' }), `${settings.baseName || 'zone_overlay'}${settings.textureSuffix || '_A'}.tiff`, 'image/tiff');
     }
 
-    /**
-     * Resize canvas to nearest power of 2 dimensions
-     */
-    resizeToPowerOf2(sourceCanvas) {
-        const nextPow2 = (n) => Math.pow(2, Math.ceil(Math.log2(n)));
-
-        const newWidth = nextPow2(sourceCanvas.width);
-        const newHeight = nextPow2(sourceCanvas.height);
-
-        // If already power of 2, return original
-        if (newWidth === sourceCanvas.width && newHeight === sourceCanvas.height) {
-            return sourceCanvas;
-        }
-
-        const resizedCanvas = document.createElement('canvas');
-        resizedCanvas.width = newWidth;
-        resizedCanvas.height = newHeight;
-        const ctx = resizedCanvas.getContext('2d');
-
-        // Clear with transparency
-        ctx.clearRect(0, 0, newWidth, newHeight);
-
-        // Draw original centered or scaled
-        ctx.drawImage(sourceCanvas, 0, 0, newWidth, newHeight);
-
-        return resizedCanvas;
-    }
-
-    /**
-     * Get description for texture suffix
-     */
-    getSuffixDescription(suffix) {
-        const descriptions = {
-            '_A': 'Opacity mask - Red channel only, linear RGB, RedHQCompression',
-            '_BCR': 'Base Color + Roughness - RGB + Alpha, sRGB, ColorHQCompression',
-            '_BCA': 'Base Color + Opacity - RGB + Alpha, sRGB, ColorHQCompression',
-            '_BC': 'Base Color only - RGB, sRGB, ColorHQCompression'
-        };
-        return descriptions[suffix] || 'Custom texture type';
-    }
-
-    /**
-     * Export all formats as separate files
-     */
-    exportAll(zones, settings = {}) {
-        // Since we can't create a ZIP without a library, download them separately
-        // with a small delay between each
-
-        this.exportEnfusion(zones);
-
-        setTimeout(() => {
-            this.exportJSON(zones);
-        }, 500);
-
-        setTimeout(() => {
-            this.exportImage(settings);
-        }, 1000);
-    }
-
-    /**
-     * Get Enfusion enum type string
-     */
-    getEnfusionType(type) {
-        const types = {
-            'safe': 'EZoneType.SAFE',
-            'restricted': 'EZoneType.RESTRICTED',
-            'pvp': 'EZoneType.PVP',
-            'spawn': 'EZoneType.SPAWN',
-            'objective': 'EZoneType.OBJECTIVE',
-            'custom': 'EZoneType.CUSTOM',
-            // Military markers
-            'mil_infantry': 'EZoneType.MIL_INFANTRY',
-            'mil_motorized': 'EZoneType.MIL_MOTORIZED',
-            'mil_armor': 'EZoneType.MIL_ARMOR',
-            'mil_recon': 'EZoneType.MIL_RECON',
-            'mil_artillery': 'EZoneType.MIL_ARTILLERY',
-            'mil_mortar': 'EZoneType.MIL_MORTAR',
-            'mil_machinegun': 'EZoneType.MIL_MACHINEGUN',
-            'mil_antitank': 'EZoneType.MIL_ANTITANK',
-            'mil_antiair': 'EZoneType.MIL_ANTIAIR',
-            'mil_sniper': 'EZoneType.MIL_SNIPER',
-            'mil_medical': 'EZoneType.MIL_MEDICAL',
-            'mil_supply': 'EZoneType.MIL_SUPPLY',
-            'mil_maintenance': 'EZoneType.MIL_MAINTENANCE',
-            'mil_hq': 'EZoneType.MIL_HQ',
-            // Map markers
-            'marker_flag': 'EZoneType.MARKER_FLAG',
-            'marker_warning': 'EZoneType.MARKER_WARNING',
-            'marker_waypoint': 'EZoneType.MARKER_WAYPOINT',
-            'marker_rally': 'EZoneType.MARKER_RALLY',
-            'marker_attack': 'EZoneType.MARKER_ATTACK',
-            'marker_defend': 'EZoneType.MARKER_DEFEND'
-        };
-        return types[type] || 'EZoneType.CUSTOM';
-    }
-
-    /**
-     * Convert hex color to integer
-     */
-    hexToInt(hex) {
-        return parseInt(hex.replace('#', ''), 16);
-    }
-
-
-
-    /**
-     * Export as Enfusion Workbench Plugin
-     * Allows devs to spawn entities directly in World Editor
-     */
     exportWorkbenchPlugin(zones) {
-        let script = `[WorkbenchPluginAttribute(name: "Import Zones from Editor", shortcut: "Ctrl+Shift+I", icon: "infopoint")]
-class ImportZonesPlugin : WorkbenchPlugin
-{
-    override void Run()
-    {
-        WorldEditorAPI api = GenericComponent.GetWorldEditorAPI();
-        if (!api) return;
-        
-        api.BeginEntityAction("ImportZones");
-        
-        // Zone Data
-`;
-
-        // We embed the data directly in the script to avoid file I/O issues in Workbench
-        for (const zone of zones) {
-            const typeStr = zone.type.toUpperCase();
-
-            // Calculate center and radius/size based on shape type
-            let cx = 0, cy = 0, radius = 0, width = 0, height = 0;
-            let shapeType = "box"; // Default to box for non-circles
-            let pointsStr = "null";
-
-            if (zone.shape === 'circle') {
-                cx = zone.cx;
-                cy = zone.cy;
-                radius = zone.radius;
-                shapeType = "circle";
-            } else if (zone.shape === 'rectangle') {
-                cx = zone.x + zone.width / 2;
-                cy = zone.y + zone.height / 2;
-                width = zone.width;
-                height = zone.height;
-                // Approximate radius for fallback
-                radius = Math.max(width, height) / 2;
-                shapeType = "box";
-            } else if (zone.points) {
-                // Polygon / Line / Freehand
-                const bounds = Utils.getPolygonBounds(zone.points);
-                if (bounds) {
-                    cx = bounds.x + bounds.width / 2;
-                    cy = bounds.y + bounds.height / 2;
-                    width = bounds.width;
-                    height = bounds.height;
-                    radius = Math.max(width, height) / 2;
-                }
-                shapeType = "spline";
-
-                // Construct encoded array string for points
-                // Format: "x,y,z|x,y,z|..."
-                pointsStr = `"${zone.points.map(p => `${p.x.toFixed(2)},0,${p.y.toFixed(2)}`).join('|')}"`;
-            }
-
-            // Ensure values are numbers (handle undefined/NaN)
-            cx = (isFinite(cx)) ? cx : 0;
-            cy = (isFinite(cy)) ? cy : 0;
-            radius = (isFinite(radius)) ? radius : 1;
-            width = (isFinite(width)) ? width : 2;
-            height = (isFinite(height)) ? height : 2;
-
-            script += `        CreateZone(api, "${this.escapeString(zone.name)}", "${shapeType}", ${cx.toFixed(2)}, ${cy.toFixed(2)}, ${radius.toFixed(2)}, ${width.toFixed(2)}, ${height.toFixed(2)}, "${typeStr}", ${pointsStr});\n`;
-        }
-
-        script += `
-        api.EndEntityAction();
-    }
-    
-    void CreateZone(WorldEditorAPI api, string name, string shape, float x, float z, float radius, float width, float length, string type, string pointsStr)
-    {
-        // 1. Create the base Trigger Entity
-        // Note: You may want to change "SCR_BaseTriggerEntity" to your specific custom trigger prefab if you have one
-        IEntitySource source = api.CreateEntity("SCR_BaseTriggerEntity", "", api.GetWorld().GetRootEntitySource());
-        
-        // Set coordinates (Y is height, set to 0 or adjust as needed)
-        vector mat[4];
-        mat[3] = Vector(x, 0, z); // Position
-        source.Set("coords", string.Format("%1 %2 %3", mat[3][0], mat[3][1], mat[3][2]));
-        
-        // Set Name
-        api.RenameEntity(source, name);
-        
-        // Set properties based on shape
-        if (shape == "circle")
-        {
-            api.ModifyEntityKey(source, "SphereRadius", radius.ToString());
-            api.ModifyEntityKey(source, "Shape", "Sphere");
-        }
-        else if (shape == "box")
-        {
-            api.ModifyEntityKey(source, "Shape", "Box");
-            // Set Box Dimensions (Min/Max based on width/length)
-            // AABB centered at 0,0
-            string minStr = string.Format("%1 -1 %2", -width/2, -length/2);
-            string maxStr = string.Format("%1 1 %2", width/2, length/2);
-            
-            // Note: SCR_BaseTriggerEntity usually uses SphereRadius. 
-            // For proper Box triggers, we assume the Custom Shape logic or standard Trigger with Box shape.
-            // We set SphereRadius effectively creating a bounding sphere as fallback
-            api.ModifyEntityKey(source, "SphereRadius", radius.ToString()); 
-        }
-        else if (shape == "spline" && pointsStr != "null")
-        {
-            // For Splines, we create a separate SplineObject entity to visualize the path
-            // The trigger itself will remain a bounding sphere/box for activation logic
-            
-            api.ModifyEntityKey(source, "Shape", "Box");
-            api.ModifyEntityKey(source, "SphereRadius", radius.ToString());
-            
-            // Create separate Spline
-            IEntitySource splineSource = api.CreateEntity("SplineObject", "", api.GetWorld().GetRootEntitySource());
-            api.RenameEntity(splineSource, name + "_Shape");
-            
-            // Parse custom dot-separated points string
-            array<string> pointStrs = {};
-            pointsStr.Split("|", pointStrs);
-            
-            // Create Hierarchy: Spline -> Points
-            // Note: In Workbench, we can't easily iterate and create children in one go without parent context
-            // We set the spline position to the first point or center
-             splineSource.Set("coords", string.Format("%1 %2 %3", x, 0, z));
-            
-            foreach (string pStr : pointStrs)
-            {
-                array<string> coords = {};
-                pStr.Split(",", coords);
-                if (coords.Count() == 3)
-                {
-                    // Create Spline Point
-                    IEntitySource ptSource = api.CreateEntity("SplinePoint", "", splineSource);
-                    
-                    // Position is relative if parented, or absolute? 
-                    // In WB API, CreateEntity with parent usually handles hierarchy.
-                    // We'll treat coords as absolute world coords.
-                    
-                    vector ptPos = Vector(coords[0].ToFloat(), coords[1].ToFloat(), coords[2].ToFloat());
-                    
-                    // Calculate relative pos if needed, but world coords are safer for import
-                    ptSource.Set("coords", string.Format("%1 %2 %3", ptPos[0], ptPos[1], ptPos[2]));
-                }
-            }
-            
-            Print("Created Zone with Spline: " + name);
-            return;
-        }
-        
-        Print("Created Zone: " + name);
-    }
-}
-`;
+        const script = ScriptGenerator.generateWorkbenchPlugin(zones, this.escapeString, Utils.getPolygonBounds);
         Utils.downloadFile(script, 'ImportZonesPlugin.c', 'text/plain');
     }
 
-    /**
-     * Escape string for use in script
-     */
-    escapeString(str) {
-        return str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    exportAll(zones, settings = {}) {
+        this.exportEnfusion(zones);
+        setTimeout(() => this.exportJSON(zones), 500);
+        setTimeout(() => this.exportImage(settings), 1000);
     }
+
+    resizeToPowerOf2(canvas) {
+        const nextPow2 = (n) => Math.pow(2, Math.ceil(Math.log2(n)));
+        const w = nextPow2(canvas.width), h = nextPow2(canvas.height);
+        if (w === canvas.width && h === canvas.height) return canvas;
+        const res = document.createElement('canvas');
+        res.width = w; res.height = h;
+        res.getContext('2d').drawImage(canvas, 0, 0, w, h);
+        return res;
+    }
+
+    getEnfusionType(id) { return `EZoneType.${(id || 'CUSTOM').replace(/[^A-Za-z0-9_]/g, '_').toUpperCase()}`; }
+    hexToInt(hex) { return parseInt(hex.replace('#', ''), 16); }
+    escapeString(str) { return str.replace(/"/g, '\\"').replace(/\n/g, '\\n'); }
 }
 
-// Export for use in other modules
 window.ExportHandler = ExportHandler;

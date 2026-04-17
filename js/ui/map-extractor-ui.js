@@ -1,6 +1,7 @@
 /**
  * Map Extractor UI Component
- * Handles the modal interface for texture extraction
+ * Premium modal interface for PAK texture extraction.
+ * Manages state transitions between search, progress, and result views.
  */
 class MapExtractorUI {
     constructor(app) {
@@ -9,187 +10,375 @@ class MapExtractorUI {
         this.modal = null;
         this.pendingSelections = [];
         this.lastExtractedFile = null;
+        this.selectedFormat = 'png';
+        this.mode = 'search'; // 'search' = automated one-shot, 'interactive' = full PS1 menu
     }
 
     async init() {
         this.createModal();
         this.setupEventListeners();
+        await this.setDefaultOutputDir();
+    }
 
-        // Auto-populate Output Dir with Downloads if empty
-        if (!this.service.config.outputDir && window.electronAPI && window.electronAPI.getDownloadsPath) {
-            try {
-                const downloadsPath = await window.electronAPI.getDownloadsPath();
-                const outField = document.getElementById('extractorOutputDir');
-                if (outField && downloadsPath) {
-                    // Use "Downloads/MapSave_Exports" for cleanliness.
-                    const finalPath = downloadsPath + (downloadsPath.endsWith('\\') ? '' : '\\') + 'MapSave_Exports';
+    /**
+     * Pre-fill output directory with Downloads/MapSave_Exports
+     */
+    async setDefaultOutputDir() {
+        if (this.service.config.outputDir) return;
+        if (!window.electronAPI?.getDownloadsPath) return;
 
-                    outField.value = finalPath;
-                    this.service.config.outputDir = finalPath;
-                    // We don't save to localStorage yet, only when they run it, 
-                    // or we could save it now. Let's let them see it first.
-                }
-            } catch (err) {
-                console.warn('Could not set default downloads path', err);
+        try {
+            const downloads = await window.electronAPI.getDownloadsPath();
+            if (!downloads) return;
+
+            const sep = downloads.endsWith('\\') ? '' : '\\';
+            const finalPath = downloads + sep + 'MapSave_Exports';
+            const outField = document.getElementById('extractorOutputDir');
+
+            if (outField) {
+                outField.value = finalPath;
+                this.service.config.outputDir = finalPath;
             }
+        } catch (err) {
+            console.warn('Could not set default downloads path', err);
         }
     }
 
+    // =============================================
+    // Modal Creation
+    // =============================================
+
     createModal() {
-        const modalHtml = `
+        const html = `
             <div class="modal-overlay" id="extractorModal">
                 <div class="modal extractor-modal">
                     <div class="modal-header">
-                        <h2><i data-lucide="package-search"></i> Arma Texture Extractor</h2>
+                        <h2><i data-lucide="package-search"></i> Texture Extractor</h2>
                         <button class="modal-close" id="btnCloseExtractor">&times;</button>
                     </div>
                     <div class="modal-body">
                         <p class="modal-description">
-                            Search and extract map textures directly from Arma Reforger PAK files. extracted images will be saved to your output folder.
+                            Search and extract map textures directly from Arma Reforger PAK archives.
                         </p>
 
-                        <div class="extractor-form">
-                            <div class="property-group">
-                                <label for="extractorSearch">Resource Name / Search Term</label>
-                                <div class="search-input-wrapper">
-                                    <input type="text" id="extractorSearch" placeholder="e.g. ArlandRasterized, Everon_Satellite, M4A1...">
-                                    <button class="btn btn-primary" id="btnRunExtractor">
-                                        <i data-lucide="zap"></i> Extract
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="settings-expander">
-                                <button class="btn-link" id="btnToggleExtractorSettings">
-                                    <i data-lucide="settings"></i> Tool Configuration
-                                </button>
-                                <div class="extractor-settings" id="extractorSettings" style="display: none;">
-                                    <div class="setting-row">
-                                        <label>Scan Directory (PAK files)</label>
-                                        <div class="input-group">
-                                            <input type="text" id="extractorScanDir" placeholder="e.g. C:\\Program Files\\Arma Reforger\\addons\\data">
-                                            <button class="btn-icon-only" data-browse="scan" title="Browse Folder">
-                                                <i data-lucide="folder"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="setting-row">
-                                        <label>Output Directory</label>
-                                        <div class="input-group">
-                                            <input type="text" id="extractorOutputDir" placeholder="e.g. C:\\Users\\Name\\Documents\\MapExports">
-                                            <button class="btn-icon-only" data-browse="output" title="Browse Folder">
-                                                <i data-lucide="folder"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="setting-row">
-                                        <label>Tools Directory</label>
-                                        <div class="input-group">
-                                            <input type="text" id="extractorToolsDir" placeholder="Path to project tools folder (default: tools)">
-                                            <button class="btn-icon-only" data-browse="tools" title="Browse Folder">
-                                                <i data-lucide="folder"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="extractor-progress" id="extractorProgress" style="display: none;">
-                                <div class="progress-header">
-                                    <span id="progressStatus">Extracting...</span>
-                                    <span id="progressPercent">0%</span>
-                                </div>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar" id="extractorProgressBar" style="width: 0%"></div>
-                                </div>
-                                <div class="progress-log" id="extractorLog"></div>
-                                <div class="selection-prompt" id="extractorSelectionPrompt" style="display: none;">
-                                    <div class="selection-header">Multiple matches found. Select one:</div>
-                                    <div class="selection-list" id="extractorSelectionList"></div>
-                                </div>
-                            </div>
-
-                            <div class="extractor-result" id="extractorResult" style="display: none;">
-                                <div class="result-message" id="resultMessage"></div>
-                                <div class="result-actions">
-                                    <button class="btn btn-primary btn-large" id="btnImportMap" style="display: none; width: 100%; margin-bottom: 10px;">
-                                        <i data-lucide="download"></i> Import to Workspace
-                                    </button>
-                                </div>
-                                <div class="command-box">
-                                    <code id="resultCommand"></code>
-                                    <button class="btn btn-secondary btn-small" id="btnCopyCommand">
-                                        <i data-lucide="copy"></i> Copy Command
-                                    </button>
-                                </div>
-                                <p class="result-hint">Paste this into your PowerShell terminal to run the extraction.</p>
-                                <button class="btn btn-secondary btn-block" id="btnResetExtractor" style="margin-top: 15px; width: 100%;">
-                                    <i data-lucide="rotate-ccw"></i> New Search
-                                </button>
-                            </div>
-                        </div>
+                        ${this.buildSearchSection()}
+                        ${this.buildProgressSection()}
+                        ${this.buildResultSection()}
                     </div>
                 </div>
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.body.insertAdjacentHTML('beforeend', html);
         this.modal = document.getElementById('extractorModal');
 
-        // Populate fields
-        document.getElementById('extractorScanDir').value = this.service.config.scanDir;
-        document.getElementById('extractorOutputDir').value = this.service.config.outputDir;
-        document.getElementById('extractorToolsDir').value = this.service.config.toolsDir;
+        // Populate saved config values
+        this.populateConfigFields();
 
         if (window.lucide) lucide.createIcons();
     }
 
-    setupEventListeners() {
-        // Toggle Settings
-        document.getElementById('btnToggleExtractorSettings').addEventListener('click', () => {
-            const settings = document.getElementById('extractorSettings');
-            const isHidden = settings.style.display === 'none';
-            settings.style.display = isHidden ? 'block' : 'none';
-        });
+    buildSearchSection() {
+        return `
+            <div class="extractor-form" id="extractorSearchSection">
 
-        // Run Button
+                <div class="extractor-settings" id="extractorSettings" style="border-bottom: 1px solid rgba(var(--color-accent-rgb), 0.15); padding-bottom: 12px; margin-bottom: 4px;">
+                    <strong style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--color-accent);">Required Configuration</strong>
+                    <div class="setting-row">
+                        <label>Scan Directory (PAK files)</label>
+                        <div class="input-group">
+                            <input type="text" id="extractorScanDir"
+                                   placeholder="e.g. C:\\Program Files\\Arma Reforger\\addons">
+                            <button class="btn-icon-only" data-browse="scan" title="Browse">
+                                <i data-lucide="folder"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label>Output Directory</label>
+                        <div class="input-group">
+                            <input type="text" id="extractorOutputDir"
+                                   placeholder="e.g. C:\\Users\\Name\\Documents\\Exports">
+                            <button class="btn-icon-only" data-browse="output" title="Browse">
+                                <i data-lucide="folder"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label>Tools Directory</label>
+                        <div class="input-group">
+                            <input type="text" id="extractorToolsDir"
+                                   placeholder="Path to project tools folder">
+                            <button class="btn-icon-only" data-browse="tools" title="Browse">
+                                <i data-lucide="folder"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="property-group" style="margin-bottom: 0;">
+                    <label for="extractorAction">Operation Mode</label>
+                    <select id="extractorAction" style="width:100%; padding: 8px; font-size: 13px; background: var(--color-bg-primary); border: 1px solid var(--color-border); color: var(--color-text-primary); border-radius: var(--radius-sm);">
+                        <option value="Search" selected>Search & Extract File</option>
+                        <option value="BulkAll">Bulk Extract: All Files</option>
+                        <option value="BulkTextures">Bulk Extract: Textures (.edds) Only</option>
+                        <option value="BulkExtension">Bulk Extract: By Extension</option>
+                    </select>
+                </div>
+
+                <div id="searchModeFields" class="dynamic-mode-field">
+                    <div class="property-group">
+                        <label for="extractorSearch">Resource Name / Search Term</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="extractorSearch"
+                                   placeholder="e.g. ArlandRasterized, Everon_Satellite..."
+                                   autocomplete="off" spellcheck="false">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="extensionModeFields" class="dynamic-mode-field" style="display: none;">
+                    <div class="property-group">
+                        <label for="extractorExtension">File Extension to Filter</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="extractorExtension"
+                                   placeholder="e.g. .et, .emat, .smap"
+                                   autocomplete="off" spellcheck="false">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="extractor-format-row" id="formatRow">
+                    <label for="extractorFormat">Texture Conversion Output (.edds)</label>
+                    <select id="extractorFormat">
+                        <option value="png" selected>PNG (Recommended)</option>
+                        <option value="tif">TIF</option>
+                        <option value="tga">TGA</option>
+                        <option value="dds">DDS</option>
+                        <option value="raw">Raw (Keep .edds)</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary" id="btnRunExtractor" style="width: 100%; margin-top: 8px;">
+                    <i data-lucide="zap"></i> Extract Matches
+                </button>
+
+                <div class="extractor-idle-hint">
+                    Shortcut: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd>
+                </div>
+            </div>
+        `;
+    }
+
+    buildProgressSection() {
+        return `
+            <div class="extractor-progress" id="extractorProgress" style="display: none;">
+                <div class="progress-header">
+                    <span id="progressStatus">Initializing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="extractorProgressBar" style="width: 0%"></div>
+                </div>
+                <div class="progress-log" id="extractorLog"></div>
+
+
+
+                <button class="btn btn-reset" id="btnBackFromProgress" style="margin-top: 12px;">
+                    <i data-lucide="arrow-left"></i> Back
+                </button>
+            </div>
+        `;
+    }
+
+    buildResultSection() {
+        return `
+            <div class="extractor-result" id="extractorResult" style="display: none;">
+                <div class="result-message" id="resultMessage"></div>
+                <div class="result-actions">
+                    <button class="btn btn-primary" id="btnImportMap" style="display: none;">
+                        <i data-lucide="download"></i> Import to Workspace
+                    </button>
+                </div>
+                <button class="btn btn-reset" id="btnResetExtractor">
+                    <i data-lucide="rotate-ccw"></i> New Search
+                </button>
+            </div>
+        `;
+    }
+
+    populateConfigFields() {
+        const scanEl = document.getElementById('extractorScanDir');
+        const outEl = document.getElementById('extractorOutputDir');
+        const toolsEl = document.getElementById('extractorToolsDir');
+
+        if (scanEl) scanEl.value = this.service.config.scanDir;
+        if (outEl) outEl.value = this.service.config.outputDir;
+        if (toolsEl) toolsEl.value = this.service.config.toolsDir;
+    }
+
+    // =============================================
+    // Event Listeners
+    // =============================================
+
+    setupEventListeners() {
+        // Mode toggle via select
+        const actionSelect = document.getElementById('extractorAction');
+        if (actionSelect) {
+            actionSelect.addEventListener('change', (e) => this.switchMode(e.target.value));
+        }
+
+        // Format select
+        const formatSelect = document.getElementById('extractorFormat');
+        if (formatSelect) {
+            formatSelect.addEventListener('change', (e) => {
+                this.selectedFormat = e.target.value;
+            });
+        }
+
+        // Core actions
         document.getElementById('btnRunExtractor').addEventListener('click', () => this.handleRun());
         document.getElementById('btnResetExtractor').addEventListener('click', () => this.resetUI());
-
-        // Browse Buttons
-        document.querySelectorAll('[data-browse]').forEach(btn => {
-            btn.addEventListener('click', (e) => this.handleBrowse(btn.dataset.browse));
-        });
-
-        // Close Buttons
+        document.getElementById('btnBackFromProgress').addEventListener('click', () => this.resetUI());
         document.getElementById('btnCloseExtractor').addEventListener('click', () => this.hide());
-        document.getElementById('btnCopyCommand').addEventListener('click', () => this.handleCopy());
         document.getElementById('btnImportMap').addEventListener('click', () => this.handleImport());
 
-        // Backdrop click
+        // Enter key on search input triggers extraction
+        document.getElementById('extractorSearch').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.handleRun();
+        });
+
+        // Browse buttons
+        document.querySelectorAll('[data-browse]').forEach(btn => {
+            btn.addEventListener('click', () => this.handleBrowse(btn.dataset.browse));
+        });
+
+        // Backdrop click to close
         let isBackdropClick = false;
         this.modal.addEventListener('mousedown', (e) => {
             isBackdropClick = (e.target === this.modal);
         });
         this.modal.addEventListener('click', (e) => {
-            if (isBackdropClick && e.target === this.modal) {
-                this.hide();
-            }
+            if (isBackdropClick && e.target === this.modal) this.hide();
         });
 
-        // Sidebar Button
+        // Sidebar button
         const btnOpen = document.getElementById('btnOpenExtractor');
-        if (btnOpen) {
-            btnOpen.addEventListener('click', () => this.show());
-        }
+        if (btnOpen) btnOpen.addEventListener('click', () => this.show());
 
-        // Listen for real-time output
-        if (window.electronAPI && window.electronAPI.onCommandOutput) {
-            window.electronAPI.onCommandOutput((output) => {
-                this.handleCommandOutput(output);
-            });
+        // Real-time command output from Electron
+        if (window.electronAPI?.onCommandOutput) {
+            window.electronAPI.onCommandOutput((output) => this.handleCommandOutput(output));
         }
     }
+
+    /**
+     * Switch shown fields based on selected action
+     */
+    switchMode(mode) {
+        this.mode = mode; // "Search", "BulkAll", "BulkTextures", "BulkExtension"
+
+        const searchFields = document.getElementById('searchModeFields');
+        const extensionFields = document.getElementById('extensionModeFields');
+        const formatRow = document.getElementById('formatRow');
+
+        // Reset
+        searchFields.style.display = 'none';
+        extensionFields.style.display = 'none';
+        formatRow.style.display = 'flex';
+
+        if (mode === 'Search') {
+            searchFields.style.display = 'block';
+        } else if (mode === 'BulkExtension') {
+            extensionFields.style.display = 'block';
+        } else if (mode === 'BulkAll') {
+            // No extra fields needed, just format
+        } else if (mode === 'BulkTextures') {
+            // No extra fields needed, just format
+        }
+    }
+
+    // =============================================
+    // State Management
+    // =============================================
+
+    show() {
+        this.resetUI();
+        this.modal.classList.add('visible');
+        // Slight delay for entrance animation to complete before focusing
+        setTimeout(() => document.getElementById('extractorSearch')?.focus(), 150);
+    }
+
+    hide() {
+        this.modal.classList.remove('visible');
+    }
+
+    resetUI() {
+        const search = document.getElementById('extractorSearchSection');
+        const progress = document.getElementById('extractorProgress');
+        const result = document.getElementById('extractorResult');
+
+        if (search) search.style.display = 'flex';
+        if (progress) progress.style.display = 'none';
+        if (result) result.style.display = 'none';
+
+        const searchInput = document.getElementById('extractorSearch');
+        if (searchInput) searchInput.value = '';
+
+        const extInput = document.getElementById('extractorExtension');
+        if (extInput) extInput.value = '';
+
+        const actionSelect = document.getElementById('extractorAction');
+        if (actionSelect) {
+            actionSelect.value = 'Search';
+            this.switchMode('Search');
+        }
+
+        // Restore mode-appropriate button text
+        const runBtn = document.getElementById('btnRunExtractor');
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i data-lucide="zap"></i> Extract';
+        }
+
+        this.lastExtractedFile = null;
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Transition from search view to progress view
+     */
+    showProgressState() {
+        document.getElementById('extractorSearchSection').style.display = 'none';
+
+        const progress = document.getElementById('extractorProgress');
+        const log = document.getElementById('extractorLog');
+        const bar = document.getElementById('extractorProgressBar');
+        const percent = document.getElementById('progressPercent');
+
+        progress.style.display = 'block';
+        log.innerHTML = '';
+        bar.style.width = '0%';
+        percent.textContent = '0%';
+        document.getElementById('progressStatus').textContent = 'Initializing...';
+        document.getElementById('extractorResult').style.display = 'none';
+    }
+
+    /**
+     * Transition from progress view to result view
+     */
+    showResultState(type) {
+        document.getElementById('extractorProgress').style.display = 'none';
+
+        const result = document.getElementById('extractorResult');
+        result.style.display = 'block';
+        result.className = `extractor-result ${type}`;
+    }
+
+    // =============================================
+    // Command Output Handling
+    // =============================================
 
     handleCommandOutput(output) {
         const log = document.getElementById('extractorLog');
@@ -206,129 +395,224 @@ class MapExtractorUI {
         log.appendChild(div);
         log.scrollTop = log.scrollHeight;
 
-        // Capture output path if present (e.g. "Saved to: C:\...\file.png")
-        // PowerShell script outputs: "SUCCESS! Exported to: ..." or "Saved to: ..."
-        const saveMatch = output.data.match(/Saved to:\s*(.*)/i) ||
-            output.data.match(/Exported to:\s*(.*)/i) ||
-            output.data.match(/Exported:\s*(.*)/i);
-        if (saveMatch) {
-            this.lastExtractedFile = saveMatch[1].trim();
+        // Clean ANSI escape codes before regex matching
+        const cleanData = output.data.replace(/\x1B\[[0-9;]*[mK]/g, '');
+
+        // Capture output file path (from one-shot search extraction)
+        const fileMatch = cleanData.match(/SUCCESS!\s*->\s*(.*)/i) ||
+            cleanData.match(/Saved to:\s*(.*(?:\.png|\.tif|\.tga|\.dds))$/i);
+        if (fileMatch) {
+            this.lastExtractedFile = fileMatch[1].trim();
         }
 
-        // --- Interactive Selection Parsing ---
-        const lines = output.data.split('\n');
-        let hasNewSelections = false;
-
-        for (const line of lines) {
-            // Match option line: "  [1] path/to/file  (in data.pak)" or plain "[1] file"
-            const optionMatch = line.match(/^\s*\[(\d+)\]\s+(.+?)\s+\(in\s+(.+?)\)/) ||
-                line.match(/^\s*\[(\d+)\]\s+(.+)/);
-
-            if (optionMatch) {
-                if (!this.pendingSelections) this.pendingSelections = [];
-
-                const id = optionMatch[1];
-                if (!this.pendingSelections.find(s => s.id === id)) {
-                    this.pendingSelections.push({
-                        id: id,
-                        path: optionMatch[2].trim(),
-                        pak: optionMatch[3] ? optionMatch[3].trim() : 'unknown'
-                    });
-                    hasNewSelections = true;
-                }
-            }
-
-            if (line.includes('Select a number') || line.includes('Please select one')) {
-                this.renderSelectionPrompt();
-                hasNewSelections = false;
-            }
+        // Capture output directory (from bulk extraction)
+        const dirMatch = cleanData.match(/Output:\s*(.*)/i);
+        if (dirMatch) {
+            this.lastOutputDir = dirMatch[1].trim();
         }
 
-        if (hasNewSelections && this.pendingSelections.length > 0) {
-            this.renderSelectionPrompt();
-        }
+        this.parseProgress(output.data, status, bar, percent);
+    }
 
-        // --- Progress Parsing ---
-        const progressMatch = output.data.match(/(\d+)\/(\d+)/);
+    /**
+     * Parse progress indicators from output
+     */
+    parseProgress(data, status, bar, percent) {
+        const progressMatch = data.match(/Processing:\s*(\d+)\/(\d+)/) || data.match(/(\d+)\/(\d+)/);
         if (progressMatch) {
             const current = parseInt(progressMatch[1]);
             const total = parseInt(progressMatch[2]);
             const p = Math.round((current / total) * 100);
 
-            status.textContent = `Extracting: ${current} of ${total} files...`;
+            status.textContent = `Extracting ${current} of ${total}...`;
             bar.style.width = `${p}%`;
             percent.textContent = `${p}%`;
-        } else if (output.data.includes('Starting extraction')) {
-            status.textContent = 'Starting process...';
-        } else if (output.data.includes('Done') || output.data.includes('SUCCESS!')) {
+        } else if (data.includes('Starting extraction') || data.includes('Extracting:')) {
+            status.textContent = 'Processing...';
+        } else if (data.includes('Done!') || data.includes('SUCCESS!')) {
             status.textContent = 'Finalizing...';
             bar.style.width = '100%';
             percent.textContent = '100%';
         }
     }
 
-    renderSelectionPrompt() {
-        const promptContainer = document.getElementById('extractorSelectionPrompt');
-        const listContainer = document.getElementById('extractorSelectionList');
 
-        if (!promptContainer || !listContainer) return;
 
-        listContainer.innerHTML = '';
+    // =============================================
+    // Core Actions
+    // =============================================
 
-        this.pendingSelections.forEach(opt => {
-            const btn = document.createElement('div');
-            btn.className = 'selection-item';
-            btn.innerHTML = `
-                <div class="sel-id">${opt.id}</div>
-                <div class="sel-info">
-                    <div class="sel-path" title="${opt.path}">${opt.path}</div>
-                    <div class="sel-pak">${opt.pak}</div>
-                </div>
-            `;
-            btn.addEventListener('click', () => this.handleSelection(opt.id));
-            listContainer.appendChild(btn);
+    async handleRun() {
+        const action = this.mode || 'Search';
+        let searchTerm = '';
+        let extension = '';
+
+        if (action === 'Search') {
+            searchTerm = document.getElementById('extractorSearch').value.trim();
+            if (!searchTerm) {
+                this.shakeInput('extractorSearch');
+                return;
+            }
+        } else if (action === 'BulkExtension') {
+            extension = document.getElementById('extractorExtension').value.trim();
+            if (!extension) {
+                this.shakeInput('extractorExtension');
+                return;
+            }
+        }
+
+        const outDir = document.getElementById('extractorOutputDir').value.trim();
+        if (!outDir) {
+            // Expand settings and focus output field
+            this.shakeInput('extractorOutputDir');
+            document.getElementById('extractorOutputDir').focus();
+            return;
+        }
+
+        // Save configuration
+        this.service.saveConfig({
+            scanDir: document.getElementById('extractorScanDir').value.trim(),
+            outputDir: document.getElementById('extractorOutputDir').value.trim(),
+            toolsDir: document.getElementById('extractorToolsDir').value.trim()
         });
 
-        promptContainer.style.display = 'block';
-    }
-
-    async handleSelection(id) {
-        document.getElementById('extractorSelectionPrompt').style.display = 'none';
+        // Switch to progress state
+        this.showProgressState();
         this.pendingSelections = [];
+        this.lastExtractedFile = null;
 
-        if (window.electronAPI && window.electronAPI.sendInput) {
-            const log = document.getElementById('extractorLog');
-            const div = document.createElement('div');
-            div.className = 'log-info';
-            div.style.color = '#00ff88';
-            div.textContent = `> User selected: ${id}`;
-            log.appendChild(div);
-
-            await window.electronAPI.sendInput(id);
+        try {
+            const result = await this.service.executeExtraction(searchTerm, this.selectedFormat, action, extension);
+            this.handleExtractionResult(result);
+        } catch (err) {
+            this.showResultState('error');
+            document.getElementById('resultMessage').innerHTML =
+                `<strong>Error:</strong> ${err.message}`;
+            document.getElementById('btnImportMap').style.display = 'none';
+            this.removeOpenFolderButton();
         }
     }
 
-    async handleBrowse(type) {
-        if (window.electronAPI && window.electronAPI.selectFolder) {
-            try {
-                const path = await window.electronAPI.selectFolder();
-                if (path) {
-                    this.updatePathField(type, path);
-                }
-            } catch (err) {
-                console.error('Folder selection failed:', err);
-            }
+    handleExtractionResult(result) {
+        // Fallback: parse stdout for file path if missed during streaming
+        if (!this.lastExtractedFile && result?.stdout) {
+            const clean = result.stdout.replace(/\x1B\[[0-9;]*[mK]/g, '');
+            const fileMatch = clean.match(/SUCCESS!\s*->\s*(.*)/i);
+            if (fileMatch) this.lastExtractedFile = fileMatch[1].trim();
+            
+            const dirMatch = clean.match(/Output:\s*(.*)/i);
+            if (dirMatch) this.lastOutputDir = dirMatch[1].trim();
+        }
+
+        const isManual = result.status === 'manual';
+        this.showResultState(isManual ? 'manual' : 'success');
+
+        const importBtn = document.getElementById('btnImportMap');
+
+        if (isManual) {
+            document.getElementById('resultMessage').textContent = result.message;
+            importBtn.style.display = 'none';
+            this.removeOpenFolderButton();
         } else {
+            document.getElementById('resultMessage').innerHTML =
+                '<strong>Success!</strong> Extraction completed.';
+
+            // Allow importing. The IPC backend will detect if it's a directory and extract the core map image from inside it.
+            if (this.lastExtractedFile) {
+                importBtn.style.display = 'flex';
+            } else {
+                importBtn.style.display = 'none';
+            }
+            
+            // Always allow opening the output folder if we have a path
+            if (this.lastExtractedFile || this.lastOutputDir || this.service.config.outputDir) {
+                this.createOpenFolderButton();
+            } else {
+                this.removeOpenFolderButton();
+            }
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    // =============================================
+    // Helper Actions
+    // =============================================
+
+    createOpenFolderButton() {
+        this.removeOpenFolderButton();
+
+        const actions = document.querySelector('.extractor-result .result-actions');
+        if (!actions) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-secondary';
+        btn.id = 'btnOpenOutputFolder';
+        btn.innerHTML = '<i data-lucide="folder-open"></i> Open Output Folder';
+
+        btn.addEventListener('click', () => {
+            if (window.electronAPI?.openPath) {
+                let targetDir = this.lastOutputDir || this.service.config.outputDir;
+                
+                if (this.lastExtractedFile && !this.lastOutputDir) {
+                    targetDir = this.lastExtractedFile.substring(
+                        0, this.lastExtractedFile.lastIndexOf('\\')
+                    );
+                }
+                
+                if (targetDir) window.electronAPI.openPath(targetDir);
+            }
+        });
+
+        actions.appendChild(btn);
+        if (window.lucide) lucide.createIcons();
+    }
+
+    removeOpenFolderButton() {
+        const existing = document.getElementById('btnOpenOutputFolder');
+        if (existing) existing.remove();
+    }
+
+    /**
+     * Subtle shake animation for validation feedback
+     */
+    shakeInput(inputId) {
+        const el = document.getElementById(inputId);
+        if (!el) return;
+
+        el.style.borderColor = 'var(--color-danger)';
+        el.style.animation = 'none';
+        el.offsetHeight; // Force reflow
+        el.style.animation = 'shakeInput 0.4s ease';
+        el.focus();
+
+        setTimeout(() => {
+            el.style.borderColor = '';
+            el.style.animation = '';
+        }, 600);
+    }
+
+    async handleBrowse(type) {
+        if (!window.electronAPI?.selectFolder) {
             alert('Folder browsing is only available in the Desktop version.');
+            return;
+        }
+
+        try {
+            const path = await window.electronAPI.selectFolder();
+            if (path) this.updatePathField(type, path);
+        } catch (err) {
+            console.error('Folder selection failed:', err);
         }
     }
 
     getPathField(type) {
-        switch (type) {
-            case 'scan': return document.getElementById('extractorScanDir');
-            case 'output': return document.getElementById('extractorOutputDir');
-            case 'tools': return document.getElementById('extractorToolsDir');
-        }
+        const map = {
+            scan: 'extractorScanDir',
+            output: 'extractorOutputDir',
+            tools: 'extractorToolsDir'
+        };
+        return document.getElementById(map[type]);
     }
 
     updatePathField(type, path) {
@@ -336,154 +620,130 @@ class MapExtractorUI {
         if (field) field.value = path;
     }
 
-    show() {
-        this.resetUI();
-        this.modal.classList.add('visible');
-        document.getElementById('extractorSearch').focus();
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const tint = type === 'error' ? '255, 77, 87' : '0, 255, 136';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 22, 28, 0.96);
+            border: 1px solid rgba(${tint}, 0.35);
+            border-radius: 12px;
+            padding: 10px 16px;
+            color: rgba(255,255,255,0.9);
+            font-size: 13px;
+            font-family: var(--font-primary);
+            z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2600);
     }
 
-    hide() {
-        this.modal.classList.remove('visible');
-    }
+    requestMapName(defaultValue) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(4, 6, 10, 0.7);
+                backdrop-filter: blur(6px);
+                z-index: 1500;
+            `;
 
-    resetUI() {
-        document.querySelector('.property-group').style.display = 'block';
-        document.querySelector('.settings-expander').style.display = 'block';
-        document.getElementById('extractorProgress').style.display = 'none';
-        document.getElementById('extractorResult').style.display = 'none';
-        document.getElementById('extractorSearch').value = '';
-        document.getElementById('btnRunExtractor').disabled = false;
-        document.getElementById('btnRunExtractor').innerHTML = '<i data-lucide="zap"></i> Extract';
-        this.lastExtractedFile = null;
-        if (window.lucide) lucide.createIcons();
-    }
+            overlay.innerHTML = `
+                <div class="inline-prompt" style="width:min(380px, calc(100vw - 32px));">
+                    <p>Import Map Name</p>
+                    <input type="text" class="compact-input">
+                    <div class="inline-prompt-actions">
+                        <button class="btn-chip cancel-btn">Cancel</button>
+                        <button class="btn-chip primary confirm-btn">Import</button>
+                    </div>
+                </div>
+            `;
 
-    async handleRun() {
-        const searchTerm = document.getElementById('extractorSearch').value.trim();
-        if (!searchTerm) {
-            alert('Please enter a search term.');
-            return;
-        }
+            const close = (value = null) => {
+                overlay.remove();
+                resolve(value);
+            };
 
-        const outDir = document.getElementById('extractorOutputDir').value.trim();
-        if (!outDir) {
-            alert('Please ensure an Output Directory is selected.');
-            // Try to recover by running init again? 
-            // Better to just let them know.
-            document.querySelector('.settings-expander').style.display = 'block';
-            document.getElementById('extractorSettings').style.display = 'block';
-            document.getElementById('extractorOutputDir').focus();
-            return;
-        }
+            document.body.appendChild(overlay);
 
-        this.service.saveConfig({
-            scanDir: document.getElementById('extractorScanDir').value.trim(),
-            outputDir: document.getElementById('extractorOutputDir').value.trim(),
-            toolsDir: document.getElementById('extractorToolsDir').value.trim()
+            const input = overlay.querySelector('input');
+            input.value = defaultValue || '';
+            input.focus();
+            input.select();
+
+            overlay.querySelector('.cancel-btn').addEventListener('click', () => close(null));
+            overlay.querySelector('.confirm-btn').addEventListener('click', () => close(input.value.trim() || null));
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) close(null);
+            });
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') close(input.value.trim() || null);
+                if (event.key === 'Escape') close(null);
+            });
         });
+    }
 
-        document.querySelector('.property-group').style.display = 'none';
-        document.querySelector('.settings-expander').style.display = 'none';
+    async handleImport() {
+        if (!this.lastExtractedFile) return;
 
-        const progressArea = document.getElementById('extractorProgress');
-        const logArea = document.getElementById('extractorLog');
-        const bar = document.getElementById('extractorProgressBar');
-        const percent = document.getElementById('progressPercent');
+        const btn = document.getElementById('btnImportMap');
+        if (!btn) return;
 
-        progressArea.style.display = 'block';
-        logArea.innerHTML = '';
-        bar.style.width = '0%';
-        percent.textContent = '0%';
-        document.getElementById('extractorResult').style.display = 'none';
-        document.getElementById('extractorSelectionPrompt').style.display = 'none';
-        this.pendingSelections = [];
-        this.lastExtractedFile = null;
+        const inferredName = this.lastExtractedFile
+            .split(/[\\/]/)
+            .pop()
+            ?.replace(/\.[^.]+$/, '')
+            ?.replace(/[_-]+/g, ' ')
+            ?.replace(/\b\w/g, (char) => char.toUpperCase()) || 'Imported Map';
+        const desiredName = await this.requestMapName(inferredName);
+        if (!desiredName) return;
 
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="lucide-refresh-cw" style="animation: spin 1s linear infinite; width:14px; height:14px;"></i> Importing...';
+        
         try {
-            const result = await this.service.executeExtraction(searchTerm);
-
-            const resultArea = document.getElementById('extractorResult');
-            resultArea.style.display = 'block';
-            resultArea.className = 'extractor-result ' + (result.status === 'manual' ? 'manual' : 'success');
-
-            const importBtn = document.getElementById('btnImportMap');
-            progressArea.style.display = 'none';
-
-            if (result.status === 'manual') {
-                document.getElementById('resultMessage').textContent = result.message;
-                document.getElementById('resultCommand').textContent = result.command;
-                document.querySelector('.result-hint').style.display = 'block';
-                importBtn.style.display = 'none';
-            } else {
-                document.getElementById('resultMessage').innerHTML = '<strong>Success!</strong> Extraction completed.';
-                document.getElementById('resultCommand').textContent = result.command;
-                document.querySelector('.result-hint').style.display = 'none';
-
-                if (this.lastExtractedFile) {
-                    importBtn.style.display = 'flex';
-                    // Show "Open Folder" button
-                    let openBtn = document.getElementById('btnOpenOutputFolder');
-                    if (!openBtn) {
-                        const btnHtml = `
-                            <button class="btn btn-secondary btn-large" id="btnOpenOutputFolder" style="width: 100%; margin-bottom: 10px;">
-                                <i data-lucide="folder-open"></i> Open Output Folder
-                            </button>
-                         `;
-                        importBtn.insertAdjacentHTML('afterend', btnHtml);
-                        openBtn = document.getElementById('btnOpenOutputFolder');
-                        openBtn.addEventListener('click', () => {
-                            if (this.lastExtractedFile && window.electronAPI && window.electronAPI.openPath) {
-                                // Extract directory from file path
-                                // Windows path separator handling
-                                const dir = this.lastExtractedFile.substring(0, this.lastExtractedFile.lastIndexOf('\\'));
-                                window.electronAPI.openPath(dir || this.lastExtractedFile);
-                            } else {
-                                alert("Unable to open folder. Please RESTART the application to apply the latest system updates.");
-                            }
-                        });
+            if (window.electronAPI && window.electronAPI.importMapAsset) {
+                const res = await window.electronAPI.importMapAsset(this.lastExtractedFile, desiredName);
+                
+                if (res.success) {
+                    // Update the global local maps list for the side-drawer UI
+                    if (window.LOCAL_MAPS) {
+                        window.LOCAL_MAPS.push({ name: res.friendlyName, file: res.fileName });
+                        if (this.app.mapBrowserUI?.renderLocalMapList) {
+                            this.app.mapBrowserUI.renderLocalMapList(window.LOCAL_MAPS);
+                        }
                     }
-                    if (window.lucide) lucide.createIcons();
+                    
+                    // Tell the Canvas renderer to switch to the natively stored map
+                    this.app.fileHandler.loadLocalMapImage(res.fileName, false);
+                    
+                    btn.innerHTML = '<i data-lucide="check"></i> Imported!';
                 } else {
-                    importBtn.style.display = 'none';
-                    const openBtn = document.getElementById('btnOpenOutputFolder');
-                    if (openBtn) openBtn.remove();
+                    throw new Error(res.error);
                 }
-            }
-        } catch (err) {
-            document.getElementById('resultMessage').innerHTML = `<strong>Error:</strong> ${err.message}`;
-            document.getElementById('extractorResult').style.display = 'block';
-            progressArea.style.display = 'none';
-        }
-    }
-
-    async handleCopy() {
-        const cmd = document.getElementById('resultCommand').textContent;
-        try {
-            if (window.electronAPI && window.electronAPI.writeClipboard) {
-                await window.electronAPI.writeClipboard(cmd);
             } else {
-                await navigator.clipboard.writeText(cmd);
+                // Fallback for browsers or missing IPC bridge
+                this.app.fileHandler.loadLocalMapImage(this.lastExtractedFile, true);
+                btn.innerHTML = '<i data-lucide="check"></i> Displayed Temporarily';
             }
-
-            const btn = document.getElementById('btnCopyCommand');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i data-lucide="check"></i> Copied!';
-            if (window.lucide) lucide.createIcons();
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                if (window.lucide) lucide.createIcons();
-            }, 2000);
-        } catch (err) {
-            console.error('Copy failed', err);
-            alert('Failed to copy to clipboard');
+            
+            this.hide(); // Close the modal upon success
+        } catch (e) {
+            console.error('Import failed', e);
+            this.showToast(`Could not import: ${e.message}`, 'error');
+            btn.innerHTML = origHtml;
         }
-    }
 
-    handleImport() {
-        if (this.lastExtractedFile) {
-            this.app.fileHandler.loadLocalMapImage(this.lastExtractedFile, true);
-            this.hide();
-        }
+        if (window.lucide) lucide.createIcons();
     }
 }
 

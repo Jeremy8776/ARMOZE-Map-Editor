@@ -1,45 +1,35 @@
 /**
  * Arma Reforger Map Overlay Zone Editor
  * Main Application Logic - Orchestrator
- * 
- * This is the main entry point that coordinates all modules.
- * Heavy functionality has been extracted to:
- * - TabManager (js/ui/tab-manager.js)
- * - ZoneListUI (js/ui/zone-list-ui.js)
- * - ZonePropertiesUI (js/ui/zone-properties-ui.js)
- * - HistoryManager (js/services/history-manager.js)
- * - ProjectManager (js/services/project-manager.js)
- * - CalibrationService (js/services/calibration-service.js)
- * - FileHandler (js/services/file-handler.js)
  */
 
 class ZoneEditorApp {
     constructor() {
-        // DOM Elements
-        this.elements = {
-            // Canvas
+        this.elements = this.getElements();
+        this.initCore();
+        this.initServices();
+        this.initUI();
+        
+        this.selectedZoneIds = []; // For multi-select
+        this.zoomTimeout = null;
+        this.init();
+    }
+
+    getElements() {
+        return {
             canvasContainer: document.getElementById('canvasContainer'),
             canvas: document.getElementById('mapCanvas'),
             uploadPrompt: document.getElementById('uploadPrompt'),
-
-            // File upload
             btnUpload: document.getElementById('btnUpload'),
             fileInput: document.getElementById('fileInput'),
             localMapList: document.getElementById('localMapList'),
-
-            // Tabs
             tabBar: document.getElementById('tabBar'),
-
-            // Header
             coordX: document.getElementById('coordX'),
             coordY: document.getElementById('coordY'),
             mapInfo: document.getElementById('mapInfo'),
             zoomIndicator: document.getElementById('zoomIndicator'),
-
-            // Actions
             btnUndo: document.getElementById('btnUndo'),
             btnRedo: document.getElementById('btnRedo'),
-
             btnSaveProject: document.getElementById('btnSaveProject'),
             btnLoadProject: document.getElementById('btnLoadProject'),
             projectInput: document.getElementById('projectInput'),
@@ -47,33 +37,12 @@ class ZoneEditorApp {
             btnZoomIn: document.getElementById('btnZoomIn'),
             btnZoomOut: document.getElementById('btnZoomOut'),
             btnFitView: document.getElementById('btnFitView'),
-
-            // Zone panel
             zoneCount: document.getElementById('zoneCount'),
             zoneList: document.getElementById('zoneList'),
-            zonePropertiesSection: document.getElementById('zonePropertiesSection'),
-
-            // Zone properties
-            zoneName: document.getElementById('zoneName'),
-            zoneType: document.getElementById('zoneType'),
-            zoneStyle: document.getElementById('zoneStyle'),
-            zoneFillPattern: document.getElementById('zoneFillPattern'),
-            zoneColor: document.getElementById('zoneColor'),
-            zoneOpacity: document.getElementById('zoneOpacity'),
-            opacityValue: document.getElementById('opacityValue'),
             zoneCoords: document.getElementById('zoneCoords'),
-            btnDeleteZone: document.getElementById('btnDeleteZone'),
-
-            // Label styling
-            showLabel: document.getElementById('showLabel'),
-            labelColor: document.getElementById('labelColor'),
-            labelBgColor: document.getElementById('labelBgColor'),
-            labelBgOpacity: document.getElementById('labelBgOpacity'),
-            labelBgOpacityValue: document.getElementById('labelBgOpacityValue'),
-            labelSize: document.getElementById('labelSize'),
-            labelShadow: document.getElementById('labelShadow'),
-
-            // Export modal
+            layersSection: document.getElementById('layersSection'),
+            zoneDataSection: document.getElementById('zoneDataSection'),
+            zonePanelResizer: document.getElementById('zonePanelResizer'),
             exportModal: document.getElementById('exportModal'),
             btnCloseExport: document.getElementById('btnCloseExport'),
             btnCancelExport: document.getElementById('btnCancelExport'),
@@ -81,22 +50,24 @@ class ZoneEditorApp {
             mapScale: document.getElementById('mapScale'),
             originX: document.getElementById('originX'),
             originY: document.getElementById('originY'),
-
-            // Enfusion texture settings
             textureSuffix: document.getElementById('textureSuffix'),
             resizePow2: document.getElementById('resizePow2'),
             baseName: document.getElementById('baseName'),
             btnToggleSnap: document.getElementById('btnToggleSnap'),
-            invertY: document.getElementById('invertY')
+            invertY: document.getElementById('invertY'),
+            toolbar: document.querySelector('.toolbar')
         };
+    }
 
-        // Initialize Core Modules
+    initCore() {
         this.core = new CanvasCore(this.elements.canvas, this.elements.canvasContainer);
-
-        // Initialize Zone Manager
         this.zoneManager = new ZoneManager(() => this.requestRender());
+        this.toolManager = new ToolManager(this.core, this.zoneManager);
+        this.eventHandler = new EventHandler(this.core, this.toolManager, this.zoneManager);
+        this.renderer = new ZoneRenderer(this.core, this.zoneManager);
+    }
 
-        // Initialize History Manager
+    initServices() {
         this.historyManager = new HistoryManager(
             () => this.zoneManager.getZones(),
             (zones) => {
@@ -109,48 +80,43 @@ class ZoneEditorApp {
         );
         this.historyManager.onHistoryChanged = () => this.updateUI();
 
-        // Initialize Tools & Events
-        this.toolManager = new ToolManager(this.core, this.zoneManager);
-        this.eventHandler = new EventHandler(this.core, this.toolManager, this.zoneManager);
-
-        // Initialize Renderer
-        this.renderer = new ZoneRenderer(this.core, this.zoneManager);
-
-        // Initialize Export Handler
+        this.projectManager = new ProjectManager(this);
+        this.fileHandler = new FileHandler(this);
         this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer);
+        this.calibrationService = new CalibrationService(this);
+        this.extractorService = new MapExtractorService(this);
+        this.notificationService = new NotificationService(this);
+        this.hotkeyManager = new HotkeyManager(this);
+    }
 
-        // Initialize UI Modules
+    initUI() {
         this.tabManager = new TabManager(this);
         this.zoneListUI = new ZoneListUI(this);
         this.zonePropertiesUI = new ZonePropertiesUI(this);
-
-        // Initialize Service Modules
-        this.projectManager = new ProjectManager(this);
-        this.fileHandler = new FileHandler(this);
-        this.calibrationService = new CalibrationService(this);
-        this.extractorService = new MapExtractorService(this);
+        this.toolbarUI = new ToolbarUI(this, this.elements.toolbar);
+        this.mapBrowserUI = new MapBrowserUI(this);
         this.extractorUI = new MapExtractorUI(this);
-
-        // State
-        this.selectedZoneIds = []; // For multi-select
-        this.zoomTimeout = null;
-
-        this.init();
+        this.contextMenu = new ContextMenu(this);
     }
 
     init() {
-        // Initialize Context Menu
-        this.contextMenu = new ContextMenu(this);
-
-        // Initialize UI modules
         this.tabManager.init(this.elements.tabBar);
         this.zoneListUI.init({
             zoneCount: this.elements.zoneCount,
-            zoneList: this.elements.zoneList
+            zoneList: this.elements.zoneList,
+            zoneCoords: this.elements.zoneCoords,
+            layersSection: this.elements.layersSection,
+            zoneDataSection: this.elements.zoneDataSection,
+            zonePanelResizer: this.elements.zonePanelResizer
         });
-        this.zonePropertiesUI.init(this.elements);
-
-        // Initialize Calibration
+        this.zonePropertiesUI.init({
+            floatingControls: document.getElementById('floatingZoneControls'),
+            floatingZoneName: document.getElementById('floatingZoneName'),
+            floatingColorQuick: document.getElementById('floatingColorQuick'),
+            btnFloatDuplicate: document.getElementById('btnFloatDuplicate'),
+            btnFloatDelete: document.getElementById('btnFloatDelete'),
+            btnFloatClose: document.getElementById('btnFloatClose')
+        });
         this.calibrationService.init({
             calibrationModal: document.getElementById('calibrationModal'),
             btnOpenCalibration: document.getElementById('btnOpenCalibration'),
@@ -168,41 +134,38 @@ class ZoneEditorApp {
             pt2WorldX: document.getElementById('pt2WorldX'),
             pt2WorldY: document.getElementById('pt2WorldY')
         });
-
-        // Initialize Extractor
         this.extractorService.init();
         this.extractorUI.init();
-
+        this.mapBrowserUI.init(this.elements.localMapList);
+        this.toolbarUI.init();
+        this.toolManager.setTool('select');
+        this.toolbarUI.setActiveTool('select');
+        this.hotkeyManager.init();
 
         this.initializeVersion();
         this.setupEventListeners();
         this.setupCallbacks();
         this.fileHandler.setupDragAndDrop(this.elements.canvasContainer, this.elements.uploadPrompt);
-        this.loadLocalMaps();
         this.updateUI();
 
         // Check for map parameter in URL
         const urlParams = new URLSearchParams(window.location.search);
         const mapName = urlParams.get('map');
-        if (mapName) {
-            this.fileHandler.loadLocalMapImage(mapName);
-        } else {
-            const mapUrl = urlParams.get('mapurl');
-            if (mapUrl) this.fileHandler.loadLocalMapImage(mapUrl, true);
-        }
+        if (mapName) this.fileHandler.loadLocalMapImage(mapName);
+        
+        this.setupWindowState();
+    }
 
-        // --- Window State Handling for UI ---
+    setupWindowState() {
         if (window.electronAPI && window.electronAPI.onWindowState) {
             window.electronAPI.onWindowState((state) => {
-                const app = document.getElementById('app');
-                if (state === 'maximized') {
-                    app.classList.add('is-maximized');
-                } else {
-                    app.classList.remove('is-maximized');
-                }
+                document.getElementById('app').classList.toggle('is-maximized', state === 'maximized');
             });
-            // Initial check: if we started maximized (which Main does), force the state
             document.getElementById('app').classList.add('is-maximized');
+
+            if (window.electronAPI.onUpdateAvailable) {
+                window.electronAPI.onUpdateAvailable((data) => this.notificationService.showUpdateNotification(data));
+            }
         }
     }
 
@@ -214,103 +177,17 @@ class ZoneEditorApp {
         }
     }
 
-    /**
-     * Load local maps from Maps/maps.js
-     */
-    async loadLocalMaps() {
-        if (!this.elements.localMapList) return;
-
-        try {
-            // Re-read from script if possible (needs reload in real world, but okay here)
-            // Ideally we'd re-fetch maps.js but it's a script tag.
-            // For now, rely on existing window.LOCAL_MAPS being up to date or updated via electron.
-
-            // In Electron context, we might listen for updates or re-scan.
-            // For now, just render whatever is in window.LOCAL_MAPS
-            const maps = window.LOCAL_MAPS || [];
-            this.renderLocalMapList(maps);
-
-        } catch (err) {
-            console.warn('Could not load local maps:', err);
-            if (this.elements.localMapList)
-                this.elements.localMapList.innerHTML = '<div style="grid-column: span 2; text-align: center; font-size: 12px; color: var(--color-text-muted);">Error loading maps</div>';
-        }
-    }
-
-    renderLocalMapList(maps) {
-        const list = this.elements.localMapList;
-        list.innerHTML = '';
-
-        if (!maps || maps.length === 0) {
-            list.innerHTML = '<div style="grid-column: span 2; text-align: center; font-size: 12px; color: var(--color-text-muted);">No maps found in Maps/maps.js</div>';
-            return;
-        }
-
-        maps.forEach(mapData => {
-            const fileName = typeof mapData === 'string' ? mapData : mapData.file;
-            const displayName = typeof mapData === 'string' ? mapData : mapData.name;
-            const fileUrl = `Maps/${fileName}`;
-
-            const item = document.createElement('div');
-            item.className = 'map-list-item';
-            item.title = displayName;
-
-            const thumb = document.createElement('img');
-            thumb.className = 'map-thumbnail';
-            thumb.src = fileUrl;
-            thumb.loading = 'lazy';
-            // Handle broken images
-            thumb.onerror = () => { thumb.src = 'data:image/svg+xml,...'; }; // Placeholder?
-
-            const infoRow = document.createElement('div');
-            infoRow.className = 'map-info-row';
-
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'map-name';
-            nameSpan.textContent = displayName;
-
-            const actions = document.createElement('div');
-            actions.className = 'map-actions';
-
-            const btnNewTab = document.createElement('div');
-            btnNewTab.className = 'action-icon';
-            btnNewTab.title = 'Open in New Tab';
-            btnNewTab.innerHTML = '<i data-lucide="external-link" style="width:14px; height:14px;"></i>';
-            btnNewTab.onclick = (e) => {
-                e.stopPropagation();
-                const url = new URL(window.location.href);
-                url.searchParams.set('map', fileName);
-                window.open(url.toString(), '_blank');
-            };
-
-            actions.appendChild(btnNewTab);
-            infoRow.appendChild(nameSpan);
-            infoRow.appendChild(actions);
-            item.appendChild(thumb);
-            item.appendChild(infoRow);
-
-            item.addEventListener('click', () => this.fileHandler.loadLocalMapImage(fileName));
-            list.appendChild(item);
-        });
-
-        if (window.lucide) lucide.createIcons();
-    }
-
-    /**
-     * Called when a map image is loaded
-     */
     onMapLoaded(image, filename) {
         this.tabManager.createTab(filename, image);
     }
 
     setupCallbacks() {
-        // Connect shared render loop
         this.core.onRender = () => this.render();
-
-        // Zone events
         this.zoneManager.onZoneCreated = (zone) => {
             this.historyManager.saveHistory();
             this.zoneListUI.updateZoneList();
+            this.toolbarUI.setActiveTool('select');
+            this.toolManager.setTool('select');
             this.updateUI();
         };
 
@@ -319,37 +196,33 @@ class ZoneEditorApp {
             this.zoneListUI.updateZoneListSelection();
         };
 
-        this.zoneManager.onZoneUpdated = (zone) => {
+        this.zoneManager.onZoneUpdated = (zone, options = {}) => {
+            this.zonePropertiesUI?.updateZoneDataReadout(zone);
+
+            if (options.live) {
+                return;
+            }
+
             this.zoneListUI.updateZoneList();
         };
-
-        this.zoneManager.onZoneDeleted = (id) => {
+        this.zoneManager.onZoneDeleted = () => {
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
 
-        // Select tool - save history after dragging
         if (this.toolManager.tools.select) {
-            this.toolManager.tools.select.onDragComplete = () => {
-                this.historyManager.saveHistory();
-            };
+            this.toolManager.tools.select.onDragComplete = () => this.historyManager.saveHistory();
         }
 
-        // Canvas right-click context menu
         this.elements.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const pos = this.core.getMousePos(e);
             const mapPos = this.core.screenToMap(pos.x, pos.y);
             const zone = this.zoneManager.findZoneAtPoint(mapPos, this.core.zoom);
-
-            if (zone) {
-                this.zoneManager.selectZone(zone.id);
-            }
-
+            if (zone) this.zoneManager.selectZone(zone.id);
             this.contextMenu.showForCanvas(e, zone);
         });
 
-        // Core events
         this.core.onCoordsChanged = (x, y) => {
             this.elements.coordX.textContent = Utils.formatCoord(x);
             this.elements.coordY.textContent = Utils.formatCoord(y);
@@ -358,149 +231,81 @@ class ZoneEditorApp {
         this.core.onZoomChanged = (zoomPercent) => {
             this.elements.zoomIndicator.textContent = zoomPercent + '%';
             this.elements.zoomIndicator.classList.add('visible');
-
             clearTimeout(this.zoomTimeout);
-            this.zoomTimeout = setTimeout(() => {
-                this.elements.zoomIndicator.classList.remove('visible');
-            }, 1500);
+            this.zoomTimeout = setTimeout(() => this.elements.zoomIndicator.classList.remove('visible'), 1500);
         };
     }
 
-    requestRender() {
-        this.core.requestRender();
-    }
+    requestRender() { this.core.requestRender(); }
 
     render() {
         if (this.core.renderBase()) {
             this.renderer.drawZones();
             this.renderer.drawSelection();
-
-            // Draw tool preview
             const toolState = this.toolManager.getCurrentDrawState();
+            this.renderer.drawSnapPreview(toolState.snapPreview);
             this.renderer.drawCurrentShape(
                 toolState.toolName,
                 toolState.points,
                 toolState.tempShape || { closeLoopHover: toolState.closeLoopHover },
                 this.core.snapToGrid(this.eventHandler.lastMousePos || { x: 0, y: 0 })
             );
+            if (this.zonePropertiesUI) this.zonePropertiesUI.updateFloatingPosition();
         }
     }
 
     setupEventListeners() {
-        // File upload
         this.elements.btnUpload.addEventListener('click', () => this.elements.fileInput.click());
         this.elements.fileInput.addEventListener('change', (e) => this.fileHandler.handleFileSelect(e));
 
-        // Tool buttons
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.toolManager.setTool(btn.dataset.tool);
+                const toolName = btn.dataset.tool;
+                this.toolManager.setTool(toolName);
+                this.toolbarUI?.setActiveTool(toolName);
             });
         });
 
-        // View controls
         this.elements.btnZoomIn.addEventListener('click', () => this.core.setZoom(0.2));
         this.elements.btnZoomOut.addEventListener('click', () => this.core.setZoom(-0.2));
         this.elements.btnFitView.addEventListener('click', () => this.core.fitToView());
 
-        // Snap toggle
         this.elements.btnToggleSnap.addEventListener('click', () => {
             const enabled = this.core.toggleSnap();
             this.elements.btnToggleSnap.classList.toggle('active', enabled);
         });
 
-        // Undo/Redo
         this.elements.btnUndo.addEventListener('click', () => this.historyManager.undo());
         this.elements.btnRedo.addEventListener('click', () => this.historyManager.redo());
 
-        // Project Management
         this.elements.btnSaveProject.addEventListener('click', () => this.projectManager.saveProject());
         this.elements.btnLoadProject.addEventListener('click', () => this.elements.projectInput.click());
         this.elements.projectInput.addEventListener('change', (e) => this.projectManager.handleProjectLoad(e));
 
-        // Export
         this.elements.btnExport.addEventListener('click', () => this.showExportModal());
         this.elements.btnCloseExport.addEventListener('click', () => this.hideExportModal());
         this.elements.btnCancelExport.addEventListener('click', () => this.hideExportModal());
         this.elements.btnConfirmExport.addEventListener('click', () => this.handleExport());
 
-        // Close modal on backdrop click
         this.elements.exportModal.addEventListener('click', (e) => {
-            if (e.target === this.elements.exportModal) {
-                this.hideExportModal();
-            }
+            if (e.target === this.elements.exportModal) this.hideExportModal();
         });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboardShortcut(e));
     }
-
-    /**
-     * Handle keyboard shortcuts
-     */
-    handleKeyboardShortcut(e) {
-        const activeElement = document.activeElement;
-        const isTyping = activeElement && (
-            activeElement.tagName === 'INPUT' ||
-            activeElement.tagName === 'TEXTAREA' ||
-            activeElement.isContentEditable
-        );
-
-        if (isTyping) return;
-
-        if (e.ctrlKey || e.metaKey) {
-            // Let context menu handle copy/paste/duplicate
-            if (this.contextMenu && this.contextMenu.handleKeyboard(e)) {
-                return;
-            }
-
-            if (e.key === 'z') {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    this.historyManager.redo();
-                } else {
-                    this.historyManager.undo();
-                }
-            } else if (e.key === 'y') {
-                e.preventDefault();
-                this.historyManager.redo();
-            } else if (e.key === 'e') {
-                e.preventDefault();
-                this.showExportModal();
-            } else if (e.key === 'T' && e.shiftKey) {
-                e.preventDefault();
-                this.extractorUI.show();
-            }
-        }
-    }
-
-    // ========================================
-    // UPLOAD SCREEN
-    // ========================================
 
     showUploadScreen(keepTabs = false) {
-        if (!keepTabs) {
-            this.elements.tabBar.innerHTML = '';
-        }
-
+        if (!keepTabs) this.elements.tabBar.innerHTML = '';
         this.elements.uploadPrompt.style.display = 'flex';
         this.elements.canvas.classList.remove('visible');
         this.elements.mapInfo.textContent = "No map loaded";
     }
 
-    // ========================================
-    // EXPORT
-    // ========================================
-
-    showExportModal() {
-        this.elements.exportModal.classList.add('visible');
+    openDocumentation() {
+        const docsUrl = new URL('docs.html', window.location.href).toString();
+        window.location.href = docsUrl;
     }
 
-    hideExportModal() {
-        this.elements.exportModal.classList.remove('visible');
-    }
+    showExportModal() { this.elements.exportModal.classList.add('visible'); }
+    hideExportModal() { this.elements.exportModal.classList.remove('visible'); }
 
     handleExport() {
         const format = document.querySelector('input[name="exportFormat"]:checked').value;
@@ -509,30 +314,31 @@ class ZoneEditorApp {
             originX: parseFloat(this.elements.originX.value) || 0,
             originY: parseFloat(this.elements.originY.value) || 0,
             invertY: this.elements.invertY.checked,
-            textureSuffix: this.elements.textureSuffix.value || '_A',
-            resizeToPow2: this.elements.resizePow2.checked,
-            baseName: this.elements.baseName.value || 'zone_overlay'
+            textureSuffix: this.elements.textureSuffix?.value || Constants.DEFAULT_TEXTURE_SUFFIX,
+            resizeToPow2: this.elements.resizePow2?.checked ?? true,
+            baseName: this.elements.baseName?.value || Constants.DEFAULT_EXPORT_FILENAME
         };
-
         this.exportHandler.export(format, settings);
         this.hideExportModal();
     }
 
-    // ========================================
-    // UI HELPERS
-    // ========================================
-
     updateUI() {
-        const zones = this.zoneManager.getZones();
-
-        // Update button states
         this.elements.btnUndo.disabled = !this.historyManager.canUndo();
         this.elements.btnRedo.disabled = !this.historyManager.canRedo();
-        this.elements.btnExport.disabled = zones.length === 0;
+        this.elements.btnExport.disabled = this.zoneManager.getZones().length === 0;
+    }
+
+    duplicateSelectedZone() {
+        const zone = this.zoneManager.getSelectedZone();
+        if (!zone) return;
+        this.historyManager.saveHistory();
+        const newZoneData = Utils.deepClone(zone);
+        Utils.offsetZone(newZoneData, 20);
+        delete newZoneData.id;
+        const newZone = this.zoneManager.createZone(zone.shape, newZoneData);
+        this.zoneManager.selectZone(newZone.id);
+        this.updateUI();
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new ZoneEditorApp();
-});
+document.addEventListener('DOMContentLoaded', () => { window.app = new ZoneEditorApp(); });

@@ -22,20 +22,20 @@ class ToolManager {
     }
 
     setTool(toolName) {
-        if (this.tools[toolName]) {
-            this.currentTool = toolName;
+        if (toolName !== 'pan' && !this.tools[toolName]) return;
 
-            // Update UI cursor
-            this.core.container.className = 'canvas-container tool-' + toolName;
+        this.currentTool = toolName;
 
-            // Reset state
-            this.cancelOperation();
-            this.core.requestRender();
-        }
+        // Update UI cursor
+        this.core.container.className = 'canvas-container tool-' + toolName;
+
+        // Reset state
+        this.cancelOperation();
+        this.core.requestRender();
     }
 
     getActiveTool() {
-        return this.tools[this.currentTool];
+        return this.tools[this.currentTool] || null;
     }
 
     handleDown(mapPos, e) {
@@ -79,9 +79,10 @@ class ToolManager {
         const tool = this.getActiveTool();
         return {
             toolName: this.currentTool,
-            points: tool.drawingPoints || [],
-            tempShape: tool.tempShape || null,
-            closeLoopHover: tool.closeLoopHover || false
+            points: tool?.drawingPoints || [],
+            tempShape: tool?.tempShape || null,
+            closeLoopHover: tool?.closeLoopHover || false,
+            snapPreview: tool?.snapPreview || null
         };
     }
 }

@@ -19,25 +19,31 @@ class CalibrationService {
      * @param {Object} elements - DOM elements for calibration
      */
     init(elements) {
+        const refs = elements || {};
         this.elements = {
-            modal: elements.calibrationModal,
-            btnOpen: elements.btnOpenCalibration,
-            btnClose: elements.btnCloseCalibration,
-            btnCancel: elements.btnCancelCalibration,
-            btnApply: elements.btnApplyCalibration,
-            step1: elements.calStep1,
-            step2: elements.calStep2,
-            btnPick1: elements.btnPickPoint1,
-            btnPick2: elements.btnPickPoint2,
-            pt1Params: elements.pt1Params,
-            pt2Params: elements.pt2Params,
+            modal: refs.calibrationModal || document.getElementById('calibrationModal'),
+            btnOpen: refs.btnOpenCalibration || document.getElementById('btnOpenCalibration'),
+            btnClose: refs.btnCloseCalibration || document.getElementById('btnCloseCalibration'),
+            btnCancel: refs.btnCancelCalibration || document.getElementById('btnCancelCalibration'),
+            btnApply: refs.btnApplyCalibration || document.getElementById('btnApplyCalibration'),
+            step1: refs.calStep1 || document.getElementById('calStep1'),
+            step2: refs.calStep2 || document.getElementById('calStep2'),
+            btnPick1: refs.btnPickPoint1 || document.getElementById('btnPickPoint1'),
+            btnPick2: refs.btnPickPoint2 || document.getElementById('btnPickPoint2'),
+            pt1Params: refs.pt1Params || document.getElementById('pt1Params'),
+            pt2Params: refs.pt2Params || document.getElementById('pt2Params'),
             inputs: {
-                p1x: elements.pt1WorldX,
-                p1y: elements.pt1WorldY,
-                p2x: elements.pt2WorldX,
-                p2y: elements.pt2WorldY
+                p1x: refs.pt1WorldX || document.getElementById('pt1WorldX'),
+                p1y: refs.pt1WorldY || document.getElementById('pt1WorldY'),
+                p2x: refs.pt2WorldX || document.getElementById('pt2WorldX'),
+                p2y: refs.pt2WorldY || document.getElementById('pt2WorldY')
             }
         };
+
+        if (!this.elements.modal || !this.elements.btnOpen || !this.elements.btnApply) {
+            console.warn('CalibrationService init skipped: calibration DOM is incomplete.');
+            return;
+        }
 
         this.setupEventListeners();
     }

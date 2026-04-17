@@ -220,12 +220,16 @@ class ContextMenu {
         const zone = this.app.zoneManager.getZone(zoneId);
         if (!zone) return;
 
-        const newName = prompt('Enter new zone name:', zone.name);
-        if (newName && newName.trim()) {
+        const propertiesUI = this.app.zonePropertiesUI;
+        if (!propertiesUI?.showNamePrompt) return;
+
+        this.app.zoneManager.selectZone(zoneId);
+        propertiesUI.showZoneProperties(zone);
+        propertiesUI.showNamePrompt('Rename Zone', zone.name, (newName) => {
             this.app.historyManager.saveHistory();
             this.app.zoneManager.updateZone(zoneId, { name: newName.trim() });
             this.app.zoneListUI.updateZoneList();
-        }
+        });
     }
 
     duplicateZone(zoneId) {
@@ -283,7 +287,7 @@ class ContextMenu {
     deleteZone(zoneId) {
         this.app.historyManager.saveHistory();
         this.app.zoneManager.deleteZone(zoneId);
-        this.app.elements.zonePropertiesSection.style.display = 'none';
+        this.app.zonePropertiesUI?.hideFloatingControls();
         this.app.zoneListUI.updateZoneList();
         this.app.updateUI();
     }

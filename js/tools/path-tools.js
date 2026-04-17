@@ -91,19 +91,21 @@ class FreehandTool {
     }
 
     onDown(mapPos) {
+        const pos = this.core.snapToGrid(mapPos);
         this.isDrawing = true;
-        this.drawingPoints = [mapPos];
+        this.drawingPoints = [pos];
     }
 
     onMove(mapPos) {
         if (!this.isDrawing) return;
+        const pos = this.core.snapToGrid(mapPos);
 
         // Add point if it's far enough from the last point (reduces jitter)
         const lastPoint = this.drawingPoints[this.drawingPoints.length - 1];
         const minDistance = 3 / this.core.zoom; // Minimum distance between points
 
-        if (Utils.distance(lastPoint, mapPos) >= minDistance) {
-            this.drawingPoints.push(mapPos);
+        if (Utils.distance(lastPoint, pos) >= minDistance) {
+            this.drawingPoints.push(pos);
         }
         this.core.requestRender();
     }

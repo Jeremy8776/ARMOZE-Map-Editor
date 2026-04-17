@@ -1,148 +1,245 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation - ARMOZE</title>
+    <title>ARMOZE Documentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <style>
-        .docs-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
+        .docs-shell {
+            height: calc(100vh - 64px);
             overflow-y: auto;
-            height: calc(100vh - 56px);
+            padding: 28px 24px 40px;
+        }
+
+        .docs-container {
+            max-width: 1040px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .docs-hero,
+        .docs-section {
+            background: rgba(8, 10, 14, 0.72);
+            backdrop-filter: blur(28px) saturate(175%);
+            -webkit-backdrop-filter: blur(28px) saturate(175%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 22px;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+        }
+
+        .docs-hero {
+            padding: 28px;
         }
 
         .docs-section {
-            margin-bottom: 60px;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            padding: 30px;
+            padding: 24px 28px;
         }
 
-        .docs-title {
-            font-size: 32px;
-            margin-bottom: 20px;
-            color: var(--color-accent);
-            border-bottom: 2px solid var(--color-border);
-            padding-bottom: 10px;
-        }
-
-        .docs-h2 {
-            font-size: 24px;
-            color: var(--color-text-primary);
-            margin: 30px 0 15px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .docs-h3 {
-            font-size: 18px;
-            color: var(--color-text-secondary);
-            margin: 20px 0 10px 0;
-            font-weight: 600;
-        }
-
-        .docs-p {
-            color: #b0b5be;
-            line-height: 1.6;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-
-        .docs-list {
-            list-style: none;
-            margin-bottom: 20px;
-        }
-
-        .docs-list li {
-            position: relative;
-            padding-left: 20px;
-            margin-bottom: 8px;
-            color: #b0b5be;
-        }
-
-        .docs-list li::before {
-            content: "•";
-            color: var(--color-accent);
-            position: absolute;
-            left: 0;
-            font-weight: bold;
-        }
-
-        .key-badge {
-            display: inline-block;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--color-accent);
-            margin: 0 4px;
-        }
-
-        .code-block {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--color-border);
-            font-family: var(--font-mono);
-            font-size: 13px;
-            color: #d4d4d4;
-            overflow-x: auto;
-            margin: 15px 0;
-        }
-
-        .img-placeholder {
-            width: 100%;
-            height: 200px;
-            background: var(--color-bg-tertiary);
-            border: 1px dashed var(--color-border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--color-text-muted);
-            margin: 20px 0;
-            border-radius: var(--radius-md);
-        }
-
-        .back-link {
+        .docs-kicker {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            color: var(--color-text-secondary);
-            text-decoration: none;
-            margin-bottom: 20px;
-            font-weight: 500;
-            transition: color 0.2s;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--color-accent-rgb), 0.22);
+            background: rgba(var(--color-accent-rgb), 0.08);
+            color: var(--color-accent);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
         }
 
-        .back-link:hover {
+        .docs-title {
+            font-size: 36px;
+            line-height: 1.05;
+            margin-bottom: 12px;
+            color: var(--color-text-primary);
+        }
+
+        .docs-lead {
+            max-width: 760px;
+            font-size: 16px;
+            line-height: 1.75;
+            color: rgba(255, 255, 255, 0.72);
+            margin-bottom: 18px;
+        }
+
+        .docs-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .docs-anchor {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.035);
+            color: rgba(255, 255, 255, 0.78);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .docs-anchor:hover {
+            border-color: rgba(var(--color-accent-rgb), 0.3);
+            background: rgba(var(--color-accent-rgb), 0.08);
             color: var(--color-accent);
+        }
+
+        .docs-section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            margin-bottom: 12px;
+            color: var(--color-text-primary);
+        }
+
+        .docs-section-title svg,
+        .docs-subtitle svg {
+            color: var(--color-accent);
+        }
+
+        .docs-copy {
+            color: rgba(255, 255, 255, 0.72);
+            line-height: 1.75;
+            margin-bottom: 14px;
+            font-size: 15px;
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .docs-card {
+            padding: 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .docs-card h3,
+        .docs-subtitle {
+            font-size: 16px;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .docs-card p {
+            color: rgba(255, 255, 255, 0.66);
+            line-height: 1.65;
+            font-size: 14px;
+        }
+
+        .docs-list {
+            margin: 10px 0 0;
+            padding-left: 18px;
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .docs-list li {
+            margin-bottom: 8px;
+            line-height: 1.65;
+        }
+
+        .docs-table-wrap {
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+
+        .docs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .docs-table th,
+        .docs-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .docs-table th {
+            color: rgba(255, 255, 255, 0.48);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .docs-table td {
+            color: rgba(255, 255, 255, 0.74);
+        }
+
+        .key-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            padding: 3px 8px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--color-accent);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            margin-right: 4px;
+        }
+
+        .docs-note {
+            margin-top: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(var(--color-accent-rgb), 0.08);
+            border: 1px solid rgba(var(--color-accent-rgb), 0.16);
+            color: rgba(255, 255, 255, 0.78);
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .docs-shell {
+                padding: 18px 14px 24px;
+            }
+
+            .docs-hero,
+            .docs-section {
+                padding: 18px;
+            }
+
+            .docs-title {
+                font-size: 28px;
+            }
         }
     </style>
 </head>
-
 <body>
     <div id="app">
-        <!-- Header -->
         <header class="header">
             <div class="header-brand">
                 <a href="index.html" class="logo">
-                    <img src="logo-icon.svg" alt="ARMOZE" />
+                    <img src="logo-icon.svg" alt="ARMOZE">
                 </a>
                 <h1>Documentation</h1>
-                <span class="version">v1.3.2</span>
+                <span class="version">v1.5.0 - MODULAR</span>
             </div>
             <div class="header-actions">
                 <a href="index.html" class="btn btn-primary">
@@ -152,139 +249,246 @@
             </div>
         </header>
 
-        <div class="docs-container">
-            <a href="index.html" class="back-link">
-                <i data-lucide="arrow-left"></i>
-                Back to Editor
-            </a>
+        <main class="docs-shell">
+            <div class="docs-container">
+                <section class="docs-hero">
+                    <div class="docs-kicker">
+                        <i data-lucide="book-open"></i>
+                        ARMOZE Desktop Guide
+                    </div>
+                    <h1 class="docs-title">Current workflow for maps, zones, styling, extraction, and export</h1>
+                    <p class="docs-lead">
+                        This documentation reflects the current Electron desktop app. Use it as the reference for the toolbar,
+                        map tabs, built-in extractor, floating zone styling panel, snapping, project save/load, and export flow.
+                    </p>
+                    <div class="docs-actions">
+                        <a class="docs-anchor" href="#quick-start"><i data-lucide="rocket"></i>Quick Start</a>
+                        <a class="docs-anchor" href="#tools"><i data-lucide="mouse-pointer-2"></i>Tools</a>
+                        <a class="docs-anchor" href="#styling"><i data-lucide="palette"></i>Zone Styling</a>
+                        <a class="docs-anchor" href="#extractor"><i data-lucide="package-search"></i>Extractor</a>
+                        <a class="docs-anchor" href="#export"><i data-lucide="download"></i>Export</a>
+                        <a class="docs-anchor" href="#shortcuts"><i data-lucide="keyboard"></i>Shortcuts</a>
+                    </div>
+                </section>
 
-            <!-- Getting Started -->
-            <div class="docs-section">
-                <h1 class="docs-title">Getting Started</h1>
-                <p class="docs-p">
-                    Welcome to the Arma Reforger Map Overlay Zone Editor. This tool allows you to design map zones (Safe
-                    Zones, PvP Zones, etc.) visually on top of your game map and export them directly to code or images
-                    for your server.
-                </p>
+                <section class="docs-section" id="quick-start">
+                    <h2 class="docs-section-title"><i data-lucide="rocket"></i>Quick Start</h2>
+                    <p class="docs-copy">
+                        ARMOZE is now packaged as an Electron app. Start it with <code class="key-badge">npm start</code>, then either
+                        drag a map image into the editor or select an installed local map from the landing screen.
+                    </p>
+                    <div class="docs-grid">
+                        <div class="docs-card">
+                            <h3>1. Open or import a map</h3>
+                            <p>Load a `.png`, `.jpg`, `.dds`, or `.edds` file, or pick a local map card from the built-in browser.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>2. Draw your zones</h3>
+                            <p>Use the left toolbar to create rectangles, circles, lines, polygons, or freehand boundaries.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>3. Style the selection</h3>
+                            <p>The floating properties panel lets you tune fill, border, pattern, label, and profile settings live.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>4. Export or save</h3>
+                            <p>Save the project as JSON, or export scripts and overlays for Workbench or downstream tools.</p>
+                        </div>
+                    </div>
+                    <div class="docs-note">
+                        Local map browsing, extractor output folder helpers, and map asset import are desktop-only conveniences.
+                        Core drawing and export logic still live in the renderer layer.
+                    </div>
+                </section>
 
-                <h2 class="docs-h2"><i data-lucide="map"></i> Loading Your Map</h2>
-                <div class="docs-list">
-                    <li>Export your map from the game or World Editor as an image (JPG, PNG) or texture (EDDS/DDS).</li>
-                    <li>Drag and drop the file onto the canvas area, or click the "Choose File" button.</li>
-                    <li>The editor will automatically center and fit your map image.</li>
-                </div>
+                <section class="docs-section" id="workspace">
+                    <h2 class="docs-section-title"><i data-lucide="layout-panel-left"></i>Workspace Model</h2>
+                    <p class="docs-copy">
+                        The map view now behaves like a full-bleed workspace behind the toolbar, tabs, and layers panel. The UI chrome
+                        floats above the map instead of reserving a hard safe zone around it.
+                    </p>
+                    <ul class="docs-list">
+                        <li>The left toolbar is an overlay for tools, zoom, snap, extractor, and documentation.</li>
+                        <li>The right panel shows layers and a compact live data footer for the selected zone.</li>
+                        <li>The top tab bar lets you work across multiple maps while preserving per-tab zoom and pan state.</li>
+                        <li>The floating zone properties panel stays anchored to the currently selected zone.</li>
+                    </ul>
+                </section>
+
+                <section class="docs-section" id="tools">
+                    <h2 class="docs-section-title"><i data-lucide="pen-tool"></i>Tools and Interaction</h2>
+                    <div class="docs-grid">
+                        <div class="docs-card">
+                            <h3>Select</h3>
+                            <p>Select zones, drag them, resize them from handles, and drag floating labels when applicable.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Pan</h3>
+                            <p>Use the dedicated pan tool, hold the middle mouse button, or use your wheel for zoom-driven navigation.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Rectangle / Circle / Line</h3>
+                            <p>Use geometric shapes for safe zones, lanes, exclusion areas, or objective boundaries.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Pen / Freehand</h3>
+                            <p>Build custom polygons or sketch organic boundaries for terrain-driven overlays.</p>
+                        </div>
+                    </div>
+                    <p class="docs-copy">
+                        Snapping is available through the toolbar grid button or the <span class="key-badge">S</span> shortcut.
+                        Snap feedback is visual, and zone edges can align against the active world grid.
+                    </p>
+                </section>
+
+                <section class="docs-section" id="styling">
+                    <h2 class="docs-section-title"><i data-lucide="palette"></i>Zone Styling Panel</h2>
+                    <p class="docs-copy">
+                        The floating properties panel is the main styling surface. It is organized around profiles, color, and collapsed
+                        style accordions rather than an old fixed sidebar form.
+                    </p>
+                    <div class="docs-grid">
+                        <div class="docs-card">
+                            <h3>Profiles</h3>
+                            <p>Save and reuse style presets. Unsaved edits fall back to the Custom profile state automatically.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Color system</h3>
+                            <p>Quick swatches, custom wheel pickers, and section-specific recent colors exist for zone, label text, and label background.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Border and pattern</h3>
+                            <p>Control border style, border width, opacity, pattern type, density, thickness, and angle where relevant.</p>
+                        </div>
+                        <div class="docs-card">
+                            <h3>Labels</h3>
+                            <p>Edit label text, font, size, emphasis, colors, background opacity, and integration modes.</p>
+                        </div>
+                    </div>
+                    <ul class="docs-list">
+                        <li>Floating labels can be dragged inside or outside a shape.</li>
+                        <li>Border label integration and pattern label integration live inside the label section.</li>
+                        <li>Section summaries update as you change border, pattern, or label settings.</li>
+                    </ul>
+                </section>
+
+                <section class="docs-section" id="layers">
+                    <h2 class="docs-section-title"><i data-lucide="layers-3"></i>Layers and Live Data</h2>
+                    <p class="docs-copy">
+                        The right panel shows the current zone stack and a compact data footer. Selection, visibility, delete, and property expansion
+                        all start from the layer list.
+                    </p>
+                    <ul class="docs-list">
+                        <li>The selected layer highlights in the list.</li>
+                        <li>The bottom data readout updates live while the selected zone moves or resizes.</li>
+                        <li>Layer cards reflect the active profile name and visibility state.</li>
+                    </ul>
+                </section>
+
+                <section class="docs-section" id="extractor">
+                    <h2 class="docs-section-title"><i data-lucide="package-search"></i>Map Extractor and Import Flow</h2>
+                    <p class="docs-copy">
+                        The extractor button in the toolbar opens the desktop extraction workflow for map assets. It is designed for local
+                        Reforger content pipelines rather than browser-only usage.
+                    </p>
+                    <ul class="docs-list">
+                        <li>Set scan, output, and tools directories.</li>
+                        <li>Search for a resource or run the interactive extractor mode.</li>
+                        <li>Convert extracted textures to a standard output format.</li>
+                        <li>After a successful extraction, import the resulting map asset into the local map browser with a chosen map name.</li>
+                    </ul>
+                    <div class="docs-note">
+                        The extractor workflow depends on desktop APIs exposed through `window.electronAPI`, so it is expected to behave differently from the pure renderer features.
+                    </div>
+                </section>
+
+                <section class="docs-section" id="export">
+                    <h2 class="docs-section-title"><i data-lucide="download"></i>Export Flow</h2>
+                    <p class="docs-copy">
+                        The current export modal presents four direct output formats plus a coordinate foundation block.
+                    </p>
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead>
+                                <tr>
+                                    <th>Format</th>
+                                    <th>Current label</th>
+                                    <th>Use case</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Enfusion script</td>
+                                    <td>EnfusionScript (.c)</td>
+                                    <td>Direct code export for script-driven zone logic.</td>
+                                </tr>
+                                <tr>
+                                    <td>Overlay image</td>
+                                    <td>Image Overlay (.png)</td>
+                                    <td>Transparent map overlays and downstream texture workflows.</td>
+                                </tr>
+                                <tr>
+                                    <td>Portable state</td>
+                                    <td>JSON Config</td>
+                                    <td>Share or re-edit exported zone state outside project save/load.</td>
+                                </tr>
+                                <tr>
+                                    <td>Workbench import</td>
+                                    <td>Workbench Plugin (.c)</td>
+                                    <td>Plugin-style script generation for Workbench-side creation.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="docs-copy">
+                        The export modal also includes origin offsets, map scale, invert-Y, and a calibration entry point so exported coordinates match your world conventions.
+                    </p>
+                </section>
+
+                <section class="docs-section" id="projects">
+                    <h2 class="docs-section-title"><i data-lucide="save"></i>Project Save and Restore</h2>
+                    <ul class="docs-list">
+                        <li>Save Project stores the editable session as JSON.</li>
+                        <li>Load Project restores the zone set and editor state for that project file.</li>
+                        <li>Tabs preserve per-map zoom and pan while the app remains open.</li>
+                    </ul>
+                </section>
+
+                <section class="docs-section" id="shortcuts">
+                    <h2 class="docs-section-title"><i data-lucide="keyboard"></i>Keyboard Shortcuts</h2>
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Shortcut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Select tool</td><td><span class="key-badge">V</span></td></tr>
+                                <tr><td>Rectangle tool</td><td><span class="key-badge">R</span></td></tr>
+                                <tr><td>Circle tool</td><td><span class="key-badge">C</span></td></tr>
+                                <tr><td>Line tool</td><td><span class="key-badge">L</span></td></tr>
+                                <tr><td>Pen tool</td><td><span class="key-badge">P</span></td></tr>
+                                <tr><td>Freehand tool</td><td><span class="key-badge">D</span></td></tr>
+                                <tr><td>Toggle snap</td><td><span class="key-badge">S</span></td></tr>
+                                <tr><td>Fit view</td><td><span class="key-badge">F</span></td></tr>
+                                <tr><td>Export</td><td><span class="key-badge">Ctrl</span><span class="key-badge">E</span></td></tr>
+                                <tr><td>Open extractor</td><td><span class="key-badge">Ctrl</span><span class="key-badge">Shift</span><span class="key-badge">T</span></td></tr>
+                                <tr><td>Open documentation</td><td><span class="key-badge">?</span></td></tr>
+                                <tr><td>Undo / redo</td><td><span class="key-badge">Ctrl</span><span class="key-badge">Z</span> / <span class="key-badge">Ctrl</span><span class="key-badge">Y</span></td></tr>
+                                <tr><td>Delete selected zone</td><td><span class="key-badge">Delete</span> or <span class="key-badge">Backspace</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
-
-            <!-- Drawing Tools -->
-            <div class="docs-section">
-                <h1 class="docs-title">Tools & Controls</h1>
-
-                <h2 class="docs-h2"><i data-lucide="mouse-pointer-2"></i> Navigation</h2>
-                <p class="docs-p">
-                    Move around the map easily using these controls:
-                </p>
-                <div class="docs-list">
-                    <li><strong>Pan:</strong> Hold <span class="key-badge">Space</span> + Click & Drag, or Middle Mouse
-                        Button.</li>
-                    <li><strong>Zoom:</strong> Mouse Wheel to zoom in/out.</li>
-                    <li><strong>Fit View:</strong> Press <span class="key-badge">F</span> to reset view.</li>
-                </div>
-
-                <h2 class="docs-h2"><i data-lucide="pen-tool"></i> Drawing Zones</h2>
-                <p class="docs-p">Select a tool from the left toolbar to start drawing:</p>
-
-                <h3 class="docs-h3">Rectangle <span class="key-badge">R</span> & Circle <span class="key-badge">C</span>
-                </h3>
-                <p class="docs-p">Click and drag to create simple geometric shapes. Perfect for standard safe zones or
-                    circular objectives.</p>
-
-                <h3 class="docs-h3">Pen Tool <span class="key-badge">P</span></h3>
-                <p class="docs-p">
-                    Create complex custom polygons by placing anchor points.
-                </p>
-                <div class="docs-list">
-                    <li>Click to place a point.</li>
-                    <li>Click the starting point again (yellow highlight) to <strong
-                            style="color:var(--color-accent)">close the loop</strong>.</li>
-                    <li>Double-click to finish the shape without closing.</li>
-                    <li>Hold <span class="key-badge">S</span> or toggle Snapping to align point to grid.</li>
-                </div>
-
-                <h3 class="docs-h3">Freehand <span class="key-badge">D</span></h3>
-                <p class="docs-p">Draw organic shapes by clicking and dragging. The line will smooth out automatically
-                    when you release.</p>
-            </div>
-
-            <!-- Exporting -->
-            <div class="docs-section">
-                <h1 class="docs-title">Export & Import Workflow</h1>
-
-                <h2 class="docs-h2"><i data-lucide="package"></i> Feature: Workbench Plugin</h2>
-                <p class="docs-p">
-                    The most powerful way to get your zones into Arma Reforger. This generates a script that automates
-                    entity creation in the World Editor.
-                </p>
-
-                <h3 class="docs-h3">Step 1: Export</h3>
-                <p class="docs-p">
-                    1. Click <strong style="color:var(--color-accent)">Export</strong> in the top right.<br>
-                    2. Select <strong>Workbench Plugin (.c)</strong>.<br>
-                    3. Download the <code>ImportZonesPlugin.c</code> file.
-                </p>
-
-                <h3 class="docs-h3">Step 2: Install in Workbench</h3>
-                <p class="docs-p">
-                    1. Place the file in your mod's <code>scripts/WorkbenchGame/WorldEditor</code> folder.<br>
-                    2. Restart the Workbench if open.
-                </p>
-
-                <h3 class="docs-h3">Step 3: Run</h3>
-                <p class="docs-p">
-                    1. Open your world in World Editor.<br>
-                    2. Press <span class="key-badge">Ctrl</span> + <span class="key-badge">Shift</span> + <span
-                        class="key-badge">I</span> (or find "Import Zones" in the Plugins menu).<br>
-                    3. The script will automatically create <strong>Trigger Entities</strong> for all your zones with
-                    correct names, positions, and shapes!
-                </p>
-
-                <hr style="border:0; border-top:1px solid var(--color-border); margin: 30px 0;">
-
-                <h2 class="docs-h2"><i data-lucide="code"></i> Option 2: Game Mode Component</h2>
-                <p class="docs-p">
-                    Use this if you prefer a code-only approach without placing entities in the world.
-                </p>
-                <div class="docs-list">
-                    <li>Select <strong>EnfusionScript (.c)</strong> export.</li>
-                    <li>Download <code>SCR_ZoneManagerComponent.c</code>.</li>
-                    <li>Place in your mod's <code>scripts/Game/GameMode</code> folder.</li>
-                    <li>In World Editor, add the <strong>SCR_ZoneManagerComponent</strong> to your
-                        <strong>SCR_BaseGameMode</strong> entity.
-                    </li>
-                </div>
-            </div>
-
-            <!-- Project Management -->
-            <div class="docs-section">
-                <h1 class="docs-title">Project Management</h1>
-                <p class="docs-p">
-                    Don't lose your work! You can save your entire session to a JSON file.
-                </p>
-                <div class="docs-list">
-                    <li><i data-lucide="save"></i> <strong>Save Project:</strong> Downloads a `.json` file containing
-                        all your zones, colors, and settings.</li>
-                    <li><i data-lucide="folder-open"></i> <strong>Load Project:</strong> Restore a previous session.
-                        Share this file with your team for collaboration.</li>
-                </div>
-            </div>
-
-        </div>
+        </main>
     </div>
 
-    <!-- Scripts -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
     </script>
 </body>
-
 </html>

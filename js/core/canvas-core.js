@@ -22,7 +22,7 @@ class CanvasCore {
 
         // Snapping state
         this.snapEnabled = false;
-        this.gridSize = 10; // Map units
+        this.gridSize = window.Constants?.SNAP_GRID_SIZE || 100; // Map units
 
         // Render callback
         this.onRender = null;
@@ -178,9 +178,6 @@ class CanvasCore {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw grid
-        this.drawGrid();
-
         // Draw map
         if (this.mapImage) {
             ctx.save();
@@ -188,6 +185,9 @@ class CanvasCore {
             ctx.scale(this.zoom, this.zoom);
             ctx.drawImage(this.mapImage, 0, 0);
             ctx.restore();
+            if (this.snapEnabled) {
+                this.drawGrid();
+            }
             return true;
         }
         return false;
@@ -195,23 +195,36 @@ class CanvasCore {
 
     drawGrid() {
         const ctx = this.ctx;
-        const gridSize = 50;
-        const offsetX = this.panX % gridSize;
-        const offsetY = this.panY % gridSize;
+        const mapGridSize = this.gridSize;
+        const screenGridSize = mapGridSize * this.zoom;
 
-        ctx.strokeStyle = 'rgba(42, 48, 64, 0.5)';
+        if (screenGridSize < 12) return;
+
+        const startMapX = Math.floor((-this.panX / this.zoom) / mapGridSize) * mapGridSize;
+        const endMapX = Math.ceil(((this.canvas.width - this.panX) / this.zoom) / mapGridSize) * mapGridSize;
+        const startMapY = Math.floor((-this.panY / this.zoom) / mapGridSize) * mapGridSize;
+        const endMapY = Math.ceil(((this.canvas.height - this.panY) / this.zoom) / mapGridSize) * mapGridSize;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 230, 109, 0.22)';
         ctx.lineWidth = 1;
+        ctx.setLineDash([]);
         ctx.beginPath();
 
-        for (let x = offsetX; x < this.canvas.width; x += gridSize) {
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, this.canvas.height);
+        for (let mapX = startMapX; mapX <= endMapX; mapX += mapGridSize) {
+            const screenX = this.mapToScreen(mapX, 0).x;
+            ctx.moveTo(screenX, 0);
+            ctx.lineTo(screenX, this.canvas.height);
         }
-        for (let y = offsetY; y < this.canvas.height; y += gridSize) {
-            ctx.moveTo(0, y);
-            ctx.lineTo(this.canvas.width, y);
+
+        for (let mapY = startMapY; mapY <= endMapY; mapY += mapGridSize) {
+            const screenY = this.mapToScreen(0, mapY).y;
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(this.canvas.width, screenY);
         }
+
         ctx.stroke();
+        ctx.restore();
     }
 
     /**

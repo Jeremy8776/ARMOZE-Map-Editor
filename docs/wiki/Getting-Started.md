@@ -1,30 +1,38 @@
 # Getting Started
 
-## 1. Accessing the Editor
-You can use ARMOZE directly from your browser without installing anything:
-[**Launch Editor**](https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/)
+## Launching the app
 
-Alternatively, you can clone the repository and run it locally:
+ARMOZE currently runs as an Electron desktop app:
+
 ```bash
-git clone https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor.git
-# Open index.html in your browser
+npm install
+npm start
 ```
 
-## 2. Loading Your Map
-The first step is to get your game map into the editor.
+## Loading a map
 
-1.  **Export Map Image**: In Arma Reforger Workbench or World Editor, take a high-resolution top-down screenshot or export the map texture.
-    *   Supported formats: `.EDDS` (Texture), `.JPG`, `.PNG`
-2.  **Import to Editor**:
-    *   Drag and drop the file anywhere onto the editor canvas.
-    *   Or click the large **Choose File** button.
-3.  **Automatic Fitting**: The editor will automatically center and fit your image to the view.
+You can start from:
 
-## 3. Navigation Controls
-Move around your map with ease:
+1. A dropped `.png`, `.jpg`, `.dds`, or `.edds` file
+2. The file picker on the landing screen
+3. A local map card from the built-in map browser
+4. An extractor result imported back into the app as a named map
+
+## Navigating the workspace
 
 | Action | Control |
-| :--- | :--- |
-| **Pan** | Hold `Space` + Left Click & Drag <br> OR Click Middle Mouse Button & Drag |
-| **Zoom** | Mouse Wheel Scroll |
-| **Fit View** | Press `F` key (Reset view to center) |
+| --- | --- |
+| Zoom | Mouse wheel |
+| Pan | Pan tool or middle mouse drag |
+| Fit View | `F` |
+| Toggle snap | `S` |
+
+The workspace is designed as a full-bleed map layer with toolbar, tabs, layers, and the floating properties panel overlaid on top.
+
+## First useful workflow
+
+1. Load a map
+2. Draw a rectangle or circle
+3. Select it
+4. Adjust fill, border, and label styling from the floating panel
+5. Save the project or export the result

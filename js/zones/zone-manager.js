@@ -50,10 +50,25 @@ class ZoneManager {
         const zone = {
             id: Utils.generateId(),
             name: `Zone ${this.zones.length + 1}`,
-            type: 'safe',
-            color: Utils.getZoneTypeColor('safe'),
-            opacity: 0.4,
+            profileId: 'safe',
+            color: '#00ff88',
             visible: true,
+            showLabel: true,
+            labelText: `Zone ${this.zones.length + 1}`,
+            labelColor: '#ffffff',
+            labelOpacity: 1.0,
+            labelBgColor: '#000000',
+            labelBgOpacity: 0.7,
+            labelFontSize: Constants?.LABEL_SIZE_MEDIUM || 14,
+            labelSize: 'medium',
+            labelFontFamily: 'rajdhani',
+            labelBold: false,
+            labelItalic: false,
+            labelShadow: false,
+            labelOffsetX: 0,
+            labelOffsetY: 0,
+            borderLabelMode: 'none',
+            patternLabelMode: 'none',
             shape: type,
             ...shape
         };
@@ -73,15 +88,6 @@ class ZoneManager {
     updateZone(id, updates) {
         const zoneIndex = this.zones.findIndex(z => z.id === id);
         if (zoneIndex !== -1) {
-            // Update color only if type changed
-            if (updates.type && updates.type !== this.zones[zoneIndex].type) {
-                // If the update doesn't explicitly contain a color (meaning it's just a type change from dropdown),
-                // OR if it does but we want to enforce type-color, we set it here.
-                // However, the UI currently sends current color value on type change event if not careful.
-                // To support "User selects type -> Auto color", we force it.
-                updates.color = Utils.getZoneTypeColor(updates.type);
-            }
-
             this.zones[zoneIndex] = { ...this.zones[zoneIndex], ...updates };
 
             if (this.onZoneUpdated) {

@@ -12,11 +12,12 @@ class RectangleTool {
     }
 
     onDown(mapPos) {
-        this.drawingPoints = [mapPos];
+        const pos = this.core.snapToGrid(mapPos);
+        this.drawingPoints = [pos];
         this.tempShape = {
             type: 'rectangle',
-            x: mapPos.x,
-            y: mapPos.y,
+            x: pos.x,
+            y: pos.y,
             width: 0,
             height: 0
         };
@@ -25,13 +26,14 @@ class RectangleTool {
 
     onMove(mapPos) {
         if (this.drawingPoints.length > 0) {
+            const pos = this.core.snapToGrid(mapPos);
             const start = this.drawingPoints[0];
             this.tempShape = {
                 type: 'rectangle',
-                x: Math.min(start.x, mapPos.x),
-                y: Math.min(start.y, mapPos.y),
-                width: Math.abs(mapPos.x - start.x),
-                height: Math.abs(mapPos.y - start.y)
+                x: Math.min(start.x, pos.x),
+                y: Math.min(start.y, pos.y),
+                width: Math.abs(pos.x - start.x),
+                height: Math.abs(pos.y - start.y)
             };
             this.core.requestRender();
         }
@@ -59,11 +61,12 @@ class CircleTool {
     }
 
     onDown(mapPos) {
-        this.drawingPoints = [mapPos];
+        const pos = this.core.snapToGrid(mapPos);
+        this.drawingPoints = [pos];
         this.tempShape = {
             type: 'circle',
-            cx: mapPos.x,
-            cy: mapPos.y,
+            cx: pos.x,
+            cy: pos.y,
             radius: 0
         };
         this.core.requestRender();
@@ -71,12 +74,13 @@ class CircleTool {
 
     onMove(mapPos) {
         if (this.drawingPoints.length > 0) {
+            const pos = this.core.snapToGrid(mapPos);
             const center = this.drawingPoints[0];
             this.tempShape = {
                 type: 'circle',
                 cx: center.x,
                 cy: center.y,
-                radius: Utils.distance(center, mapPos)
+                radius: Utils.distance(center, pos)
             };
             this.core.requestRender();
         }
@@ -104,26 +108,28 @@ class LineTool {
     }
 
     onDown(mapPos) {
-        this.drawingPoints = [mapPos];
+        const pos = this.core.snapToGrid(mapPos);
+        this.drawingPoints = [pos];
         this.tempShape = {
             type: 'line',
-            x1: mapPos.x,
-            y1: mapPos.y,
-            x2: mapPos.x,
-            y2: mapPos.y
+            x1: pos.x,
+            y1: pos.y,
+            x2: pos.x,
+            y2: pos.y
         };
         this.core.requestRender();
     }
 
     onMove(mapPos) {
         if (this.drawingPoints.length > 0) {
+            const pos = this.core.snapToGrid(mapPos);
             const start = this.drawingPoints[0];
             this.tempShape = {
                 type: 'line',
                 x1: start.x,
                 y1: start.y,
-                x2: mapPos.x,
-                y2: mapPos.y
+                x2: pos.x,
+                y2: pos.y
             };
             this.core.requestRender();
         }

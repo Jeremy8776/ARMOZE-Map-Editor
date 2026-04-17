@@ -1,158 +1,108 @@
 # ARMOZE - Arma Reforger Map Overlay Zone Editor
 
 <div align="center">
-  <img src="logo.svg" alt="ARMOZE Logo - Arma Reforger Zone Editor" width="120" height="auto">
+  <img src="logo.svg" alt="ARMOZE Logo" width="120" height="auto">
   <br><br>
-  <b>The Ultimate Visual Zone Designer for Arma Reforger</b>
+  <b>Desktop-first zone design workflow for Arma Reforger</b>
   <br>
-  <i>Draw, design, and export map zones for your Reforger server in minutes.</i>
+  <i>Load maps, draw zones, style them visually, and export game-ready outputs.</i>
   <br><br>
-  
-  ![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)
+
+  ![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
+  ![Platform](https://img.shields.io/badge/platform-Electron%20Desktop-1f6feb.svg)
   ![License](https://img.shields.io/badge/license-MIT-green.svg)
-  ![Arma Reforger](https://img.shields.io/badge/Arma_Reforger-Compatible-orange.svg)
-  ![Platform](https://img.shields.io/badge/platform-Web_Browser-lightgrey.svg)
-  
-  <br>
-  
-  [**Live Demo**](https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/) · [**Documentation**](https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/docs.html) · [**Changelog**](CHANGELOG.md)
-  
 </div>
 
 ---
 
-## What is ARMOZE?
+## What ARMOZE does
 
-**ARMOZE** (Arma Reforger Map Overlay Zone Editor) is a **free, open-source web application** that allows Arma Reforger modders and server administrators to visually create and manage map zones without writing a single line of code.
+ARMOZE is an Electron desktop editor for building map overlays and gameplay zones for Arma Reforger. It gives you a visual workflow for:
 
-Instead of manually calculating coordinates or scripting trigger areas, simply:
-1. Load your map image
-2. Draw your zones visually
-3. Export directly to game-ready formats
+1. Loading a map image or selecting an installed local map
+2. Drawing zones directly on the map
+3. Styling borders, fills, labels, and integrated markings
+4. Saving projects and reopening them later
+5. Exporting to script and overlay formats
 
-## Key Features
+## Current feature set
 
-### Visual Zone Drawing Tools
-- **Circle Tool** - Perfect for radial safe zones and spawn areas
-- **Rectangle Tool** - Ideal for base boundaries and capture points
-- **Polygon/Pen Tool** - Create complex irregular shapes with precision
-- **Freehand Tool** - Sketch natural boundaries quickly
-- **Grid Snapping** - Align zones perfectly with toggleable snap grid
-- **Map Texture Extractor** - Extract textures directly from Arma PAK files via built-in tool UI
+### Map workflow
+- Desktop-first Electron app with `npm start`
+- Drag-and-drop map loading for `.png`, `.jpg`, `.dds`, and `.edds`
+- Local map browser with tabbed editing
+- Multiple map tabs with preserved zoom and pan state
+- Built-in map extractor and import flow for desktop assets
 
-### Zone Types
-- Safe Zones
-- Restricted Areas
-- PvP Zones
-- Spawn Points
-- Objectives
-- Custom Zones
-- 20+ Military Markers (Infantry, Armor, Artillery, Medical, etc.)
+### Drawing and editing
+- Select, pan, rectangle, circle, line, pen, and freehand tools
+- Snap-to-grid toggle with visual snap feedback
+- Move, resize, duplicate, delete, and hide zones
+- Floating zone properties panel anchored to the selected zone
+- Live zone data readout in the layers panel
 
-### Export Formats
-| Format | Description | Use Case |
-|--------|-------------|----------|
-| **Workbench Plugin** | Auto-generates trigger entities | Import zones directly into World Editor |
-| **EnfusionScript** | Drop-in GameMode component | Runtime zone detection in scripts |
-| **PNG/TIFF Overlay** | Transparent image export | Map overlays and UI textures |
-| **JSON Project** | Save/load project files | Collaboration and backups |
+### Styling
+- Zone style profiles with save/delete support
+- Border, fill, and pattern controls
+- Label text, font, size, bold, italic, color, background, and shadow controls
+- Border-integrated and pattern-integrated label modes
+- Drag-to-position floating labels
+- Section-specific recent colors for zone, label text, and label background
 
-### Professional Features
-- **Undo/Redo** - Full history support (Ctrl+Z / Ctrl+Y)
-- **Copy/Paste** - Duplicate zones quickly (Ctrl+C / Ctrl+V)
-- **Multi-Tab Support** - Work with multiple maps simultaneously
-- **Label Customization** - Colors, sizes, shadows, and backgrounds
-- **Map Calibration** - Precise coordinate alignment tool
+### Export and project management
+- EnfusionScript export
+- Workbench Plugin export
+- PNG overlay export
+- JSON config export
+- Coordinate foundation controls with origin offset, map scale, invert-Y, and calibration
+- Save/load full projects as JSON
 
-## Quick Start
+## Running locally
 
-### Option 1: Use Online (Recommended)
-Visit the live demo: **[ARMOZE Web App](https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/)**
-
-### Option 2: Run Locally
 ```bash
-git clone https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor.git
-cd Arma-Reforger-Map-Overlay-Zone-Editor
-# Open index.html in your browser, or use a local server:
-npx serve .
+npm install
+npm start
 ```
 
-## Workflow Example
+This launches the Electron desktop app.
 
-### Creating Zones for Your Server
-
-1. **Export your map** from Arma Reforger Workbench (or use a satellite screenshot)
-2. **Drag & drop** the image into ARMOZE
-3. **Select a tool** (Circle, Rectangle, Pen, etc.)
-4. **Draw your zones** - safe areas, PvP zones, spawn points
-5. **Customize** names, colors, and zone types
-6. **Export** to your preferred format
-
-### Importing into World Editor
-
-1. Click **Export → Workbench Plugin**
-2. Save the `.c` file to: `YourMod/scripts/WorkbenchGame/WorldEditor/`
-3. In Reforger World Editor, press **Ctrl + Shift + I**
-4. Your zones appear as real trigger entities!
-
-## Keyboard Shortcuts
+## Main shortcuts
 
 | Action | Shortcut |
-|--------|----------|
-| Select Tool | `V` |
-| Rectangle | `R` |
-| Circle | `C` |
-| Line | `L` |
-| Pen Tool | `P` |
-| Freehand | `D` |
-| Grid Snap | `S` |
-| Fit View | `F` |
-| Zoom In/Out | `+` / `-` |
+| --- | --- |
+| Select tool | `V` |
+| Rectangle tool | `R` |
+| Circle tool | `C` |
+| Line tool | `L` |
+| Pen tool | `P` |
+| Freehand tool | `D` |
+| Toggle snap | `S` |
+| Fit view | `F` |
+| Open extractor | `Ctrl + Shift + T` |
+| Open documentation | `?` |
+| Export | `Ctrl + E` |
 | Undo | `Ctrl + Z` |
 | Redo | `Ctrl + Y` |
-| Copy | `Ctrl + C` |
-| Paste | `Ctrl + V` |
-| Duplicate | `Ctrl + D` |
-| Delete | `Delete` |
-| Export | `Ctrl + E` |
-| Extractor | `Ctrl + Shift + T` |
+| Delete selected zone | `Delete` / `Backspace` |
 
-## Screenshots
+## Documentation
 
-<div align="center">
-  <i>Coming soon - Screenshots of the editor in action</i>
-</div>
+- In-app: click the help button under the extractor button in the left toolbar
+- Local docs page: [docs.html](docs.html)
+- Wiki pages:
+  - [Home](docs/wiki/Home.md)
+  - [Getting Started](docs/wiki/Getting-Started.md)
+  - [Drawing Tools](docs/wiki/Drawing-Tools.md)
+  - [Exporting](docs/wiki/Exporting.md)
+  - [Project Management](docs/wiki/Project-Management.md)
 
-## Technology Stack
+## Repo notes
 
-- **Frontend**: Vanilla JavaScript, HTML5 Canvas
-- **Styling**: CSS3 with custom design system
-- **Icons**: Lucide Icons
-- **No Dependencies**: Runs entirely in the browser
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- App version constant: [js/constants.js](js/constants.js)
+- Main app entry: [js/app.js](js/app.js)
+- Toolbar wiring: [js/ui/toolbar-ui.js](js/ui/toolbar-ui.js)
+- Documentation page: [docs.html](docs.html)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor/discussions)
-
----
-
-<div align="center">
-  <b>Made for the Arma Reforger Community</b>
-  <br>
-  <sub>If this tool helped you, consider giving it a ⭐ on GitHub!</sub>
-</div>
+MIT

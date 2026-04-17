@@ -1,20 +1,40 @@
 # Welcome to ARMOZE
 
-**ARMOZE** (Arma Reforger Map Overlay Zone Editor) is a free, open-source visual tool for designing map zones for Arma Reforger servers.
+ARMOZE is a desktop-first Electron editor for building Arma Reforger map overlays and gameplay zones.
 
-![Logo](https://raw.githubusercontent.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor/main/logo.svg)
+## What it covers
 
-## Why use ARMOZE?
+- Map loading from image files or installed local map assets
+- Multi-tab map editing
+- Visual zone creation with rectangle, circle, line, pen, and freehand tools
+- Floating zone styling with profiles, fills, borders, patterns, and labels
+- Built-in extractor workflow for local map asset preparation
+- Script and overlay export for downstream Reforger workflows
 
-Instead of manually calculating coordinates or writing tedious scripts, ARMOZE allows you to:
-1.  **Visualize**: Draw zones directly on top of your game map.
-2.  **Design**: Use powerful tools like Pen, Polygon, and Freehand.
-3.  **Export**: Generate game-ready code (`.c`) or overlays instantly.
+## Quick links
 
-## Quick Links
+- [[Getting Started]]
+- [[Drawing Tools]]
+- [[Exporting]]
+- [[Project Management]]
 
-*   [**Live Editor**](https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/)
-*   [**Getting Started**](Getting-Started)
-*   [**Drawing Tools Guide**](Drawing-Tools)
-*   [**Export to Workbench**](Exporting)
-*   [**GitHub Repository**](https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor)
+## Main shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Select | `V` |
+| Rectangle | `R` |
+| Circle | `C` |
+| Line | `L` |
+| Pen | `P` |
+| Freehand | `D` |
+| Snap | `S` |
+| Fit View | `F` |
+| Extractor | `Ctrl + Shift + T` |
+| Documentation | `?` |
+
+## Documentation entry points
+
+- In-app help button on the left toolbar
+- Local docs page: `docs.html`
+- Top-level project overview: `README.md`

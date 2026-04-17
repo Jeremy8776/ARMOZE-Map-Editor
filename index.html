@@ -5,90 +5,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Primary Meta Tags -->
-    <title>ARMOZE - Arma Reforger Map Overlay Zone Editor | Free Visual Zone Designer</title>
-    <meta name="title" content="ARMOZE - Arma Reforger Map Overlay Zone Editor | Free Visual Zone Designer">
-    <meta name="description"
-        content="Free web-based visual zone editor for Arma Reforger. Draw safe zones, PvP areas, spawn points, and objectives on your map. Export to Workbench, EnfusionScript, or image overlays.">
-    <meta name="keywords"
-        content="Arma Reforger, Zone Editor, Map Overlay, Reforger Modding, Workbench Plugin, Safe Zone, PvP Zone, Trigger Entity, EnfusionScript, ARMOZE, Map Editor, Server Zones, Arma Mods, Bohemia Interactive">
+    <title>ARMOZE - Arma Reforger Map Overlay Zone Editor</title>
+    <meta name="description" content="Visual zone editor for Arma Reforger. Draw zones and export to Workbench or scripts.">
+    <meta name="keywords" content="Arma Reforger, Zone Editor, Map Overlay, Reforger Modding">
     <meta name="author" content="ARMOZE">
     <meta name="robots" content="index, follow">
-    <meta name="language" content="English">
-    <meta name="revisit-after" content="7 days">
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/">
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/">
-    <meta property="og:title" content="ARMOZE - Arma Reforger Map Overlay Zone Editor">
-    <meta property="og:description"
-        content="Free visual zone editor for Arma Reforger. Draw zones on your map and export to Workbench, scripts, or image overlays.">
-    <meta property="og:image" content="https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/logo.svg">
-    <meta property="og:site_name" content="ARMOZE">
-    <meta property="og:locale" content="en_US">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/">
-    <meta property="twitter:title" content="ARMOZE - Arma Reforger Map Overlay Zone Editor">
-    <meta property="twitter:description"
-        content="Free visual zone editor for Arma Reforger. Draw zones on your map and export to Workbench, scripts, or image overlays.">
-    <meta property="twitter:image"
-        content="https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/logo.svg">
-
-    <!-- Additional SEO -->
-    <meta name="application-name" content="ARMOZE">
-    <meta name="theme-color" content="#00ff88">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ARMOZE">
-
-    <!-- Structured Data (JSON-LD) -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "ARMOZE - Arma Reforger Map Overlay Zone Editor",
-        "applicationCategory": "GameApplication",
-        "operatingSystem": "Web Browser",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        },
-        "description": "Free web-based visual zone editor for Arma Reforger. Draw safe zones, PvP areas, spawn points, and objectives on your map.",
-        "url": "https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/",
-        "screenshot": "https://jeremy8776.github.io/Arma-Reforger-Map-Overlay-Zone-Editor/logo.svg",
-        "featureList": [
-            "Visual zone drawing",
-            "Multiple shape tools",
-            "Workbench plugin export",
-            "EnfusionScript export",
-            "Image overlay export",
-            "Project save/load"
-        ],
-        "keywords": "Arma Reforger, Zone Editor, Map Overlay, Modding Tool"
-    }
-    </script>
-
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="logo-icon.svg">
-    <link rel="apple-touch-icon" href="logo-icon.svg">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <!-- Styles -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/floating-controls.css">
+    <link rel="stylesheet" href="css/properties.css">
+    <link rel="stylesheet" href="css/zones.css">
+    <link rel="stylesheet" href="css/canvas.css">
+    <link rel="stylesheet" href="css/modal.css">
     <link rel="stylesheet" href="index.css">
-    <link rel="stylesheet" href="css/extractor.css">
+
+    <!-- Data - Load before UI -->
+    <script src="Maps/maps.js"></script>
+
+    <style>
+        /* Force Layout Reset - Prevents header drift */
+        #app {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .header {
+            position: relative !important;
+            top: 0 !important;
+            display: flex !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -96,12 +59,9 @@
         <!-- Header -->
         <header class="header">
             <div class="header-brand">
-                <div class="logo">
-                    <img src="logo-icon.svg" alt="ARMOZE" />
-                </div>
+                <div class="logo"><img src="logo-icon.svg" alt="ARMOZE" /></div>
                 <h1>ARMOZE</h1>
-                <a href="#" class="version" id="appVersionLink" target="_blank"
-                    title="View changelog on GitHub">v1.3.2</a>
+                <a href="#" class="version" id="appVersionLink" target="_blank">v1.5.0 - MODULAR</a>
             </div>
             <div class="header-info">
                 <div class="coords-display" id="coordsDisplay">
@@ -111,24 +71,13 @@
                 <div class="map-info" id="mapInfo">No map loaded</div>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" id="btnUndo" title="Undo (Ctrl+Z)" disabled>
-                    <i data-lucide="undo-2"></i>
-                </button>
-                <button class="btn btn-secondary" id="btnRedo" title="Redo (Ctrl+Y)" disabled>
-                    <i data-lucide="redo-2"></i>
-                </button>
+                <button class="btn btn-secondary" id="btnUndo" title="Undo (Ctrl+Z)" disabled><i data-lucide="undo-2"></i></button>
+                <button class="btn btn-secondary" id="btnRedo" title="Redo (Ctrl+Y)" disabled><i data-lucide="redo-2"></i></button>
                 <div class="divider-vertical"></div>
-                <button class="btn btn-secondary" id="btnSaveProject" title="Save Project (.json)">
-                    <i data-lucide="save"></i>
-                </button>
-                <button class="btn btn-secondary" id="btnLoadProject" title="Load Project (.json)">
-                    <i data-lucide="folder-open"></i>
-                </button>
+                <button class="btn btn-secondary" id="btnSaveProject" title="Save Project (.json)"><i data-lucide="save"></i></button>
+                <button class="btn btn-secondary" id="btnLoadProject" title="Load Project (.json)"><i data-lucide="folder-open"></i></button>
                 <input type="file" id="projectInput" accept=".json" hidden>
-                <button class="btn btn-primary" id="btnExport">
-                    <i data-lucide="download"></i>
-                    Export
-                </button>
+                <button class="btn btn-primary" id="btnExport"><i data-lucide="download"></i>Export</button>
             </div>
         </header>
 
@@ -137,473 +86,115 @@
             <!-- Toolbar -->
             <aside class="toolbar">
                 <div class="tool-group">
-                    <span class="tool-group-label">Select</span>
-                    <button class="tool-btn active" data-tool="select" title="Select & Move (V)">
-                        <i data-lucide="mouse-pointer-2"></i>
-                    </button>
-                    <button class="tool-btn" data-tool="pan" title="Pan View (Space+Drag)">
-                        <i data-lucide="move"></i>
-                    </button>
+                    <button class="tool-btn active" data-tool="select" title="Select (V)"><i data-lucide="mouse-pointer-2"></i></button>
+                    <button class="tool-btn" data-tool="pan" title="Pan (Space)"><i data-lucide="move"></i></button>
                 </div>
+                <div class="tool-divider"></div>
                 <div class="tool-group">
-                    <span class="tool-group-label">Draw</span>
-                    <button class="tool-btn" data-tool="rectangle" title="Rectangle Zone (R)">
-                        <i data-lucide="square"></i>
-                    </button>
-                    <button class="tool-btn" data-tool="circle" title="Circle Zone (C)">
-                        <i data-lucide="circle"></i>
-                    </button>
-                    <button class="tool-btn" data-tool="line" title="Line Tool (L)">
-                        <i data-lucide="minus"></i>
-                    </button>
-                    <button class="tool-btn" data-tool="pen" title="Pen Tool - Click to add anchors (P)">
-                        <i data-lucide="pen-tool"></i>
-                    </button>
-                    <button class="tool-btn" data-tool="freehand" title="Freehand - Click and drag to draw (D)">
-                        <i data-lucide="pencil"></i>
-                    </button>
+                    <button class="tool-btn" data-tool="rectangle" title="Rectangle (R)"><i data-lucide="square"></i></button>
+                    <button class="tool-btn" data-tool="circle" title="Circle (C)"><i data-lucide="circle"></i></button>
+                    <button class="tool-btn" data-tool="line" title="Line (L)"><i data-lucide="minus"></i></button>
+                    <button class="tool-btn" data-tool="pen" title="Pen (P)"><i data-lucide="pen-tool"></i></button>
+                    <button class="tool-btn" data-tool="freehand" title="Freehand (D)"><i data-lucide="pencil"></i></button>
                 </div>
+                <div class="tool-divider"></div>
                 <div class="tool-group">
-                    <span class="tool-group-label">View</span>
-                    <button class="tool-btn" id="btnZoomIn" title="Zoom In (+)">
-                        <i data-lucide="zoom-in"></i>
-                    </button>
-                    <button class="tool-btn" id="btnZoomOut" title="Zoom Out (-)">
-                        <i data-lucide="zoom-out"></i>
-                    </button>
-                    <button class="tool-btn" id="btnFitView" title="Fit to View (F)">
-                        <i data-lucide="maximize"></i>
-                    </button>
-                    <div class="tool-separator"></div>
-                    <button class="tool-btn" id="btnToggleSnap" title="Toggle Grid Snapping (S)">
-                        <i data-lucide="grid"></i>
-                    </button>
+                    <button class="tool-btn" id="btnZoomIn" title="Zoom In"><i data-lucide="zoom-in"></i></button>
+                    <button class="tool-btn" id="btnZoomOut" title="Zoom Out"><i data-lucide="zoom-out"></i></button>
+                    <button class="tool-btn" id="btnFitView" title="Fit (F)"><i data-lucide="maximize"></i></button>
+                    <button class="tool-btn" id="btnToggleSnap" title="Snap (S)"><i data-lucide="grid"></i></button>
                 </div>
-
+                <div class="tool-divider"></div>
                 <div class="tool-group">
-                    <span class="tool-group-label">Tools</span>
-                    <button class="tool-btn" id="btnOpenExtractor" title="Map Texture Extractor">
-                        <i data-lucide="package-search"></i>
-                    </button>
-                    <div class="tool-separator"></div>
-                    <a href="docs.html" class="tool-btn" title="Documentation">
-                        <i data-lucide="book-open"></i>
-                    </a>
+                    <button class="tool-btn" id="btnOpenExtractor" title="Texture Extractor (Ctrl+Shift+T)"><i data-lucide="package-search"></i></button>
+                    <button class="tool-btn" id="btnShowHelp" title="Hotkeys & Help (?)"><i data-lucide="help-circle"></i></button>
                 </div>
             </aside>
 
             <div class="main-view-column">
-                <!-- Tab Bar -->
-                <div class="tab-bar" id="tabBar">
-                    <!-- Tabs will be injected here -->
-                </div>
-
-                <!-- Canvas Area -->
+                <div class="tab-bar" id="tabBar"></div>
                 <div class="canvas-container" id="canvasContainer">
                     <div class="upload-prompt" id="uploadPrompt">
-                        <div class="upload-icon">
-                            <i data-lucide="map" style="width: 64px; height: 64px;"></i>
-                        </div>
+                        <div class="upload-icon"><i data-lucide="map" style="width: 56px; height: 56px;"></i></div>
                         <h2>Load Your Map</h2>
-                        <p>Upload an EDDS, DDS, PNG, or JPG file</p>
-                        <button class="btn btn-primary btn-large" id="btnUpload">
-                            <i data-lucide="upload-cloud"></i>
-                            Choose File
-                        </button>
-                        <input type="file" id="fileInput" accept=".edds,.dds,.png,.jpg,.jpeg" hidden>
-                        <span class="upload-hint">or drag and drop</span>
-
-                        <div class="divider-horizontal"><span>OR</span></div>
+                        <p>Upload an EDDS, PNG, or JPG file</p>
+                        <button class="btn btn-primary btn-large" id="btnUpload">Choose File</button>
+                        <input type="file" id="fileInput" accept=".edds,.dds,.png,.jpg" hidden>
+                        
+                        <div class="divider-horizontal"><span>OR SELECT LOCAL MAP</span></div>
+                        
                         <div class="local-maps-section">
-                            <h3>Local Maps</h3>
-                            <div class="map-list" id="localMapList">
-                                <!-- Populated dynamically -->
-                                <div
-                                    style="width: 100%; text-align: center; font-size: 12px; color: var(--color-text-muted); grid-column: span 2;">
-                                    Scanning maps...</div>
-                            </div>
+                            <div class="map-list" id="localMapList"></div>
                         </div>
                     </div>
                     <canvas id="mapCanvas"></canvas>
                     <div class="zoom-indicator" id="zoomIndicator">100%</div>
                 </div>
-            </div> <!-- End of main-view-column -->
+            </div>
 
-            <!-- Zone Panel -->
+            <!-- Layer List -->
             <aside class="zone-panel">
-                <div class="panel-section">
-                    <div class="panel-header">
-                        <h3>Zones</h3>
-                        <span class="zone-count" id="zoneCount">0</span>
-                    </div>
-                    <div class="zone-list" id="zoneList">
-                        <div class="empty-state">
-                            <p>No zones created yet</p>
-                            <p class="hint">Use the drawing tools to create zones</p>
-                        </div>
-                    </div>
+                <div class="panel-section layers-section" id="layersSection">
+                    <div class="panel-header"><h3>Layers</h3><span class="zone-count" id="zoneCount">0</span></div>
+                    <div class="zone-list" id="zoneList"><div class="empty-state"><p>No zones yet</p></div></div>
                 </div>
-
-                <div class="panel-section" id="zonePropertiesSection" style="display: none;">
-                    <div class="panel-header">
-                        <h3>Zone Properties</h3>
-                    </div>
-                    <div class="zone-properties">
-                        <div class="property-group">
-                            <label for="zoneName">Name</label>
-                            <input type="text" id="zoneName" placeholder="Zone name...">
-                        </div>
-                        <div class="property-group">
-                            <label for="zoneType">Type</label>
-                            <select id="zoneType">
-                                <optgroup label="Standard Zones">
-                                    <option value="safe">Safe Zone</option>
-                                    <option value="restricted">Restricted Area</option>
-                                    <option value="pvp">PvP Zone</option>
-                                    <option value="spawn">Spawn Area</option>
-                                    <option value="objective">Objective</option>
-                                    <option value="custom">Custom</option>
-                                </optgroup>
-                                <optgroup label="Military Markers">
-                                    <option value="mil_infantry">Infantry</option>
-                                    <option value="mil_motorized">Motorized</option>
-                                    <option value="mil_armor">Armor</option>
-                                    <option value="mil_recon">Recon</option>
-                                    <option value="mil_artillery">Artillery</option>
-                                    <option value="mil_mortar">Mortar</option>
-                                    <option value="mil_machinegun">Machine Gun</option>
-                                    <option value="mil_antitank">Anti-Tank</option>
-                                    <option value="mil_antiair">Anti-Air</option>
-                                    <option value="mil_sniper">Sniper</option>
-                                    <option value="mil_medical">Medical</option>
-                                    <option value="mil_supply">Supply</option>
-                                    <option value="mil_maintenance">Maintenance</option>
-                                    <option value="mil_hq">Headquarters</option>
-                                </optgroup>
-                                <optgroup label="Map Markers">
-                                    <option value="marker_flag">Flag</option>
-                                    <option value="marker_warning">Warning</option>
-                                    <option value="marker_waypoint">Waypoint</option>
-                                    <option value="marker_rally">Rally Point</option>
-                                    <option value="marker_attack">Attack</option>
-                                    <option value="marker_defend">Defend</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div class="property-group">
-                            <label for="zoneStyle">Border Style</label>
-                            <select id="zoneStyle">
-                                <option value="solid">Solid Line</option>
-                                <option value="dashed">Dashed Line</option>
-                                <option value="dotted">Dotted Line</option>
-                            </select>
-                        </div>
-                        <div class="property-group">
-                            <label for="zoneFillPattern">Fill Pattern</label>
-                            <select id="zoneFillPattern">
-                                <option value="solid">Solid</option>
-                                <option value="diagonal_right">Diagonal Right</option>
-                                <option value="diagonal_left">Diagonal Left</option>
-                                <option value="vertical">Vertical Stripes</option>
-                                <option value="horizontal">Horizontal Stripes</option>
-                                <option value="grid">Grid</option>
-                                <option value="dots">Dots</option>
-                                <option value="crosshatch">Crosshatch</option>
-                            </select>
-                        </div>
-                        <div class="property-group">
-                            <label for="zoneColor">Zone Color</label>
-                            <div class="color-picker-row">
-                                <input type="color" id="zoneColor" value="#00ff88">
-                                <input type="range" id="zoneOpacity" min="10" max="90" value="40">
-                                <span id="opacityValue">40%</span>
-                            </div>
-                        </div>
-
-                        <!-- Label Styling Section -->
-                        <div class="property-group-header">
-                            <span>Label Settings</span>
-                        </div>
-                        <div class="property-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="showLabel" checked>
-                                <span>Show Label</span>
-                            </label>
-                        </div>
-                        <div class="property-group label-options">
-                            <label for="labelColor">Label Color</label>
-                            <input type="color" id="labelColor" value="#ffffff">
-                        </div>
-                        <div class="property-group label-options">
-                            <label for="labelBgColor">Backdrop Color</label>
-                            <div class="color-picker-row">
-                                <input type="color" id="labelBgColor" value="#000000">
-                                <input type="range" id="labelBgOpacity" min="0" max="100" value="70">
-                                <span id="labelBgOpacityValue">70%</span>
-                            </div>
-                        </div>
-                        <div class="property-group label-options">
-                            <label for="labelSize">Label Size</label>
-                            <select id="labelSize">
-                                <option value="small">Small</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="large">Large</option>
-                            </select>
-                        </div>
-                        <div class="property-group label-options">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="labelShadow">
-                                <span>Text Shadow</span>
-                            </label>
-                        </div>
-
-                        <div class="property-group">
-                            <label>Coordinates</label>
-                            <div class="coords-info" id="zoneCoords">
-                                <!-- Populated dynamically -->
-                            </div>
-                        </div>
-                        <div class="property-actions">
-                            <button class="btn btn-danger" id="btnDeleteZone">
-                                <i data-lucide="trash-2"></i>
-                                Delete Zone
-                            </button>
-                        </div>
+                <div class="panel-resizer" id="zonePanelResizer" aria-hidden="true"></div>
+                <div class="panel-section zone-data-section" id="zoneDataSection">
+                    <div class="panel-header"><h3>Data</h3></div>
+                    <div class="zone-data-body">
+                        <div id="zoneCoords" class="coords-info-glass">Select a layer to view its data.</div>
                     </div>
                 </div>
             </aside>
         </main>
     </div>
 
-    <!-- Export Modal -->
-    <div class="modal-overlay" id="exportModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2>Export Zones</h2>
-                <button class="modal-close" id="btnCloseExport">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="export-options">
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="enfusion" checked>
-                        <div class="export-option-content">
-                            <span class="export-option-title">EnfusionScript (.c)</span>
-                            <span class="export-option-desc">Zone definitions for scripted mods</span>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="json">
-                        <div class="export-option-content">
-                            <span class="export-option-title">JSON Config</span>
-                            <span class="export-option-desc">Universal format for mod integration</span>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="image">
-                        <div class="export-option-content">
-                            <span class="export-option-title">Image Overlay (.png)</span>
-                            <span class="export-option-desc">Visual overlay for map display</span>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="tiff">
-                        <div class="export-option-content">
-                            <span class="export-option-title">Image Overlay (.tiff)</span>
-                            <span class="export-option-desc">High-quality format for terrain builders</span>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="workbench">
-                        <div class="export-option-content">
-                            <span class="export-option-title">Workbench Plugin (.c)</span>
-                            <span class="export-option-desc">Script to spawn entities in World Editor</span>
-                        </div>
-                    </label>
-                    <label class="export-option">
-                        <input type="radio" name="exportFormat" value="all">
-                        <div class="export-option-content">
-                            <span class="export-option-title">Export All Formats</span>
-                            <span class="export-option-desc">Download all formats as ZIP</span>
-                        </div>
-                    </label>
-                </div>
-
-                <div class="export-settings">
-                    <h4>Coordinate Settings</h4>
-                    <div class="setting-row">
-                        <label for="mapScale">Map Scale (meters per pixel)</label>
-                        <input type="number" id="mapScale" value="1" min="0.1" step="0.1">
-                    </div>
-                    <div class="setting-row">
-                        <label for="originOffset">Origin Offset (X, Y)</label>
-                        <div class="offset-inputs">
-                            <input type="number" id="originX" value="0" placeholder="X">
-                            <input type="number" id="originY" value="0" placeholder="Y">
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="invertY" checked>
-                            Invert Y Axis (Screen Y ↓ vs World Z ↑)
-                        </label>
-                    </div>
-
-                    <div class="calibration-section">
-                        <small style="display: block; margin-bottom: 8px; color: var(--color-text-muted);">
-                            Don't know the exact offset? Use the calibration tool.
-                        </small>
-                        <button class="btn btn-secondary btn-small" id="btnOpenCalibration">
-                            <i data-lucide="crosshair"></i> Calibrate Map Logic
-                        </button>
-                    </div>
-
-                    <h4>Enfusion Texture Settings</h4>
-                    <div class="setting-row">
-                        <label for="textureSuffix">Texture Suffix (for Workbench import)</label>
-                        <select id="textureSuffix">
-                            <option value="_A" selected>_A - Opacity Mask (recommended)</option>
-                            <option value="_BCR">_BCR - Base Color + Roughness</option>
-                            <option value="_BCA">_BCA - Base Color + Opacity</option>
-                            <option value="_BC">_BC - Base Color Only</option>
-                        </select>
-                    </div>
-                    <div class="setting-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="resizePow2" checked>
-                            Resize to power of 2 (recommended for Enfusion)
-                        </label>
-                    </div>
-                    <div class="setting-row">
-                        <label for="baseName">Export Filename</label>
-                        <input type="text" id="baseName" value="zone_overlay" placeholder="zone_overlay">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Calibration Modal -->
-            <div class="modal-overlay" id="calibrationModal">
-                <div class="modal">
-                    <div class="modal-header">
-                        <h2>Map Calibration</h2>
-                        <button class="modal-close" id="btnCloseCalibration">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="modal-description">
-                            Click two distinct points on the map image and enter their known in-game coordinates (e.g.
-                            from the World Editor).
-                        </p>
-
-                        <div class="calibration-step active" id="calStep1">
-                            <div class="step-header">
-                                <span class="step-number">1</span>
-                                <h4>First Point</h4>
-                            </div>
-                            <div class="step-content">
-                                <button class="btn btn-secondary" id="btnPickPoint1">
-                                    <i data-lucide="mouse-pointer-2"></i> Pick on Map
-                                </button>
-                                <div class="coord-inputs">
-                                    <label>Map (Px): <span id="pt1Params">-</span></label>
-                                    <label>World (Units):</label>
-                                    <div class="pair-input">
-                                        <input type="number" id="pt1WorldX" placeholder="World X">
-                                        <input type="number" id="pt1WorldY" placeholder="World Z/Y">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="calibration-step" id="calStep2">
-                            <div class="step-header">
-                                <span class="step-number">2</span>
-                                <h4>Second Point</h4>
-                            </div>
-                            <div class="step-content">
-                                <button class="btn btn-secondary" id="btnPickPoint2">
-                                    <i data-lucide="mouse-pointer-2"></i> Pick on Map
-                                </button>
-                                <div class="coord-inputs">
-                                    <label>Map (Px): <span id="pt2Params">-</span></label>
-                                    <label>World (Units):</label>
-                                    <div class="pair-input">
-                                        <input type="number" id="pt2WorldX" placeholder="World X">
-                                        <input type="number" id="pt2WorldY" placeholder="World Z/Y">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" id="btnCancelCalibration">Cancel</button>
-                        <button class="btn btn-primary" id="btnApplyCalibration" disabled>
-                            <i data-lucide="check"></i>
-                            Calculate & Apply
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelExport">Cancel</button>
-                <button class="btn btn-primary" id="btnConfirmExport">
-                    <i data-lucide="download"></i>
-                    Export
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- UI Injections -->
+    <div id="ui-modals"></div>
 
     <!-- Scripts -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+    <script src="js/ui/ui-templates.js"></script>
+    <script>
+        // Inject Templates
+        const modalContainer = document.getElementById('ui-modals');
+        modalContainer.innerHTML = UITemplates.FLOATING_CONTROLS + 
+                                 UITemplates.EXPORT_MODAL + 
+                                 UITemplates.CALIBRATION_MODAL;
+    </script>
 
-    <!-- Utilities & Constants -->
     <script src="js/constants.js"></script>
     <script src="js/utils.js"></script>
-
-    <!-- Core Modules -->
     <script src="js/core/canvas-core.js"></script>
     <script src="js/core/event-handler.js"></script>
-
-    <!-- Zone Modules -->
     <script src="js/zones/zone-manager.js"></script>
     <script src="js/zones/zone-renderer.js"></script>
-
-    <!-- Tool Modules -->
     <script src="js/tools/select-tool.js"></script>
     <script src="js/tools/shape-tools.js"></script>
     <script src="js/tools/path-tools.js"></script>
     <script src="js/tools/tool-manager.js"></script>
 
-    <!-- UI Modules -->
-    <script src="js/ui/tab-manager.js"></script>
-    <script src="js/ui/zone-list-ui.js"></script>
-    <script src="js/ui/zone-properties-ui.js"></script>
-
-    <!-- Service Modules -->
+    <!-- Services -->
     <script src="js/services/history-manager.js"></script>
     <script src="js/services/project-manager.js"></script>
     <script src="js/services/calibration-service.js"></script>
     <script src="js/services/file-handler.js"></script>
-
-    <!-- Export & Context Menu -->
-    <script src="js/export-handler.js"></script>
-    <script src="js/context-menu.js"></script>
-
-    <!-- Map Extractor Tool -->
+    <script src="js/services/hotkey-manager.js"></script>
+    <script src="js/services/notification-service.js"></script>
+    <script src="js/services/script-generator.js"></script>
     <script src="js/services/map-extractor-service.js"></script>
+
+    <!-- UI -->
+    <script src="js/ui/tab-manager.js"></script>
+    <script src="js/ui/zone-list-ui.js"></script>
+    <script src="js/ui/zone-properties-ui.js"></script>
+    <script src="js/ui/toolbar-ui.js"></script>
+    <script src="js/ui/map-browser-ui.js"></script>
     <script src="js/ui/map-extractor-ui.js"></script>
 
-    <!-- Local Maps Data -->
-    <script src="Maps/maps.js"></script>
-
-    <!-- Main Application -->
+    <script src="js/export-handler.js"></script>
+    <script src="js/context-menu.js"></script>
     <script src="js/app.js"></script>
-    <script>
-        // Initialize icons after load
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-        });
-    </script>
+    <script>document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });</script>
 </body>
-
 </html>

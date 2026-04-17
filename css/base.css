@@ -5,42 +5,40 @@
 
 /* CSS Variables - Design Tokens */
 :root {
-    /* Colors - Military/Tactical Theme */
-    --color-bg-primary: #0a0c0f;
-    --color-bg-secondary: #12151a;
-    --color-bg-tertiary: #1a1e25;
-    --color-bg-elevated: #222730;
+    /* Colors - Deep Tactical Glass */
+    --color-bg-primary: #0a0b0e;
+    --color-bg-secondary: #0f1118;
+    --color-bg-tertiary: #161922;
+    --color-bg-elevated: rgba(30, 34, 45, 0.4);
 
-    --color-border: #2a3040;
-    --color-border-hover: #3a4560;
-    --color-border-active: #4a5580;
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-hover: rgba(255, 255, 255, 0.15);
+    --color-border-active: rgba(var(--color-accent-rgb), 0.3);
 
-    --color-text-primary: #e8eaed;
-    --color-text-secondary: #9aa0a8;
-    --color-text-muted: #5a6270;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a0a8b5;
+    --color-text-muted: #626a7a;
 
     --color-accent: #00ff88;
     --color-accent-rgb: 0, 255, 136;
-    --color-accent-hover: #00cc6e;
-    --color-accent-glow: rgba(0, 255, 136, 0.3);
+    --color-accent-hover: #00e077;
+    --color-accent-glow: rgba(0, 255, 136, 0.2);
 
     --color-danger: #ff4757;
-    --color-danger-hover: #cc3a47;
+    --color-danger-rgb: 255, 71, 87;
 
-    --color-warning: #ffa502;
-    --color-info: #3498db;
+    /* Typography - system fonts that work offline in Electron */
+    --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Cascadia Code', 'Consolas', 'Fira Code', monospace;
 
-    /* Zone Colors */
-    --zone-safe: #00ff88;
-    --zone-restricted: #ff4757;
-    --zone-pvp: #ff6b35;
-    --zone-spawn: #3498db;
-    --zone-objective: #9b59b6;
-    --zone-custom: #f1c40f;
-
-    /* Typography */
-    --font-primary: 'Rajdhani', sans-serif;
-    --font-mono: 'Share Tech Mono', monospace;
+    /* Easing & Motion (The Secret to Polish) */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+    
+    --transition-fast: 0.15s var(--ease-out-expo);
+    --transition-smooth: 0.4s var(--ease-out-expo);
+    --transition-slow: 0.6s var(--ease-out-expo);
 
     /* Spacing */
     --spacing-xs: 4px;
@@ -50,19 +48,17 @@
     --spacing-xl: 32px;
 
     /* Border Radius */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
 
-    /* Transitions */
-    --transition-fast: 150ms ease;
-    --transition-normal: 250ms ease;
-
-    /* Shadows */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 20px var(--color-accent-glow);
+    /* Shadows - Layered for Depth */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
+    --shadow-glass: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-accent: 0 0 25px var(--color-accent-glow);
 }
 
 /* Reset & Base */
@@ -88,6 +84,12 @@ body {
     background-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+body.is-zone-dragging,
+body.is-zone-dragging * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 
 /* UTILITY CLASSES */
@@ -149,4 +151,17 @@ body {
 
 .animate-fade-in {
     animation: fadeIn var(--transition-normal) ease forwards;
+}
+
+/* Interactive Elements Polish */
+button, .btn, .tool-btn, .tab, .zone-item {
+    transition: all 0.2s var(--ease-out-expo) !important;
+}
+
+.btn:hover, .tool-btn:hover, .zone-item:hover {
+    transform: translateY(-1px) scale(1.02);
+}
+
+.btn:active, .tool-btn:active, .zone-item:active {
+    transform: translateY(0) scale(0.98);
 }

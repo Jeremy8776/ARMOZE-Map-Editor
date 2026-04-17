@@ -8,7 +8,7 @@ const Constants = {
     CANVAS_GRID_SIZE: 50,
 
     /** Snap grid size in map units */
-    SNAP_GRID_SIZE: 10,
+    SNAP_GRID_SIZE: 100,
 
     /** Minimum zoom level */
     MIN_ZOOM: 0.1,
@@ -92,7 +92,7 @@ const Constants = {
     EXPORT_LINE_WIDTH_THICK: 4,
 
     // ==================== APP INFO ====================
-    APP_VERSION: 'v1.4.0',
+    APP_VERSION: 'v1.5.0 - MODULAR',
     GITHUB_URL: 'https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor'
 };
 

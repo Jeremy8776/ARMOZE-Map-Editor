@@ -1,43 +1,41 @@
-# Drawing Tools Guide
+# Drawing Tools
 
-ARMOZE provides a suite of tools for designing zones of any shape.
+## Available tools
 
-## Selecting Tools
-Click a tool icon in the left toolbar or use the **Keyboard Shortcut** key shown below.
+### Select (`V`)
+- Select an existing zone
+- Drag a zone to move it
+- Resize using handles
+- Drag floating labels when the label mode allows free placement
 
-### 🖱️ Select Tool (`V`)
-*   **Usage**: Click any existing zone to select it.
-*   **Move**: Click and drag a selected zone to move it.
-*   **Resize**: Drag the white control handles (corners or edges) to resize.
-*   **Delete**: Press `Delete` or `Backspace` to remove the selected zone.
+### Rectangle (`R`)
+- Click and drag to create rectangular areas
+- Best for compounds, checkpoints, and simple objective spaces
 
-### 🔲 Rectangle Tool (`R`) & ⚪ Circle Tool (`C`)
-*   **Usage**: Click and Drag on the map to create standard geometric shapes.
-*   **Best for**: Safe Zones, Spawn Areas, simple objectives.
+### Circle (`C`)
+- Click and drag from center to radius
+- Best for safe zones, artillery radii, and spawn bubbles
 
-### 🖊️ Pen Tool (`P`)
-The most powerful tool for custom shapes.
-1.  **Click** to place an anchor point.
-2.  **Move** mouse to see the line preview.
-3.  **Click again** to place the next point.
-4.  **Close Loop**: Click back on the *starting point* (highlighted in yellow) to close the polygon.
-5.  **Finish Open**: Double-click to finish the shape without closing it (creates a path).
+### Line (`L`)
+- Click and drag to create linear overlays or lane markers
 
-> **Tip**: Hold `S` to toggle **Grid Snapping** for perfect alignment!
+### Pen (`P`)
+- Click to place points
+- Keep clicking to build the polygon/path
+- Double-click to finish
 
-### ✏️ Freehand Tool (`D`)
-Draw organic ("scribble") shapes naturally.
-1.  **Click and Hold** to start drawing.
-2.  **Drag** your mouse to draw the path on the map.
-3.  **Release** to finish.
-The editor will automatically smooth the path to reduce point count.
+### Freehand (`D`)
+- Click and drag to sketch organic shapes
+- Release to finish the stroke
 
-## Managing Zones via Layer List
-The right-hand panel shows all your created zones.
-*   **Rename**: Click the name to edit it.
-*   **Visibility**: Click the Eye icon 👁️ to hide/show a zone.
-*   **Properties**: Use the **Zone Properties** panel at the bottom right to change:
-    *   Name
-    *   Type (Safe, PvP, etc.)
-    *   Color & Opacity
-    *   Label Settings
+## Snapping
+
+- Toggle snap with `S`
+- Snap applies while drawing and while editing selected geometry
+- The renderer provides visual snap feedback for edge alignment
+
+## Editing after creation
+
+- The right layers panel lets you select, hide, expand, or delete zones
+- The floating properties panel handles styling
+- The bottom data footer shows live position and size data for the selected zone

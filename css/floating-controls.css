@@ -1,0 +1,149 @@
+/* ========================================
+   FLOATING CONTEXT CONTROLS
+   ======================================== */
+
+.floating-controls-panel {
+    position: absolute;
+    z-index: 200;
+    width: 320px;
+    background: rgba(20, 22, 26, 0.75);
+    backdrop-filter: blur(25px) saturate(200%);
+    -webkit-backdrop-filter: blur(25px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    padding: 0;
+    overflow: hidden;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                top 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    animation: floatPanelIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes floatPanelIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.floating-controls-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.floating-controls-header span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.floating-controls-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.floating-controls-actions button {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.floating-controls-actions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+}
+
+.floating-controls-actions button.btn-danger-text:hover {
+    color: #ff4d4d;
+    background: rgba(255, 77, 77, 0.1);
+}
+
+.floating-controls-body {
+    padding: 16px 16px 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-height: 550px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Inline Prompt Overlay */
+.inline-prompt-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 10, 14, 0.88);
+    backdrop-filter: blur(10px);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+    animation: floatPanelIn 0.2s ease;
+}
+
+.inline-prompt {
+    background: rgba(28, 32, 40, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 20px;
+    width: 82%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.inline-prompt p {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0;
+}
+
+.inline-prompt .compact-input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: white;
+    font-size: 13px;
+    font-family: var(--font-primary);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.inline-prompt .compact-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
+}
+
+.inline-prompt-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.inline-prompt-actions .btn-chip {
+    flex: 1;
+    justify-content: center;
+}
+
+.inline-prompt-actions .btn-chip.primary {
+    background: rgba(var(--color-accent-rgb), 0.18);
+    border-color: rgba(var(--color-accent-rgb), 0.45);
+    color: var(--color-accent);
+}

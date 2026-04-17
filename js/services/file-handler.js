@@ -65,7 +65,15 @@ class FileHandler {
      * @param {boolean} isUrl - Whether filename is a full URL
      */
     async loadLocalMapImage(filename, isUrl = false) {
-        const src = isUrl ? filename : `Maps/${filename}`;
+        let src = filename;
+        if (isUrl) {
+            // Ensure absolute local filesystem paths are formatted correctly for the browser engine
+            if (filename.match(/^[a-zA-Z]:\\/)) {
+                src = 'file:///' + filename.replace(/\\/g, '/');
+            }
+        } else {
+            src = `Maps/${filename}`;
+        }
 
         // Show loading state
         this.app.elements.uploadPrompt.style.opacity = '0.5';

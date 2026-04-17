@@ -39,15 +39,11 @@ class MapExtractorService {
     /**
      * Generate the PowerShell command for the user
      */
-    generateCommand(searchTerm) {
-        // Resolve toolsDir: if it's 'tools', we can try to guess the full path or let the user provide it.
-        // For the shell command, we need a full path. 
-        // We can use window.location or a placeholder that the user can fix.
+    generateCommand(searchTerm, format, action = "Search", filterExtension = "") {
         let absoluteToolsDir = this.config.toolsDir;
 
-        // If it looks like a relative path, try to qualify it (best effort for display)
+        // Qualify relative path for shell execution
         if (absoluteToolsDir === 'tools' && !absoluteToolsDir.includes(':')) {
-            // We assume the user is running from the project root
             absoluteToolsDir = '.\\tools';
         }
 
@@ -59,6 +55,13 @@ class MapExtractorService {
         if (this.config.outputDir) cmd += ` -OutputDir "${this.config.outputDir}"`;
         if (this.config.toolsDir) cmd += ` -ToolsDir "${absoluteToolsDir}"`;
         if (this.config.gameDir) cmd += ` -GameDir "${this.config.gameDir}"`;
+        if (format) cmd += ` -Format "${format}"`;
+        
+        cmd += ` -Action "${action}"`;
+        if (filterExtension) cmd += ` -FilterExtension "${filterExtension}"`;
+
+        // Suppress folder-open in automated mode; Electron UI handles that
+        cmd += ' -OpenFolder "0"';
 
         return cmd;
     }
@@ -67,9 +70,9 @@ class MapExtractorService {
      * In an Electron environment, this would actually run the command.
      * In a browser environment, we might offer to 'Copy to Clipboard'
      */
-    async executeExtraction(searchTerm) {
-        console.log('Executing extraction for:', searchTerm);
-        const command = this.generateCommand(searchTerm);
+    async executeExtraction(searchTerm, format, action = "Search", filterExtension = "") {
+        console.log('Executing extraction for:', searchTerm, 'format:', format, 'action:', action);
+        const command = this.generateCommand(searchTerm, format, action, filterExtension);
 
         // Check if we are in Electron (this is a placeholder for actual IPC)
         if (window.electronAPI) {

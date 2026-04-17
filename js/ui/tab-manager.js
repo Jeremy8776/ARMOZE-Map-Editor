@@ -85,6 +85,7 @@ class TabManager {
 
             if (this.tabs.length === 0) {
                 this.activeTabIndex = -1;
+                if (this.tabBarElement) this.tabBarElement.innerHTML = '';
                 this.app.showUploadScreen();
             } else {
                 this.switchToTab(Math.max(0, Math.min(this.tabs.length - 1, index - 1)));
@@ -165,22 +166,125 @@ class TabManager {
         if (!this.tabBarElement) return;
 
         this.tabBarElement.innerHTML = this.tabs.map((tab, i) => `
-            <div class="tab ${i === this.activeTabIndex ? 'active' : ''}" 
-                 onclick="app.tabManager.switchToTab(${i})" 
-                 ondblclick="app.tabManager.promptRenameTab(${i})">
+            <div class="tab ${i === this.activeTabIndex ? 'active' : ''}"
+                 data-tab-index="${i}"
+                 draggable="true">
                 <i data-lucide="map" class="tab-icon"></i>
                 <span class="tab-title" title="${tab.name}">${this.escapeHtml(tab.name)}</span>
-                <div class="tab-close" onclick="app.tabManager.closeTab(${i}, event)" title="Close Tab">
+                <button type="button" class="tab-close" data-close-index="${i}" title="Close Tab" aria-label="Close ${this.escapeHtml(tab.name)}">
                     <i data-lucide="x" style="width:12px; height:12px;"></i>
-                </div>
+                </button>
             </div>
         `).join('') + `
-            <div class="tab-new" title="New Tab" onclick="app.tabManager.startNewTab()">
+            <button type="button" class="tab-new" id="tabNewBtn" title="New Tab" aria-label="New Tab">
                 <i data-lucide="plus"></i>
-            </div>
+            </button>
         `;
 
         if (window.lucide) lucide.createIcons();
+
+        // Attach event listeners
+        this.tabBarElement.querySelectorAll('.tab').forEach((tabEl, i) => {
+            tabEl.addEventListener('click', (e) => {
+                if (!e.target.closest('.tab-close')) this.switchToTab(i);
+            });
+            tabEl.addEventListener('auxclick', (e) => {
+                if (e.button === 1) {
+                    e.preventDefault();
+                    this.closeTab(i, e);
+                }
+            });
+            tabEl.addEventListener('dblclick', (e) => {
+                if (!e.target.closest('.tab-close')) this.startInlineRename(i, tabEl);
+            });
+        });
+
+        this.tabBarElement.querySelectorAll('.tab-close').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closeTab(parseInt(btn.dataset.closeIndex), e);
+            });
+        });
+
+        const newBtn = this.tabBarElement.querySelector('#tabNewBtn');
+        if (newBtn) newBtn.addEventListener('click', () => this.startNewTab());
+
+        this.setupTabDragAndDrop();
+    }
+
+    /**
+     * Setup drag-and-drop tab reordering
+     */
+    setupTabDragAndDrop() {
+        const tabEls = Array.from(this.tabBarElement.querySelectorAll('.tab[draggable]'));
+        let dragSrcIndex = -1;
+
+        tabEls.forEach((tabEl) => {
+            tabEl.addEventListener('dragstart', (e) => {
+                dragSrcIndex = parseInt(tabEl.dataset.tabIndex);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(dragSrcIndex));
+                tabEl.classList.add('tab-dragging');
+            });
+            tabEl.addEventListener('dragend', () => {
+                tabEl.classList.remove('tab-dragging');
+                tabEls.forEach(t => t.classList.remove('tab-drag-over'));
+            });
+            tabEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                tabEls.forEach(t => t.classList.remove('tab-drag-over'));
+                tabEl.classList.add('tab-drag-over');
+            });
+            tabEl.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                tabEls.forEach(t => t.classList.remove('tab-drag-over'));
+                tabEl.classList.add('tab-drag-over');
+            });
+            tabEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const targetIndex = parseInt(tabEl.dataset.tabIndex);
+                if (dragSrcIndex !== -1 && dragSrcIndex !== targetIndex) {
+                    const activeId = this.tabs[this.activeTabIndex]?.id;
+                    const moved = this.tabs.splice(dragSrcIndex, 1)[0];
+                    this.tabs.splice(targetIndex, 0, moved);
+                    this.activeTabIndex = this.tabs.findIndex(t => t.id === activeId);
+                    this.renderTabs();
+                }
+                dragSrcIndex = -1;
+            });
+        });
+    }
+
+    /**
+     * Start inline rename of a tab
+     */
+    startInlineRename(index, tabEl) {
+        const titleSpan = tabEl.querySelector('.tab-title');
+        if (!titleSpan) return;
+        const original = this.tabs[index].name;
+        titleSpan.contentEditable = 'true';
+        titleSpan.focus();
+        const range = document.createRange();
+        range.selectNodeContents(titleSpan);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+
+        const finish = () => {
+            titleSpan.contentEditable = 'false';
+            const newName = titleSpan.textContent.trim() || original;
+            this.tabs[index].name = newName;
+            titleSpan.textContent = newName;
+            if (index === this.activeTabIndex) {
+                this.app.elements.mapInfo.textContent = `${newName} (${this.tabs[index].image.width}×${this.tabs[index].image.height})`;
+            }
+        };
+
+        titleSpan.addEventListener('blur', finish, { once: true });
+        titleSpan.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); titleSpan.blur(); }
+            if (e.key === 'Escape') { titleSpan.textContent = original; titleSpan.blur(); }
+        });
     }
 
     /**
@@ -188,25 +292,6 @@ class TabManager {
      */
     startNewTab() {
         this.app.showUploadScreen(true);
-    }
-
-    /**
-     * Prompt user to rename a tab
-     * @param {number} index - Tab index to rename
-     */
-    promptRenameTab(index) {
-        const tab = this.tabs[index];
-        if (!tab) return;
-
-        const newName = prompt("Rename Tab:", tab.name);
-        if (newName && newName.trim() !== "") {
-            tab.name = newName.trim();
-            this.renderTabs();
-
-            if (index === this.activeTabIndex) {
-                this.app.elements.mapInfo.textContent = `${tab.name} (${tab.image.width}×${tab.image.height})`;
-            }
-        }
     }
 
     /**

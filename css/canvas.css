@@ -11,57 +11,64 @@
     width: 100%;
     height: 100%;
     min-height: 0;
-    background:
-        radial-gradient(circle at center, var(--color-bg-tertiary) 0%, var(--color-bg-primary) 100%),
-        repeating-linear-gradient(0deg, transparent, transparent 49px, var(--color-border) 49px, var(--color-border) 50px),
-        repeating-linear-gradient(90deg, transparent, transparent 49px, var(--color-border) 49px, var(--color-border) 50px);
-    background-size: 100% 100%, 50px 50px, 50px 50px;
+    background: transparent; /* Background inherited from .main-content */
     overflow: hidden;
 }
 
 .upload-prompt {
-    position: relative;
-    /* Removed absolute positioning */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xl);
+    gap: var(--spacing-lg);
+    padding: 40px 60px;
     text-align: center;
-    background: var(--color-bg-secondary);
-    border: 2px dashed var(--color-border);
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-normal);
-    max-width: 90%;
-    max-height: 90%;
+    background: linear-gradient(135deg, rgba(20, 22, 29, 0.9) 0%, rgba(10, 11, 14, 0.9) 100%);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    transition: border-color 0.2s var(--ease-out-expo), 
+                background 0.2s var(--ease-out-expo),
+                transform 0.4s var(--ease-out-expo);
+    width: 800px;
+    max-width: 95%;
+    max-height: 90vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 50;
 }
 
-.upload-prompt:hover {
-    border-color: var(--color-accent);
-    background: rgba(var(--color-accent-rgb), 0.05);
-}
+/* Removed hover effect from upload prompt */
 
 .upload-prompt.drag-over {
     border-color: var(--color-accent);
-    background: rgba(var(--color-accent-rgb), 0.1);
-    transform: scale(1.02);
+    background: rgba(var(--color-accent-rgb), 0.05);
+    transform: scale(1.01);
 }
 
 .upload-icon {
-    width: 80px;
-    height: 80px;
-    color: var(--color-text-muted);
+    width: 64px;
+    height: 64px;
+    color: var(--color-accent);
+    opacity: 0.8;
 }
 
 .upload-prompt h2 {
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     color: var(--color-text-primary);
 }
 
 .upload-prompt p {
+    font-size: 14px;
     color: var(--color-text-secondary);
+    line-height: 1.6;
 }
 
 .upload-hint {
@@ -97,50 +104,53 @@
 }
 
 .local-maps-section h3 {
-    font-size: 14px;
-    color: var(--color-text-secondary);
-    margin-bottom: var(--spacing-sm);
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.3);
+    margin-bottom: 16px;
     text-transform: uppercase;
-    font-weight: 600;
+    letter-spacing: 2px;
 }
 
 .map-list {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--spacing-sm);
-    max-height: 400px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-height: 480px; /* Increased for more room */
     overflow-y: auto;
-    padding: var(--spacing-xs);
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    padding: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .map-list-item {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    gap: 6px;
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background 0.15s var(--ease-out-expo), border-color 0.15s var(--ease-out-expo), transform 0.15s var(--ease-out-expo);
     position: relative;
-
 }
 
 .map-list-item:hover {
-    background: var(--color-bg-elevated);
-    border-color: var(--color-accent);
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(var(--color-accent-rgb), 0.4);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .map-thumbnail {
     width: 100%;
-    height: 80px;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
-    border-radius: var(--radius-xs);
-    background-color: var(--color-bg-primary);
-    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background-color: #000;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.3s var(--ease-out-expo);
 }
 
 .map-info-row {
@@ -186,6 +196,8 @@
     position: absolute;
     top: 0;
     left: 0;
+    width: 100%;
+    height: 100%;
 }
 
 #mapCanvas.visible {

@@ -1,47 +1,29 @@
-# Exporting & Integration
+# Exporting
 
-Once you have designed your zones, it's time to get them into Arma Reforger.
+## Current export formats
 
-## Method 1: Workbench Plugin (Recommended)
-This method automatically creates real **Trigger Entities** in your World Editor.
+| Format | Label in app | Use |
+| --- | --- | --- |
+| Script export | `EnfusionScript (.c)` | Direct code export for script-driven zone logic |
+| Overlay image | `Image Overlay (.png)` | Transparent overlay output |
+| JSON export | `JSON Config` | Portable exported configuration |
+| Workbench export | `Workbench Plugin (.c)` | Script-based Workbench workflow |
 
-### 1. Export
-1.  Click the **Export** button in the top right.
-2.  Choose **Workbench Plugin (.c)** format.
-3.  Download the `ImportZonesPlugin.c` file.
+## Coordinate foundation
 
-### 2. Install
-1.  Locate your mod folder.
-2.  Place the file into: `YourMod/scripts/WorkbenchGame/WorldEditor/`.
-3.  *Note: You may need to create these folders if they don't exist.*
-4.  Restart the Reforger Workbench.
+The export modal also includes:
 
-### 3. Run
-1.  Open your terrain in the **World Editor**.
-2.  In the top menu, go to **Plugins** -> **Import Zones from Editor**.
-    *   *Shortcut*: `Ctrl + Shift + I`
-3.  Done! Your zones are now entities in the world hierarchy.
+- Origin Offset (`X`, `Y`)
+- Map Scale (`m / px`)
+- Invert Y Axis
+- Map Calibration entry point
 
----
+Use these before exporting if your source map image and world coordinates do not already match.
 
-## Method 2: Game Mode Component (Scripting)
-Use this if you want to handle zones purely via script logic (e.g., checking if a player is in a zone) without physical entities.
+## Typical export workflow
 
-1.  Select **EnfusionScript (.c)** format in the Export menu.
-2.  Download `SCR_ZoneManagerComponent.c`.
-3.  Place it in `YourMod/scripts/Game/GameMode/`.
-4.  In World Editor, select your `SCR_BaseGameMode` entity.
-5.  Add Component -> Select `SCR_ZoneManagerComponent`.
-
-Your game mode now has awareness of all your custom zones!
-
----
-
-## Method 3: Image Overlay
-Export a visual representation of your zones to use as an in-game map texture or loading screen.
-
-1.  Select **Image Overlay (.png)** or **TIFF**.
-2.  Configure settings:
-    *   **Texture Suffix**: `_A` (Alpha), `_BCR` (Color), or `_BCA`.
-    *   **Resize to Power of 2**: Recommended for game engine compatibility (e.g., 2048x2048).
-3.  Download and import into Workbench as a texture resource.
+1. Finish zone placement and styling
+2. Open Export
+3. Choose the output format
+4. Review coordinate settings
+5. Generate and export
