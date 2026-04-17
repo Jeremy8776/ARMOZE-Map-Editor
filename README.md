@@ -3,11 +3,6 @@
 <div align="center">
   <img src="logo.svg" alt="ARMOZE Logo" width="120" height="auto">
   <br><br>
-  <b>Desktop-first zone design workflow for tactical sandbox games</b>
-  <br>
-  <i>Load maps, draw zones, style them visually, and export game-ready outputs.</i>
-  <br><br>
-
   ![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
   ![Platform](https://img.shields.io/badge/platform-Electron%20Desktop-1f6feb.svg)
   ![License](https://img.shields.io/badge/license-MIT-green.svg)
