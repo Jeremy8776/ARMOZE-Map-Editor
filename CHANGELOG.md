@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-Select Support**: Hold Shift and click to select multiple zone items in the layer list
 - **Copy/Paste Zones**: Use Ctrl+C to copy and Ctrl+V to paste zones
 - **Duplicate Shortcut**: Use Ctrl+D to quickly duplicate selected zone
-- **Arma Reforger Map Markers**: Added 20+ military and tactical marker types:
+- **Advanced Map Markers**: Added 20+ military and tactical marker types:
     - **Military**: Infantry, Motorized, Armor, Recon, Artillery, Mortar, Machine Gun, Anti-Tank, Anti-Air, Sniper, Medical, Supply, Maintenance, Headquarters
     - **Tactical**: Flag, Warning, Waypoint, Rally Point, Attack, Defend
 - **Grid Snap Keyboard Shortcut**: Press `S` to toggle grid snapping (was documented but missing)
@@ -98,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-01-21
 
 ### Added
-- **Coordinate System Support**: Added "Invert Y Axis" option to support Arma Reforger's coordinate system (North = +Z) seamlessly.
+- **Coordinate System Support**: Added "Invert Y Axis" option to support tactical coordinate systems (North = +Z) seamlessly.
 - **Improved Calibration**: Updated the calibration tool to automatically calculate scale and origin with the new axis inversion logic.
 
 ### Fixed
@@ -114,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Grid snapping (`S` hotkey) and coordinate tracking.
     - Freehand drawing tool.
 - **Export Capabilities**:
-    - **Workbench Plugin**: Export directly to a `.c` script that acts as an Arma Reforger Workbench Plugin, automating the creation of Trigger Entities in the World Editor.
+    - **Workbench Plugin**: Export directly to a `.c` script that acts as a generic Workbench Plugin, automating the creation of Trigger Entities in the World Editor.
     - **Game Mode Component**: Export to `SCR_ZoneManagerComponent.c` for direct code integration into game modes.
     - **Map Overlay**: Export the map canvas as a high-quality `.tiff` image.
     - **JSON Project**: Save and load project state to `.json` files.
@@ -128,5 +128,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Branded `README.md` with usage instructions.
 
 ### Changed
-- Rebranded application to **ARMOZE** (Arma Reforger Map Overlay Zone Editor).
+- Rebranded application to **ARMOZE** (Advanced Map Overlay Zone Editor).
 - Updated logo to a vector-based tactical hex design.

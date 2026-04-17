@@ -58,7 +58,7 @@ class MapExtractorUI {
                     </div>
                     <div class="modal-body">
                         <p class="modal-description">
-                            Search and extract map textures directly from Arma Reforger PAK archives.
+                            Search and extract map textures directly from tactical game archives.
                         </p>
 
                         ${this.buildSearchSection()}
@@ -88,7 +88,7 @@ class MapExtractorUI {
                         <label>Scan Directory (PAK files)</label>
                         <div class="input-group">
                             <input type="text" id="extractorScanDir"
-                                   placeholder="e.g. C:\\Program Files\\Arma Reforger\\addons">
+                                   placeholder="e.g. C:\\Program Files\\Tactical Sandbox\\addons">
                             <button class="btn-icon-only" data-browse="scan" title="Browse">
                                 <i data-lucide="folder"></i>
                             </button>

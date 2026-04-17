@@ -1,9 +1,9 @@
-# ARMOZE - Arma Reforger Map Overlay Zone Editor
+# ARMOZE - Advanced Map Overlay Zone Editor
 
 <div align="center">
   <img src="logo.svg" alt="ARMOZE Logo" width="120" height="auto">
   <br><br>
-  <b>Desktop-first zone design workflow for Arma Reforger</b>
+  <b>Desktop-first zone design workflow for tactical sandbox games</b>
   <br>
   <i>Load maps, draw zones, style them visually, and export game-ready outputs.</i>
   <br><br>
@@ -17,7 +17,7 @@
 
 ## What ARMOZE does
 
-ARMOZE is an Electron desktop editor for building map overlays and gameplay zones for Arma Reforger. It gives you a visual workflow for:
+ARMOZE is an Electron desktop editor for building map overlays and gameplay zones for tactical games. It gives you a visual workflow for:
 
 1. Loading a map image or selecting an installed local map
 2. Drawing zones directly on the map

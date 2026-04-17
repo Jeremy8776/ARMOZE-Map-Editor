@@ -1,7 +1,7 @@
 {
   "name": "armoze-map-overlay",
   "version": "1.5.0",
-  "description": "Arma Reforger Map Overlay & Zone Editor",
+  "description": "ARMOZE - Advanced Map Overlay & Zone Editor",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

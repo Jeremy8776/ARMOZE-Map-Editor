@@ -9,7 +9,7 @@ class ScriptGenerator {
     static generateEnfusionManager(zones, getEnfusionType, hexToInt, escapeString) {
         const timestamp = new Date().toISOString();
         let script = `// ============================================
-// Arma Reforger Zone Definitions (${timestamp})
+// ARMOZE Zone Definitions (${timestamp})
 // ============================================\n\n`;
 
         script += this.getEnfusionHeader();

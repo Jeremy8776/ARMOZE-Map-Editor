@@ -93,7 +93,7 @@ const Constants = {
 
     // ==================== APP INFO ====================
     APP_VERSION: 'v1.5.0 - MODULAR',
-    GITHUB_URL: 'https://github.com/Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor'
+    GITHUB_URL: 'https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor'
 };
 
 /**

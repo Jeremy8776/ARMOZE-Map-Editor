@@ -1,7 +1,7 @@
 # ARMOZE - Agent & Developer Context Guide
 
 ## 1. Project Overview
-**ARMOZE** (Arma Reforger Map Overlay Zone Editor) is a pure, client-side web application designed to create visual map zones for the game *Arma Reforger*. It allows users to load map images, visually draw zones (polygons, circles, rectangles), and export them into game-specific formats (`.c` EnfusionScript, custom Workbench plugins, or JSON).
+**ARMOZE** (Advanced Map Overlay Zone Editor) is a pure, client-side web application designed to create visual map zones for tactical sandbox games. It allows users to load map images, visually draw zones (polygons, circles, rectangles), and export them into industry-standard formats (`.c` EnfusionScript, custom Workbench plugins, or JSON).
 
 ## 2. Technology Stack
 *   **Core**: Vanilla JavaScript (ES6+ Modules). **No** React, Vue, or other frameworks.

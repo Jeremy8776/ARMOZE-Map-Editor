@@ -1,5 +1,5 @@
 /**
- * Arma Reforger Map Overlay Zone Editor
+ * ARMOZE Map Overlay Zone Editor
  * Utility Functions
  */
 

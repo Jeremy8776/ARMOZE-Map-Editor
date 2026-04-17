@@ -7,7 +7,7 @@ param(
     [string]$OutputDir,
     [string]$ToolsDir,
     [string]$ScanDir,
-    [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Arma Reforger",
+    [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\Tactical Sandbox",
     [string]$OpenFolder = "1",
     [ValidateSet("png","tif","tga","dds","raw","")][string]$Format = "",
     [ValidateSet("Search","BulkAll","BulkTextures","BulkExtension")][string]$Action = "Search",

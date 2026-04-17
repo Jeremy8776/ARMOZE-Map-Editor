@@ -223,7 +223,7 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
 
 // Auto-Update Checker
 const startAutoUpdateCheck = () => {
-    const repo = 'Jeremy8776/Arma-Reforger-Map-Overlay-Zone-Editor';
+    const repo = 'Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor';
     const currentVersion = require('./package.json').version;
 
     // Check GitHub API
