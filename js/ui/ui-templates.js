@@ -283,6 +283,7 @@ const UITemplates = {
                     <div class="export-options">
                         <label class="export-option"><input type="radio" name="exportFormat" value="enfusion" checked><div class="export-option-content"><span class="export-option-title">EnfusionScript (.c)</span><p>Direct copy-paste for Enfusion code blocks.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="image"><div class="export-option-content"><span class="export-option-title">Image Overlay (.png)</span><p>Transparent overlay for Map Configs.</p></div></label>
+                        <label class="export-option"><input type="radio" name="exportFormat" value="image_with_map"><div class="export-option-content"><span class="export-option-title">Map + Overlay (.png)</span><p>Full map image with zones drawn on top.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="json"><div class="export-option-content"><span class="export-option-title">JSON Config</span><p>Portable state for sharing/re-editing.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="workbench"><div class="export-option-content"><span class="export-option-title">Workbench Plugin (.c)</span><p>Plugin for script-based map generation.</p></div></label>
                     </div>

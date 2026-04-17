@@ -999,7 +999,7 @@ class ZoneRenderer {
     /**
      * Export zones as transparent PNG overlay
      */
-    exportAsImage() {
+    exportAsImage(settings = {}) {
         if (!this.core.mapImage) return null;
 
         const exportCanvas = document.createElement('canvas');
@@ -1009,6 +1009,11 @@ class ZoneRenderer {
 
         // Transparent background
         ctx.clearRect(0, 0, this.core.mapWidth, this.core.mapHeight);
+
+        // Draw map if requested
+        if (settings.includeMap) {
+            ctx.drawImage(this.core.mapImage, 0, 0, this.core.mapWidth, this.core.mapHeight);
+        }
 
         // Draw zones
         const zones = this.manager.getZones();
