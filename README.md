@@ -3,9 +3,6 @@
 <div align="center">
   <img src="logo.svg" alt="ARMOZE Logo" width="120" height="auto">
   <br><br>
-  ![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
-  ![Platform](https://img.shields.io/badge/platform-Electron%20Desktop-1f6feb.svg)
-  ![License](https://img.shields.io/badge/license-MIT-green.svg)
 </div>
 
 ---
