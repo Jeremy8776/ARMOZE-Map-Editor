@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     writeClipboard: (text) => ipcRenderer.invoke('write-clipboard', text),
     openPath: (path) => ipcRenderer.invoke('open-path', path),
     listMapAssets: () => ipcRenderer.invoke('list-map-assets'),
+    getMapAssetUrl: (fileName) => ipcRenderer.invoke('get-map-asset-url', fileName),
     onWindowState: (callback) => ipcRenderer.on('window-state', (event, state) => callback(state)),
     onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),

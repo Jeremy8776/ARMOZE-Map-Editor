@@ -1,14 +1,20 @@
 {
   "name": "armoze-map-overlay",
   "version": "1.5.0",
-  "description": "",
+  "description": "Desktop editor for authoring tactical map overlays and branding assets for Arma Reforger maps.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Jeremy8776",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor.git"
+  },
+  "homepage": "https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.3.3"

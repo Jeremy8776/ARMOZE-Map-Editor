@@ -86,12 +86,13 @@ class ZoneEditorApp {
         );
         this.historyManager.onHistoryChanged = () => this.updateUI();
 
+        // NotificationService is constructed before services that may emit dialogs.
+        this.notificationService = new NotificationService(this);
         this.projectManager = new ProjectManager(this);
         this.fileHandler = new FileHandler(this);
-        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager);
+        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager, this.notificationService);
         this.calibrationService = new CalibrationService(this);
         this.extractorService = new MapExtractorService(this);
-        this.notificationService = new NotificationService(this);
         this.hotkeyManager = new HotkeyManager(this);
     }
 

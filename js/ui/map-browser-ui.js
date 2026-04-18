@@ -6,11 +6,12 @@ class MapBrowserUI {
     constructor(app) {
         this.app = app;
         this.container = null;
+        this.fallbackThumbnail = this.buildFallbackThumbnail();
     }
 
     async init(container) {
         this.container = container;
-        const manifestMaps = Array.isArray(window.LOCAL_MAPS) ? window.LOCAL_MAPS : [];
+        const manifestMaps = this.getManifestMaps();
         if (manifestMaps.length > 0) {
             this.renderLocalMapList(manifestMaps);
         }
@@ -23,12 +24,12 @@ class MapBrowserUI {
             if (maps.length > 0) {
                 window.LOCAL_MAPS = maps;
                 this.renderLocalMapList(maps);
-            } else if (!this.container?.children?.length) {
+            } else {
                 this.showError('No local maps were found in your Maps folder.');
             }
         } catch (err) {
             console.error('[MapBrowserUI] Failed to refresh maps:', err);
-            const manifestMaps = Array.isArray(window.LOCAL_MAPS) ? window.LOCAL_MAPS : [];
+            const manifestMaps = this.getManifestMaps();
             if (manifestMaps.length > 0) {
                 this.renderLocalMapList(manifestMaps);
             } else {
@@ -38,33 +39,55 @@ class MapBrowserUI {
     }
 
     async loadMaps() {
-        const manifestMaps = Array.isArray(window.LOCAL_MAPS) ? window.LOCAL_MAPS : [];
+        const manifestMaps = this.getManifestMaps();
         let desktopMaps = [];
 
         if (window.electronAPI?.listMapAssets) {
             try {
-                desktopMaps = await window.electronAPI.listMapAssets();
+                desktopMaps = (await window.electronAPI.listMapAssets())
+                    .map(item => this.normalizeMapEntry(item))
+                    .filter(Boolean);
             } catch (err) {
                 console.warn('[MapBrowserUI] Desktop map scan failed, using manifest fallback.', err);
             }
         }
 
-        if (!desktopMaps.length) {
-            return manifestMaps;
+        if (desktopMaps.length) {
+            const manifestNamesByFile = new Map(
+                manifestMaps.map(item => [item.file, item.name || item.file])
+            );
+
+            return desktopMaps.map(item => ({
+                file: item.file,
+                name: manifestNamesByFile.get(item.file) || item.name,
+                url: item.url || this.buildBundledAssetUrl(item.file)
+            }));
         }
 
-        const manifestNamesByFile = new Map(
-            manifestMaps.map(item => {
-                if (typeof item === 'string') {
-                    return [item, item];
-                }
-                return [item.file, item.name || item.file];
-            })
-        );
+        if (!manifestMaps.length) {
+            return [];
+        }
 
-        return desktopMaps.map(item => ({
-            file: item.file,
-            name: manifestNamesByFile.get(item.file) || item.name
+        return Promise.all(manifestMaps.map(async item => {
+            if (item.url) {
+                return item;
+            }
+
+            if (window.electronAPI?.getMapAssetUrl) {
+                try {
+                    return {
+                        ...item,
+                        url: await window.electronAPI.getMapAssetUrl(item.file)
+                    };
+                } catch (err) {
+                    console.warn('[MapBrowserUI] Failed to resolve map asset URL, using bundled path.', item.file, err);
+                }
+            }
+
+            return {
+                ...item,
+                url: this.buildBundledAssetUrl(item.file)
+            };
         }));
     }
 
@@ -73,17 +96,82 @@ class MapBrowserUI {
         this.container.innerHTML = `<div style="grid-column: span 3; color: var(--color-text-muted); font-size: 13px; text-align: center; padding: 24px;">${msg}</div>`;
     }
 
+    buildFallbackThumbnail() {
+        const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-3.5-3.5-3 3L8 8l-5 5"/>
+            </svg>
+        `;
+        return `data:image/svg+xml;base64,${btoa(svg)}`;
+    }
+
+    getManifestMaps() {
+        const manifestMaps = Array.isArray(window.LOCAL_MAPS) ? window.LOCAL_MAPS : [];
+        return manifestMaps
+            .map(item => this.normalizeMapEntry(item))
+            .filter(Boolean);
+    }
+
+    normalizeMapEntry(mapData) {
+        if (typeof mapData === 'string') {
+            return {
+                file: mapData,
+                name: mapData
+            };
+        }
+
+        if (!mapData || typeof mapData !== 'object' || typeof mapData.file !== 'string' || !mapData.file.trim()) {
+            return null;
+        }
+
+        return {
+            file: mapData.file.trim(),
+            name: typeof mapData.name === 'string' && mapData.name.trim()
+                ? mapData.name.trim()
+                : mapData.file.trim(),
+            url: typeof mapData.url === 'string' && mapData.url.trim()
+                ? mapData.url.trim()
+                : ''
+        };
+    }
+
+    buildBundledAssetUrl(fileName) {
+        return new URL(`Maps/${encodeURIComponent(fileName)}`, window.location.href).toString();
+    }
+
+    getMapThumbnailUrl(fileName, mapData) {
+        if (typeof mapData === 'object' && typeof mapData.url === 'string' && mapData.url.trim()) {
+            return mapData.url;
+        }
+
+        if (typeof fileName === 'string' && /^https?:/i.test(fileName)) {
+            return fileName;
+        }
+
+        return this.buildBundledAssetUrl(fileName);
+    }
+
     /**
      * Render the map gallery list
      */
     renderLocalMapList(maps) {
         if (!this.container) return;
         this.container.innerHTML = '';
+        const normalizedMaps = maps
+            .map(item => this.normalizeMapEntry(item))
+            .filter(Boolean);
 
-        maps.forEach(mapData => {
+        if (!normalizedMaps.length) {
+            this.showError('No local maps were found in your Maps folder.');
+            return;
+        }
+
+        normalizedMaps.forEach(mapData => {
             const fileName = typeof mapData === 'string' ? mapData : mapData.file;
             const displayName = typeof mapData === 'string' ? mapData : mapData.name;
-            const fileUrl = fileName.startsWith('http') ? fileName : `Maps/${fileName}`;
+            const fileUrl = this.getMapThumbnailUrl(fileName, mapData);
 
             const item = document.createElement('div');
             item.className = 'map-list-item';
@@ -94,7 +182,7 @@ class MapBrowserUI {
             thumb.src = fileUrl;
             thumb.loading = 'lazy';
             thumb.alt = displayName;
-            thumb.onerror = () => { thumb.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImdyYXkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHg9IjMiIHk9IjMiIHJ4PSIyIiByeT0iMiIvPjxjaXJjbGUgY3g9IjkiIGN5PSI5IiByPSIyIi8+PHBhdGggZD0ibTIxIDE1LTNlMy0zLTMtM3YxMmgyIi8+PC9zdmc+'; };
+            thumb.onerror = () => { thumb.src = this.fallbackThumbnail; };
 
             const infoRow = document.createElement('div');
             infoRow.className = 'map-info-row';
@@ -128,8 +216,6 @@ class MapBrowserUI {
             
             this.container.appendChild(item);
         });
-
-        if (window.lucide) lucide.createIcons();
     }
 }
 

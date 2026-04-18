@@ -14,6 +14,11 @@ class MapExtractorUI {
         this.mode = 'search'; // 'search' = automated one-shot, 'interactive' = full PS1 menu
     }
 
+    refreshIcons(scope = this.modal || document) {
+        if (!window.lucide || !scope) return;
+        lucide.createIcons({ icons: scope.querySelectorAll('[data-lucide]') });
+    }
+
     async init() {
         this.createModal();
         this.setupEventListeners();
@@ -49,162 +54,13 @@ class MapExtractorUI {
     // =============================================
 
     createModal() {
-        const html = `
-            <div class="modal-overlay" id="extractorModal">
-                <div class="modal extractor-modal">
-                    <div class="modal-header">
-                        <h2><i data-lucide="package-search"></i> Texture Extractor</h2>
-                        <button class="modal-close" id="btnCloseExtractor">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="modal-description">
-                            Search and extract map textures directly from tactical game archives.
-                        </p>
-
-                        ${this.buildSearchSection()}
-                        ${this.buildProgressSection()}
-                        ${this.buildResultSection()}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', html);
+        document.body.insertAdjacentHTML('beforeend', MapExtractorView.buildModalMarkup());
         this.modal = document.getElementById('extractorModal');
 
         // Populate saved config values
         this.populateConfigFields();
 
-        if (window.lucide) lucide.createIcons();
-    }
-
-    buildSearchSection() {
-        return `
-            <div class="extractor-form" id="extractorSearchSection">
-
-                <div class="extractor-settings" id="extractorSettings" style="border-bottom: 1px solid rgba(var(--color-accent-rgb), 0.15); padding-bottom: 12px; margin-bottom: 4px;">
-                    <strong style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--color-accent);">Required Configuration</strong>
-                    <div class="setting-row">
-                        <label>Scan Directory (PAK files)</label>
-                        <div class="input-group">
-                            <input type="text" id="extractorScanDir"
-                                   placeholder="e.g. C:\\Program Files\\Tactical Sandbox\\addons">
-                            <button class="btn-icon-only" data-browse="scan" title="Browse">
-                                <i data-lucide="folder"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label>Output Directory</label>
-                        <div class="input-group">
-                            <input type="text" id="extractorOutputDir"
-                                   placeholder="e.g. C:\\Users\\Name\\Documents\\Exports">
-                            <button class="btn-icon-only" data-browse="output" title="Browse">
-                                <i data-lucide="folder"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label>Tools Directory</label>
-                        <div class="input-group">
-                            <input type="text" id="extractorToolsDir"
-                                   placeholder="Path to project tools folder">
-                            <button class="btn-icon-only" data-browse="tools" title="Browse">
-                                <i data-lucide="folder"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="property-group" style="margin-bottom: 0;">
-                    <label for="extractorAction">Operation Mode</label>
-                    <select id="extractorAction" style="width:100%; padding: 8px; font-size: 13px; background: var(--color-bg-primary); border: 1px solid var(--color-border); color: var(--color-text-primary); border-radius: var(--radius-sm);">
-                        <option value="Search" selected>Search & Extract File</option>
-                        <option value="BulkAll">Bulk Extract: All Files</option>
-                        <option value="BulkTextures">Bulk Extract: Textures (.edds) Only</option>
-                        <option value="BulkExtension">Bulk Extract: By Extension</option>
-                    </select>
-                </div>
-
-                <div id="searchModeFields" class="dynamic-mode-field">
-                    <div class="property-group">
-                        <label for="extractorSearch">Resource Name / Search Term</label>
-                        <div class="search-input-wrapper">
-                            <input type="text" id="extractorSearch"
-                                   placeholder="e.g. ArlandRasterized, Everon_Satellite..."
-                                   autocomplete="off" spellcheck="false">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="extensionModeFields" class="dynamic-mode-field" style="display: none;">
-                    <div class="property-group">
-                        <label for="extractorExtension">File Extension to Filter</label>
-                        <div class="search-input-wrapper">
-                            <input type="text" id="extractorExtension"
-                                   placeholder="e.g. .et, .emat, .smap"
-                                   autocomplete="off" spellcheck="false">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="extractor-format-row" id="formatRow">
-                    <label for="extractorFormat">Texture Conversion Output (.edds)</label>
-                    <select id="extractorFormat">
-                        <option value="png" selected>PNG (Recommended)</option>
-                        <option value="tif">TIF</option>
-                        <option value="tga">TGA</option>
-                        <option value="dds">DDS</option>
-                        <option value="raw">Raw (Keep .edds)</option>
-                    </select>
-                </div>
-
-                <button class="btn btn-primary" id="btnRunExtractor" style="width: 100%; margin-top: 8px;">
-                    <i data-lucide="zap"></i> Extract Matches
-                </button>
-
-                <div class="extractor-idle-hint">
-                    Shortcut: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd>
-                </div>
-            </div>
-        `;
-    }
-
-    buildProgressSection() {
-        return `
-            <div class="extractor-progress" id="extractorProgress" style="display: none;">
-                <div class="progress-header">
-                    <span id="progressStatus">Initializing...</span>
-                    <span id="progressPercent">0%</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="extractorProgressBar" style="width: 0%"></div>
-                </div>
-                <div class="progress-log" id="extractorLog"></div>
-
-
-
-                <button class="btn btn-reset" id="btnBackFromProgress" style="margin-top: 12px;">
-                    <i data-lucide="arrow-left"></i> Back
-                </button>
-            </div>
-        `;
-    }
-
-    buildResultSection() {
-        return `
-            <div class="extractor-result" id="extractorResult" style="display: none;">
-                <div class="result-message" id="resultMessage"></div>
-                <div class="result-actions">
-                    <button class="btn btn-primary" id="btnImportMap" style="display: none;">
-                        <i data-lucide="download"></i> Import to Workspace
-                    </button>
-                </div>
-                <button class="btn btn-reset" id="btnResetExtractor">
-                    <i data-lucide="rotate-ccw"></i> New Search
-                </button>
-            </div>
-        `;
+        this.refreshIcons(this.modal);
     }
 
     populateConfigFields() {
@@ -343,7 +199,7 @@ class MapExtractorUI {
 
         this.lastExtractedFile = null;
 
-        if (window.lucide) lucide.createIcons();
+        this.refreshIcons(this.modal);
     }
 
     /**
@@ -532,7 +388,7 @@ class MapExtractorUI {
             }
         }
 
-        if (window.lucide) lucide.createIcons();
+        this.refreshIcons(this.modal);
     }
 
     // =============================================
@@ -540,156 +396,40 @@ class MapExtractorUI {
     // =============================================
 
     createOpenFolderButton() {
-        this.removeOpenFolderButton();
-
-        const actions = document.querySelector('.extractor-result .result-actions');
-        if (!actions) return;
-
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-secondary';
-        btn.id = 'btnOpenOutputFolder';
-        btn.innerHTML = '<i data-lucide="folder-open"></i> Open Output Folder';
-
-        btn.addEventListener('click', () => {
-            if (window.electronAPI?.openPath) {
-                let targetDir = this.lastOutputDir || this.service.config.outputDir;
-                
-                if (this.lastExtractedFile && !this.lastOutputDir) {
-                    targetDir = this.lastExtractedFile.substring(
-                        0, this.lastExtractedFile.lastIndexOf('\\')
-                    );
-                }
-                
-                if (targetDir) window.electronAPI.openPath(targetDir);
-            }
-        });
-
-        actions.appendChild(btn);
-        if (window.lucide) lucide.createIcons();
+        MapExtractorView.createOpenFolderButton(this);
     }
 
     removeOpenFolderButton() {
-        const existing = document.getElementById('btnOpenOutputFolder');
-        if (existing) existing.remove();
+        MapExtractorView.removeOpenFolderButton();
     }
 
     /**
      * Subtle shake animation for validation feedback
      */
     shakeInput(inputId) {
-        const el = document.getElementById(inputId);
-        if (!el) return;
-
-        el.style.borderColor = 'var(--color-danger)';
-        el.style.animation = 'none';
-        el.offsetHeight; // Force reflow
-        el.style.animation = 'shakeInput 0.4s ease';
-        el.focus();
-
-        setTimeout(() => {
-            el.style.borderColor = '';
-            el.style.animation = '';
-        }, 600);
+        MapExtractorView.shakeInput(inputId);
     }
 
     async handleBrowse(type) {
         if (!window.electronAPI?.selectFolder) {
-            alert('Folder browsing is only available in the Desktop version.');
+            this.app.notificationService?.showAlert('Folder browsing is only available in the Desktop version.', { title: 'Unsupported' });
             return;
         }
 
         try {
             const path = await window.electronAPI.selectFolder();
-            if (path) this.updatePathField(type, path);
+            if (path) {
+                const fieldMap = {
+                    scan: 'extractorScanDir',
+                    output: 'extractorOutputDir',
+                    tools: 'extractorToolsDir'
+                };
+                const field = document.getElementById(fieldMap[type]);
+                if (field) field.value = path;
+            }
         } catch (err) {
             console.error('Folder selection failed:', err);
         }
-    }
-
-    getPathField(type) {
-        const map = {
-            scan: 'extractorScanDir',
-            output: 'extractorOutputDir',
-            tools: 'extractorToolsDir'
-        };
-        return document.getElementById(map[type]);
-    }
-
-    updatePathField(type, path) {
-        const field = this.getPathField(type);
-        if (field) field.value = path;
-    }
-
-    showToast(message, type = 'info') {
-        const toast = document.createElement('div');
-        const tint = type === 'error' ? '255, 77, 87' : '0, 255, 136';
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(20, 22, 28, 0.96);
-            border: 1px solid rgba(${tint}, 0.35);
-            border-radius: 12px;
-            padding: 10px 16px;
-            color: rgba(255,255,255,0.9);
-            font-size: 13px;
-            font-family: var(--font-primary);
-            z-index: 2000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.45);
-        `;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2600);
-    }
-
-    requestMapName(defaultValue) {
-        return new Promise((resolve) => {
-            const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed;
-                inset: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(4, 6, 10, 0.7);
-                backdrop-filter: blur(6px);
-                z-index: 1500;
-            `;
-
-            overlay.innerHTML = `
-                <div class="inline-prompt" style="width:min(380px, calc(100vw - 32px));">
-                    <p>Import Map Name</p>
-                    <input type="text" class="compact-input">
-                    <div class="inline-prompt-actions">
-                        <button class="btn-chip cancel-btn">Cancel</button>
-                        <button class="btn-chip primary confirm-btn">Import</button>
-                    </div>
-                </div>
-            `;
-
-            const close = (value = null) => {
-                overlay.remove();
-                resolve(value);
-            };
-
-            document.body.appendChild(overlay);
-
-            const input = overlay.querySelector('input');
-            input.value = defaultValue || '';
-            input.focus();
-            input.select();
-
-            overlay.querySelector('.cancel-btn').addEventListener('click', () => close(null));
-            overlay.querySelector('.confirm-btn').addEventListener('click', () => close(input.value.trim() || null));
-            overlay.addEventListener('click', (event) => {
-                if (event.target === overlay) close(null);
-            });
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') close(input.value.trim() || null);
-                if (event.key === 'Escape') close(null);
-            });
-        });
     }
 
     async handleImport() {
@@ -704,7 +444,11 @@ class MapExtractorUI {
             ?.replace(/\.[^.]+$/, '')
             ?.replace(/[_-]+/g, ' ')
             ?.replace(/\b\w/g, (char) => char.toUpperCase()) || 'Imported Map';
-        const desiredName = await this.requestMapName(inferredName);
+        const desiredName = await (this.app.notificationService?.showPrompt('', {
+            title: 'Import Map Name',
+            defaultValue: inferredName,
+            confirmLabel: 'Import'
+        }) ?? Promise.resolve(null));
         if (!desiredName) return;
 
         const origHtml = btn.innerHTML;
@@ -739,11 +483,11 @@ class MapExtractorUI {
             this.hide(); // Close the modal upon success
         } catch (e) {
             console.error('Import failed', e);
-            this.showToast(`Could not import: ${e.message}`, 'error');
+            this.app.notificationService?.showToast(`Could not import: ${e.message}`, 'error');
             btn.innerHTML = origHtml;
         }
 
-        if (window.lucide) lucide.createIcons();
+        this.refreshIcons(this.modal);
     }
 }
 

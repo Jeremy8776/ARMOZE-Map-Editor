@@ -73,14 +73,14 @@ class ZoneListUI {
         this.attachEventListeners();
 
         if (window.lucide) {
-            lucide.createIcons();
+            lucide.createIcons({ icons: this.elements.zoneList.querySelectorAll('[data-lucide]') });
         }
     }
 
     renderLayerItem(layer) {
         const { kind, id, item } = layer;
         const isSelected = this.isLayerSelected(kind, id);
-        const icon = kind === 'zone' ? this.getZoneShapeIcon(item) : 'image';
+        const iconMarkup = this.getLayerTypeIconMarkup(layer);
         const accentColor = kind === 'zone' ? item.color : '#7ad7ff';
         const metaLabel = kind === 'zone' ? this.getZoneMetaLabel(item) : this.getOverlayMetaLabel(item);
         const expandTitle = kind === 'zone' ? 'Show Properties' : 'Select Overlay';
@@ -91,7 +91,7 @@ class ZoneListUI {
         return `
             <div class="zone-item ${isSelected ? 'selected' : ''}" data-layer-id="${id}" data-layer-kind="${kind}">
                 <div class="zone-shape-icon" style="color: ${accentColor}">
-                    <i data-lucide="${icon}" style="width:16px; height:16px;"></i>
+                    ${iconMarkup}
                 </div>
                 <div class="zone-item-info">
                     <div class="zone-item-name">${this.escapeHtml(name)}</div>
@@ -286,13 +286,91 @@ class ZoneListUI {
         return id === this.app.imageOverlayManager?.selectedOverlayId;
     }
 
-    getZoneShapeIcon(zone) {
-        let shapeIcon = 'shapes';
-        if (zone.shape === 'circle') shapeIcon = 'circle';
-        else if (zone.shape === 'rectangle') shapeIcon = 'square';
-        else if (zone.shape === 'line') shapeIcon = 'type';
-        else if (zone.points) shapeIcon = 'triangle';
-        return shapeIcon;
+    getLayerTypeIconMarkup(layer) {
+        if (layer.kind === 'overlay') {
+            return this.getOverlayTypeIconMarkup(layer.item);
+        }
+
+        return this.getZoneTypeIconMarkup(layer.item);
+    }
+
+    getZoneTypeIconMarkup(zone) {
+        const typeKey = (zone?.profileId || '').toLowerCase();
+
+        switch (typeKey) {
+            case 'safe':
+                return this.buildTypeIcon([
+                    '<path d="M12 3.5 18.5 6v5.2c0 3.9-2.3 6.9-6.5 9.3-4.2-2.4-6.5-5.4-6.5-9.3V6z"/>',
+                    '<path d="m9.2 11.8 1.9 1.9 3.7-4.1"/>'
+                ]);
+            case 'restricted':
+                return this.buildTypeIcon([
+                    '<path d="M12 3.5 18.5 6v5.2c0 3.9-2.3 6.9-6.5 9.3-4.2-2.4-6.5-5.4-6.5-9.3V6z"/>',
+                    '<path d="M9 9.2h6"/>',
+                    '<path d="M8.6 15.4 15.4 8.6"/>'
+                ]);
+            case 'blufor':
+                return this.buildTypeIcon([
+                    '<path d="m12 4 6.8 4-6.8 4-6.8-4z"/>',
+                    '<path d="m12 12 6 3.6-6 3.4-6-3.4z"/>'
+                ]);
+            case 'opfor':
+                return this.buildTypeIcon([
+                    '<path d="m12 4.5 5.5 5.5-5.5 5.5-5.5-5.5z"/>',
+                    '<path d="M12 7.3v5.4"/>',
+                    '<path d="M9.3 10h5.4"/>'
+                ]);
+            default:
+                return this.getZoneShapeIconMarkup(zone);
+        }
+    }
+
+    getZoneShapeIconMarkup(zone) {
+        if (zone?.shape === 'circle') {
+            return this.buildTypeIcon(['<circle cx="12" cy="12" r="6.2"/>']);
+        }
+
+        if (zone?.shape === 'rectangle') {
+            return this.buildTypeIcon(['<rect x="5.5" y="6.2" width="13" height="11.6" rx="1.8"/>']);
+        }
+
+        if (zone?.shape === 'line') {
+            return this.buildTypeIcon([
+                '<path d="M6.5 16.5 17.5 7.5"/>',
+                '<circle cx="6.5" cy="16.5" r="1.4" fill="currentColor" stroke="none"/>',
+                '<circle cx="17.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/>'
+            ]);
+        }
+
+        return this.buildTypeIcon(['<path d="m12 5 6 4.4v5.2L12 19l-6-4.4V9.4z"/>']);
+    }
+
+    getOverlayTypeIconMarkup(overlay) {
+        if (overlay?.sourceType === 'svg') {
+            return this.buildTypeTextBadge('SVG');
+        }
+
+        return this.buildTypeIcon([
+            '<rect x="5.2" y="6" width="13.6" height="12" rx="2"/>',
+            '<circle cx="9.1" cy="10" r="1.4"/>',
+            '<path d="m7.2 16 3.2-3.2 2.4 2.2 3.9-4"/>'
+        ]);
+    }
+
+    buildTypeIcon(paths) {
+        return `
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                ${paths.join('')}
+            </svg>
+        `;
+    }
+
+    buildTypeTextBadge(text) {
+        return `
+            <span aria-hidden="true" style="font-size:9px; font-weight:800; letter-spacing:0.08em; line-height:1; color:currentColor;">
+                ${this.escapeHtml(text)}
+            </span>
+        `;
     }
 
     getZoneMetaLabel(zone) {

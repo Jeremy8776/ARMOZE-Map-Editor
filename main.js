@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, dialog, clipboard, shell, net } = require('
 const path = require('path');
 const fs = require('fs/promises');
 const { spawn } = require('child_process');
+const { pathToFileURL } = require('url');
+const packageMetadata = require('./package.json');
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -57,6 +59,49 @@ let activeExtractorChild = null;
 const EXTRACTOR_ACTIONS = new Set(['Search', 'BulkAll', 'BulkTextures', 'BulkExtension']);
 const EXTRACTOR_FORMATS = new Set(['png', 'tif', 'tga', 'dds', 'raw']);
 
+function getGitHubRepositoryPath() {
+    const repository = packageMetadata.repository;
+    const rawUrl = typeof repository === 'string' ? repository : repository?.url;
+    if (!rawUrl) {
+        throw new Error('Missing package repository metadata.');
+    }
+
+    const normalized = rawUrl
+        .replace(/^git\+/, '')
+        .replace(/\.git$/i, '');
+    const match = normalized.match(/github\.com[:/](.+?)\/(.+)$/i);
+    if (!match) {
+        throw new Error('Repository metadata must point to GitHub.');
+    }
+
+    return `${match[1]}/${match[2]}`;
+}
+
+function isSafeGitHubReleaseUrl(url, repositoryPath) {
+    if (typeof url !== 'string' || !url.trim()) {
+        return false;
+    }
+
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com') {
+            return false;
+        }
+
+        return parsed.pathname.startsWith(`/${repositoryPath}/releases/`);
+    } catch {
+        return false;
+    }
+}
+
+function getMapsDir() {
+    return path.join(__dirname, 'Maps');
+}
+
+function getMapAssetFileUrl(fileName) {
+    return pathToFileURL(path.join(getMapsDir(), fileName)).toString();
+}
+
 function normalizeOptionalString(value, maxLength = 4096) {
     if (typeof value !== 'string') {
         return '';
@@ -68,6 +113,28 @@ function normalizeOptionalString(value, maxLength = 4096) {
     }
 
     return trimmed;
+}
+
+async function validateExtractorDirectory(candidatePath, label, { mustExist = true } = {}) {
+    if (!candidatePath) {
+        return;
+    }
+
+    if (!path.isAbsolute(candidatePath)) {
+        throw new Error(`${label} must be an absolute path.`);
+    }
+
+    const normalized = path.normalize(candidatePath);
+    if (normalized.includes('\0')) {
+        throw new Error(`${label} contains invalid characters.`);
+    }
+
+    if (mustExist) {
+        const stat = await fs.stat(normalized).catch(() => null);
+        if (!stat?.isDirectory()) {
+            throw new Error(`${label} does not exist.`);
+        }
+    }
 }
 
 function buildExtractorSpawnOptions(options = {}) {
@@ -136,6 +203,12 @@ function buildExtractorSpawnOptions(options = {}) {
 // IPC handler for the bundled extractor workflow
 ipcMain.handle('execute-extractor', async (event, options) => {
     return new Promise((resolve, reject) => {
+        Promise.all([
+            validateExtractorDirectory(options?.scanDir, 'Scan directory'),
+            validateExtractorDirectory(options?.gameDir, 'Game directory'),
+            validateExtractorDirectory(options?.toolsDir, 'Tools directory'),
+            validateExtractorDirectory(options?.outputDir, 'Output directory', { mustExist: false })
+        ]).then(() => {
         if (activeExtractorChild) {
             try { activeExtractorChild.kill(); } catch (e) { }
         }
@@ -182,6 +255,7 @@ ipcMain.handle('execute-extractor', async (event, options) => {
             activeExtractorChild = null;
             reject(err);
         });
+        }).catch(reject);
     });
 });
 
@@ -221,7 +295,7 @@ ipcMain.handle('open-path', async (event, pathStr) => {
 
 ipcMain.handle('list-map-assets', async () => {
     try {
-        const mapsDir = path.join(__dirname, 'Maps');
+        const mapsDir = getMapsDir();
         const entries = await fs.readdir(mapsDir, { withFileTypes: true });
         const imageFiles = entries
             .filter(entry => entry.isFile())
@@ -231,6 +305,7 @@ ipcMain.handle('list-map-assets', async () => {
 
         return imageFiles.map(fileName => ({
             file: fileName,
+            url: getMapAssetFileUrl(fileName),
             name: path.basename(fileName, path.extname(fileName))
                 .replace(/[_-]+/g, ' ')
                 .replace(/\b\w/g, c => c.toUpperCase())
@@ -241,10 +316,30 @@ ipcMain.handle('list-map-assets', async () => {
     }
 });
 
+ipcMain.handle('get-map-asset-url', async (event, fileName) => {
+    const normalizedFileName = normalizeOptionalString(fileName, 260);
+    if (!normalizedFileName) {
+        throw new Error('A map asset filename is required.');
+    }
+
+    const resolvedPath = path.resolve(getMapsDir(), normalizedFileName);
+    const relativePath = path.relative(getMapsDir(), resolvedPath);
+    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error('Invalid map asset path.');
+    }
+
+    const stat = await fs.stat(resolvedPath).catch(() => null);
+    if (!stat?.isFile()) {
+        throw new Error(`Map asset not found: ${normalizedFileName}`);
+    }
+
+    return getMapAssetFileUrl(relativePath);
+});
+
 // IPC Handler for importing a map asset
 ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
     try {
-        const mapsDir = path.join(__dirname, 'Maps');
+        const mapsDir = getMapsDir();
         let targetFile = sourcePath;
         
         // Smart parse: If the UI passed a directory (e.g. Map_2 folder), automatically locate the image inside
@@ -276,10 +371,15 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
             friendlyName = preferredName.trim().replace(/\s+/g, ' ');
         }
             
-        const existingPattern = new RegExp(`\\{ name: "[^"]+", file: "${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" \\},?`, 'i');
-        const newEntry = `    { name: "${friendlyName}", file: "${fileName}" },`;
-        
-        // Replace closing bracket with our new entry + closing bracket
+        // JSON.stringify yields a safely-escaped JavaScript string literal, which
+        // prevents user-supplied names or filenames from breaking the maps.js
+        // array (e.g. a quote or backslash in a filename could previously produce
+        // invalid JS and brick the app on next load).
+        const nameLiteral = JSON.stringify(friendlyName);
+        const fileLiteral = JSON.stringify(fileName);
+        const existingPattern = new RegExp(`\\{\\s*name:\\s*"[^"]*",\\s*file:\\s*"${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*\\},?`, 'i');
+        const newEntry = `    { name: ${nameLiteral}, file: ${fileLiteral} },`;
+
         if (existingPattern.test(content)) {
             content = content.replace(existingPattern, newEntry.trim());
         } else if (content.includes('];')) {
@@ -297,11 +397,11 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
 
 // Auto-Update Checker
 const startAutoUpdateCheck = () => {
-    const repo = 'Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor';
-    const currentVersion = require('./package.json').version;
+    const repositoryPath = getGitHubRepositoryPath();
+    const currentVersion = packageMetadata.version;
 
     // Check GitHub API
-    const request = net.request(`https://api.github.com/repos/${repo}/releases/latest`);
+    const request = net.request(`https://api.github.com/repos/${repositoryPath}/releases/latest`);
 
     request.on('response', (response) => {
         let body = '';
@@ -316,7 +416,7 @@ const startAutoUpdateCheck = () => {
                     const latestVersion = data.tag_name.replace('v', '');
 
                     // Simple semantic version comparison
-                    if (isNewerVersion(currentVersion, latestVersion)) {
+                    if (isNewerVersion(currentVersion, latestVersion) && isSafeGitHubReleaseUrl(data.html_url, repositoryPath)) {
                         BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', {
                             version: latestVersion,
                             url: data.html_url,
@@ -361,5 +461,8 @@ app.whenReady().then(() => {
 
 // IPC to open external links (for the update button)
 ipcMain.handle('open-external', async (event, url) => {
+    if (!isSafeGitHubReleaseUrl(url, getGitHubRepositoryPath())) {
+        throw new Error('Blocked unsafe external URL.');
+    }
     await shell.openExternal(url);
 });

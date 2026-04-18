@@ -189,7 +189,7 @@ class CalibrationService {
         const distWorld = Utils.distance(worldP1, worldP2);
 
         if (distMap < 1 || distWorld < 0.1) {
-            alert("Points are too close together to calibrate accurately.");
+            this.app.notificationService?.showAlert('Points are too close together to calibrate accurately.', { title: 'Calibration Error', tone: 'danger' });
             return;
         }
 

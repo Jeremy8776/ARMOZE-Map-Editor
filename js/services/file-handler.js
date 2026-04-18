@@ -7,6 +7,30 @@ class FileHandler {
         this.app = app;
     }
 
+    buildBundledAssetUrl(filename) {
+        return new URL(`Maps/${encodeURIComponent(filename)}`, window.location.href).toString();
+    }
+
+    async resolveMapAssetSrc(filename, isUrl = false) {
+        if (isUrl) {
+            if (filename.match(/^[a-zA-Z]:\\/)) {
+                return 'file:///' + filename.replace(/\\/g, '/');
+            }
+
+            return filename;
+        }
+
+        if (window.electronAPI?.getMapAssetUrl) {
+            try {
+                return await window.electronAPI.getMapAssetUrl(filename);
+            } catch (error) {
+                console.warn('[FileHandler] Falling back to bundled asset URL for map:', filename, error);
+            }
+        }
+
+        return this.buildBundledAssetUrl(filename);
+    }
+
     /**
      * Load a map file from File object
      * @param {File} file - The file to load
@@ -22,7 +46,7 @@ class FileHandler {
             }
         } catch (error) {
             console.error('Error loading map:', error);
-            alert('Error loading map file: ' + error.message);
+            this.app.notificationService?.showAlert(`Error loading map file: ${error.message}`, { title: 'Load Failed', tone: 'danger' });
         }
     }
 
@@ -97,15 +121,7 @@ class FileHandler {
      * @param {boolean} isUrl - Whether filename is a full URL
      */
     async loadLocalMapImage(filename, isUrl = false) {
-        let src = filename;
-        if (isUrl) {
-            // Ensure absolute local filesystem paths are formatted correctly for the browser engine
-            if (filename.match(/^[a-zA-Z]:\\/)) {
-                src = 'file:///' + filename.replace(/\\/g, '/');
-            }
-        } else {
-            src = `Maps/${filename}`;
-        }
+        const src = await this.resolveMapAssetSrc(filename, isUrl);
 
         // Show loading state
         this.app.elements.uploadPrompt.style.opacity = '0.5';
@@ -117,7 +133,7 @@ class FileHandler {
         };
         img.onerror = () => {
             this.app.elements.uploadPrompt.style.opacity = '1';
-            alert(`Failed to load image: ${src}`);
+            this.app.notificationService?.showAlert(`Failed to load image: ${src}`, { title: 'Load Failed', tone: 'danger' });
         };
         img.src = src;
     }

@@ -156,7 +156,7 @@ class TabManager {
         }
 
         // 5. Update UI
-        this.app.elements.mapInfo.textContent = `${tab.name} (${tab.image.width}×${tab.image.height})`;
+        this.app.elements.mapInfo.textContent = `${tab.name} (${tab.image.width} x ${tab.image.height})`;
         this.app.zoneListUI.updateZoneList();
         this.renderTabs();
         this.app.core.requestRender();
@@ -185,7 +185,9 @@ class TabManager {
             </button>
         `;
 
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+            lucide.createIcons({ icons: this.tabBarElement.querySelectorAll('[data-lucide]') });
+        }
 
         // Attach event listeners
         this.tabBarElement.querySelectorAll('.tab').forEach((tabEl, i) => {
@@ -280,7 +282,7 @@ class TabManager {
             this.tabs[index].name = newName;
             titleSpan.textContent = newName;
             if (index === this.activeTabIndex) {
-                this.app.elements.mapInfo.textContent = `${newName} (${this.tabs[index].image.width}×${this.tabs[index].image.height})`;
+                this.app.elements.mapInfo.textContent = `${newName} (${this.tabs[index].image.width} x ${this.tabs[index].image.height})`;
             }
         };
 

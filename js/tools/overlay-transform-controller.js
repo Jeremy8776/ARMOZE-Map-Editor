@@ -32,8 +32,29 @@ class OverlayTransformController {
     }
 
     handlePointerDown(mapPos) {
-        if (!this.manager?.selectedOverlayId) {
+        if (!this.manager) {
             return false;
+        }
+
+        const overlayAtPoint = this.manager.findOverlayAtPoint(mapPos);
+
+        if (!this.manager.selectedOverlayId) {
+            if (!overlayAtPoint) {
+                return false;
+            }
+
+            this.manager.selectOverlay(overlayAtPoint.id);
+            this.host.manager.selectZone(null);
+
+            const localPoint = this.manager.toOverlayLocalPoint(mapPos, overlayAtPoint);
+            this.isDraggingOverlay = true;
+            this.dragOffset = localPoint ? {
+                x: localPoint.x - overlayAtPoint.x,
+                y: localPoint.y - overlayAtPoint.y
+            } : { x: 0, y: 0 };
+            this.host.setDragInteractionLock(true);
+            this.core.requestRender();
+            return true;
         }
 
         if (this.manager.findRotationHandleAtPoint(mapPos, this.core.zoom)) {
@@ -69,7 +90,7 @@ class OverlayTransformController {
             return true;
         }
 
-        const overlay = this.manager.findOverlayAtPoint(mapPos);
+        const overlay = overlayAtPoint;
         if (!overlay) {
             return false;
         }

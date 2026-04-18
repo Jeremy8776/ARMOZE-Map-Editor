@@ -1,15 +1,17 @@
 @echo off
-set "APP_DIR=%~dp0"
-pushd "%APP_DIR%"
+set "SCRIPT_DIR=%~dp0"
+pushd "%SCRIPT_DIR%"
+set "APP_DIR=%CD%"
+set "ELECTRON_CMD=%APP_DIR%\node_modules\.bin\electron.cmd"
 
-if not exist "package.json" (
-    echo Could not find package.json in:
-    echo %APP_DIR%
+if not exist "%ELECTRON_CMD%" (
+    echo Could not find the local Electron launcher at:
+    echo %ELECTRON_CMD%
     pause
     popd
     exit /b 1
 )
 
-call npm start
+call "%ELECTRON_CMD%" "%APP_DIR%"
 popd
 exit /b 0

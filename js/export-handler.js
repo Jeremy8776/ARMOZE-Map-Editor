@@ -2,19 +2,26 @@
  * Export Handler - Orchestrates various export formats
  */
 class ExportHandler {
-    constructor(core, zoneManager, renderer, imageOverlayManager = null) {
+    constructor(core, zoneManager, renderer, imageOverlayManager = null, notificationService = null) {
         this.core = core;
         this.zoneManager = zoneManager;
         this.renderer = renderer;
         this.imageOverlayManager = imageOverlayManager;
+        this.notificationService = notificationService;
     }
 
     export(format, settings = {}) {
         const zones = this.zoneManager.getZones();
         const overlays = this.imageOverlayManager?.serializeOverlays?.() || [];
         const needsZoneGeometry = format === 'enfusion' || format === 'json' || format === 'workbench' || format === 'all';
-        if (needsZoneGeometry && zones.length === 0) return alert('No zones to export!');
-        if (!needsZoneGeometry && zones.length === 0 && overlays.length === 0) return alert('No zones or branding images to export!');
+        if (needsZoneGeometry && zones.length === 0) {
+            this.notificationService?.showAlert('No zones to export!', { title: 'Nothing to Export' });
+            return;
+        }
+        if (!needsZoneGeometry && zones.length === 0 && overlays.length === 0) {
+            this.notificationService?.showAlert('No zones or branding images to export!', { title: 'Nothing to Export' });
+            return;
+        }
 
         const scale = settings.mapScale || 1;
         const oX = settings.originX || 0;
@@ -86,8 +93,8 @@ class ExportHandler {
 
     exportAll(zones, settings = {}) {
         this.exportEnfusion(zones);
-        setTimeout(() => this.exportJSON(zones), 500);
-        setTimeout(() => this.exportImage(settings), 1000);
+        this.exportJSON(zones);
+        this.exportImage(settings);
     }
 
     resizeToPowerOf2(canvas) {
