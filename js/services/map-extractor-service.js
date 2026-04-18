@@ -74,10 +74,18 @@ class MapExtractorService {
         console.log('Executing extraction for:', searchTerm, 'format:', format, 'action:', action);
         const command = this.generateCommand(searchTerm, format, action, filterExtension);
 
-        // Check if we are in Electron (this is a placeholder for actual IPC)
-        if (window.electronAPI) {
+        if (window.electronAPI?.executeExtractor) {
             try {
-                return await window.electronAPI.runCommand(command);
+                return await window.electronAPI.executeExtractor({
+                    searchTerm,
+                    format,
+                    action,
+                    filterExtension,
+                    scanDir: this.config.scanDir,
+                    outputDir: this.config.outputDir,
+                    toolsDir: this.config.toolsDir,
+                    gameDir: this.config.gameDir
+                });
             } catch (err) {
                 throw new Error('Failed to run extraction: ' + err.message);
             }

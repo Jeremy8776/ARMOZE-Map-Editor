@@ -6,6 +6,13 @@ class ZonePropertiesUI {
     constructor(app) {
         this.app = app;
         this.elements = null;
+        this.inspectorCollapsed = false;
+        this.persistLiveZoneChanges = Utils.debounce(() => {
+            this.app.zoneManager.saveToStorage();
+        }, 180);
+        this.refreshZoneListDebounced = Utils.debounce(() => {
+            this.app.zoneListUI?.updateZoneList();
+        }, 140);
     }
 
     /**
@@ -67,25 +74,28 @@ class ZonePropertiesUI {
             labelStyleSummary: document.getElementById('labelStyleSummary'),
             
             // Containers
-            floatingControls: floatingControls,
-            floatingZoneName: elements?.floatingZoneName || document.getElementById('floatingZoneName'),
-            floatingColorQuick: elements?.floatingColorQuick || document.getElementById('floatingColorQuick'),
-            btnFloatDuplicate: elements?.btnFloatDuplicate || document.getElementById('btnFloatDuplicate'),
-            btnFloatDelete: elements?.btnFloatDelete || document.getElementById('btnFloatDelete'),
-            btnFloatClose: elements?.btnFloatClose || document.getElementById('btnFloatClose'),
+             floatingControls: floatingControls,
+             floatingZoneName: elements?.floatingZoneName || document.getElementById('floatingZoneName'),
+             quickZoneColor: elements?.quickZoneColor || document.getElementById('quickZoneColor'),
+             btnFloatDuplicate: elements?.btnFloatDuplicate || document.getElementById('btnFloatDuplicate'),
+             btnFloatDelete: elements?.btnFloatDelete || document.getElementById('btnFloatDelete'),
+             btnFloatClose: elements?.btnFloatClose || document.getElementById('btnFloatClose'),
+             quickChip: elements?.quickChip || document.getElementById('zoneQuickChip'),
+             quickZoneName: elements?.quickZoneName || document.getElementById('zoneQuickName'),
+             btnQuickDuplicate: elements?.btnQuickDuplicate || document.getElementById('btnQuickDuplicate'),
+             btnQuickDelete: elements?.btnQuickDelete || document.getElementById('btnQuickDelete'),
+             btnQuickOpenInspector: elements?.btnQuickOpenInspector || document.getElementById('btnQuickOpenInspector'),
         };
 
-        if (!this.elements.floatingControls) {
-            console.warn('ZonePropertiesUI init skipped: floating controls panel not found.');
+        this.zonePanelElement = document.querySelector('.zone-panel');
+        this.toolbarElement = document.querySelector('.toolbar');
+
+        if (!this.elements.floatingControls || !this.elements.quickChip) {
+            console.warn('ZonePropertiesUI init skipped: inspector or quick chip not found.');
             return;
         }
 
-        this.floatingOffset = { x: 0, y: -120 }; // Default offset
-        this.isDraggingPanel = false;
-
         this.setupAccordionInteractions();
-        this.setupFloatingDraggable();
-
         this.quickColors = ['#00ff88', '#ff4757', '#0066ff', '#f1c40f', '#9b59b6', '#ffffff'];
         this.recentColors = this.loadRecentColors();
 
@@ -169,6 +179,7 @@ class ZonePropertiesUI {
 
     syncAllColorInputPreviews() {
         this.syncColorInputPreview(this.elements.zoneColor);
+        this.syncColorInputPreview(this.elements.quickZoneColor);
         this.syncColorInputPreview(this.elements.labelColor);
         this.syncColorInputPreview(this.elements.labelBgColor);
     }
@@ -367,7 +378,7 @@ class ZonePropertiesUI {
      * Setup event listeners for zone properties inputs
      */
     setupEventListeners() {
-        if (this.elements.zoneName) this.elements.zoneName.addEventListener('input', () => this.updateSelectedZone());
+        if (this.elements.zoneName) this.elements.zoneName.addEventListener('input', () => this.updateSelectedZone({ live: true }));
         
         if (this.elements.zoneProfile) {
             this.elements.zoneProfile.addEventListener('change', (e) => {
@@ -391,9 +402,14 @@ class ZonePropertiesUI {
         if (this.elements.zoneFillPattern) this.elements.zoneFillPattern.addEventListener('change', markAsCustom);
         if (this.elements.zoneColor) this.elements.zoneColor.addEventListener('input', () => {
             this.syncColorInputPreview(this.elements.zoneColor);
+            this.setColorInputValue('quickZoneColor', this.elements.zoneColor.value);
+            if (this.elements.zoneProfile) this.elements.zoneProfile.value = 'custom';
+            this.updateSelectedZone({ live: true });
+        });
+        if (this.elements.zoneColor) this.elements.zoneColor.addEventListener('change', () => {
+            this.rememberRecentColor('zone', this.elements.zoneColor.value);
             markAsCustom();
         });
-        if (this.elements.zoneColor) this.elements.zoneColor.addEventListener('change', () => this.rememberRecentColor('zone', this.elements.zoneColor.value));
         if (this.elements.zoneStyle) this.elements.zoneStyle.addEventListener('change', () => this.syncAccordionSummaries());
         if (this.elements.zoneFillPattern) this.elements.zoneFillPattern.addEventListener('change', () => this.syncAccordionSummaries());
         if (this.elements.borderLabelMode) this.elements.borderLabelMode.addEventListener('change', () => {
@@ -417,8 +433,9 @@ class ZonePropertiesUI {
                         this.elements[`${id}Val`].textContent = this.elements[id].value + suffix;
                     }
                     if (this.elements.zoneProfile) this.elements.zoneProfile.value = 'custom';
-                    this.updateSelectedZone();
+                    this.updateSelectedZone({ live: true });
                 });
+                this.elements[id].addEventListener('change', () => this.updateSelectedZone());
             }
         };
 
@@ -449,34 +466,43 @@ class ZonePropertiesUI {
             this.elements.labelText.addEventListener('input', () => {
                 markLabelAsCustom();
                 this.syncAccordionSummaries();
-                this.updateSelectedZone();
+                this.updateSelectedZone({ live: true });
             });
+            this.elements.labelText.addEventListener('change', () => this.updateSelectedZone());
         }
         if (this.elements.labelColor) this.elements.labelColor.addEventListener('input', () => {
             this.syncColorInputPreview(this.elements.labelColor);
             markLabelAsCustom();
+            this.updateSelectedZone({ live: true });
+        });
+        if (this.elements.labelColor) this.elements.labelColor.addEventListener('change', () => {
+            this.rememberRecentColor('label', this.elements.labelColor.value);
             this.updateSelectedZone();
         });
-        if (this.elements.labelColor) this.elements.labelColor.addEventListener('change', () => this.rememberRecentColor('label', this.elements.labelColor.value));
         if (this.elements.labelOpacity) {
             this.elements.labelOpacity.addEventListener('input', () => {
                 markLabelAsCustom();
                 if (this.elements.labelOpacityValue) this.elements.labelOpacityValue.textContent = this.elements.labelOpacity.value + '%';
-                this.updateSelectedZone();
+                this.updateSelectedZone({ live: true });
             });
+            this.elements.labelOpacity.addEventListener('change', () => this.updateSelectedZone());
         }
         if (this.elements.labelBgColor) this.elements.labelBgColor.addEventListener('input', () => {
             this.syncColorInputPreview(this.elements.labelBgColor);
             markLabelAsCustom();
+            this.updateSelectedZone({ live: true });
+        });
+        if (this.elements.labelBgColor) this.elements.labelBgColor.addEventListener('change', () => {
+            this.rememberRecentColor('labelBg', this.elements.labelBgColor.value);
             this.updateSelectedZone();
         });
-        if (this.elements.labelBgColor) this.elements.labelBgColor.addEventListener('change', () => this.rememberRecentColor('labelBg', this.elements.labelBgColor.value));
         if (this.elements.labelBgOpacity) {
             this.elements.labelBgOpacity.addEventListener('input', () => {
                 markLabelAsCustom();
                 if (this.elements.labelBgOpacityValue) this.elements.labelBgOpacityValue.textContent = this.elements.labelBgOpacity.value + '%';
-                this.updateSelectedZone();
+                this.updateSelectedZone({ live: true });
             });
+            this.elements.labelBgOpacity.addEventListener('change', () => this.updateSelectedZone());
         }
         if (this.elements.labelFontFamily) this.elements.labelFontFamily.addEventListener('change', () => {
             markLabelAsCustom();
@@ -569,7 +595,35 @@ class ZonePropertiesUI {
         }
 
         if (this.elements.btnFloatClose) {
-            this.elements.btnFloatClose.addEventListener('click', () => this.hideFloatingControls());
+            this.elements.btnFloatClose.addEventListener('click', () => this.setInspectorCollapsed(true));
+        }
+
+        if (this.elements.quickZoneColor) {
+            this.elements.quickZoneColor.addEventListener('input', () => {
+                this.setColorInputValue('zoneColor', this.elements.quickZoneColor.value);
+                if (this.elements.zoneProfile) this.elements.zoneProfile.value = 'custom';
+                this.updateSelectedZone({ live: true });
+            });
+            this.elements.quickZoneColor.addEventListener('change', () => {
+                this.rememberRecentColor('zone', this.elements.quickZoneColor.value);
+                this.updateSelectedZone();
+            });
+        }
+
+        if (this.elements.quickZoneName) {
+            this.elements.quickZoneName.addEventListener('click', () => this.openInspector());
+        }
+
+        if (this.elements.btnQuickOpenInspector) {
+            this.elements.btnQuickOpenInspector.addEventListener('click', () => this.openInspector());
+        }
+
+        if (this.elements.btnQuickDuplicate) {
+            this.elements.btnQuickDuplicate.addEventListener('click', () => this.app.duplicateSelectedZone());
+        }
+
+        if (this.elements.btnQuickDelete) {
+            this.elements.btnQuickDelete.addEventListener('click', () => this.deleteSelectedZone());
         }
     }
 
@@ -768,41 +822,7 @@ class ZonePropertiesUI {
     }
 
     setupFloatingDraggable() {
-        const header = this.elements.floatingControls.querySelector('.floating-controls-header');
-        if (!header) return;
-
-        header.style.cursor = 'move';
-        
-        const onMouseMove = (e) => {
-            if (!this.isDraggingPanel) return;
-            
-            const zone = this.app.zoneManager.getSelectedZone();
-            if (!zone) return;
-
-            // Get world center screen pos
-            const bounds = this.getZoneScreenCenter(zone);
-            
-            // Calculate new offset from screen center
-            this.floatingOffset.x = e.clientX - bounds.x;
-            this.floatingOffset.y = e.clientY - bounds.y;
-            
-            this.updateFloatingPosition();
-        };
-
-        const onMouseUp = () => {
-            this.isDraggingPanel = false;
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-
-        header.addEventListener('mousedown', (e) => {
-            // Don't drag if clicking buttons
-            if (e.target.closest('button')) return;
-            
-            this.isDraggingPanel = true;
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-        });
+        return;
     }
 
     getZoneScreenCenter(zone) {
@@ -828,21 +848,34 @@ class ZonePropertiesUI {
         };
     }
 
-    renderFloatingPresets() {
-        if (!this.elements.floatingColorQuick) return;
-        this.elements.floatingColorQuick.innerHTML = this.quickColors.map(color => `
-            <div class="color-dot" style="background-color: ${color}" data-color="${color}"></div>
-        `).join('');
+    syncZoneTitles(name) {
+        if (this.elements.floatingZoneName) this.elements.floatingZoneName.textContent = name;
+        if (this.elements.quickZoneName) this.elements.quickZoneName.textContent = name;
+    }
 
-        this.elements.floatingColorQuick.querySelectorAll('.color-dot').forEach(dot => {
-            dot.addEventListener('click', () => {
-                const color = dot.dataset.color;
-                this.setColorInputValue('zoneColor', color);
-                this.rememberRecentColor('zone', color);
-                if (this.elements.zoneProfile) this.elements.zoneProfile.value = 'custom';
-                this.updateSelectedZone();
-            });
-        });
+    setInspectorCollapsed(collapsed) {
+        this.inspectorCollapsed = collapsed;
+        if (!this.elements.floatingControls) return;
+
+        this.elements.floatingControls.classList.toggle('is-collapsed', collapsed);
+    }
+
+    pulseInspector() {
+        if (!this.elements.floatingControls) return;
+
+        this.elements.floatingControls.classList.remove('is-attention');
+        void this.elements.floatingControls.offsetWidth;
+        this.elements.floatingControls.classList.add('is-attention');
+        window.clearTimeout(this.inspectorPulseTimeout);
+        this.inspectorPulseTimeout = window.setTimeout(() => {
+            this.elements.floatingControls?.classList.remove('is-attention');
+        }, 900);
+    }
+
+    openInspector() {
+        if (!this.app.zoneManager.getSelectedZone()) return;
+        this.setInspectorCollapsed(false);
+        this.pulseInspector();
     }
 
     /**
@@ -860,14 +893,16 @@ class ZonePropertiesUI {
             // Collapse all accordions on fresh zone selection
             const allAccordions = this.elements.floatingControls?.querySelectorAll('[data-accordion]');
             if (allAccordions) allAccordions.forEach(s => this.setAccordionOpen(s, false));
+            this.setInspectorCollapsed(false);
         }
 
-        if (this.elements.floatingZoneName) this.elements.floatingZoneName.textContent = zone.name;
+        this.syncZoneTitles(zone.name);
         if (this.elements.zoneProfile) this.elements.zoneProfile.value = zone.profileId || 'custom';
         
         if (this.elements.zoneStyle) this.elements.zoneStyle.value = zone.style || 'solid';
         if (this.elements.zoneFillPattern) this.elements.zoneFillPattern.value = zone.fillPattern || 'solid';
         this.setColorInputValue('zoneColor', zone.color, '#ffffff');
+        this.setColorInputValue('quickZoneColor', zone.color, '#ffffff');
         if (this.elements.borderLabelMode) this.elements.borderLabelMode.value = zone.borderLabelMode || 'none';
         if (this.elements.patternLabelMode) this.elements.patternLabelMode.value = zone.patternLabelMode || 'none';
         
@@ -924,19 +959,12 @@ class ZonePropertiesUI {
     }
 
     showFloatingControls(zone) {
-        if (!this.elements.floatingControls) return;
+        if (!this.elements.floatingControls || !this.elements.quickChip) return;
 
-        this.elements.floatingControls.style.display = 'block';
-        if (this.elements.floatingZoneName) this.elements.floatingZoneName.textContent = zone.name;
-        
-        this.renderFloatingPresets();
-        
-        // Mark active color dot
-        if (this.elements.floatingColorQuick) {
-            this.elements.floatingColorQuick.querySelectorAll('.color-dot').forEach(dot => {
-                dot.classList.toggle('active', dot.dataset.color.toLowerCase() === zone.color.toLowerCase());
-            });
-        }
+        this.elements.floatingControls.style.removeProperty('display');
+        this.elements.quickChip.style.removeProperty('display');
+        this.syncZoneTitles(zone.name);
+        this.setColorInputValue('quickZoneColor', zone.color, '#ffffff');
 
         this.updateFloatingPosition();
     }
@@ -944,6 +972,9 @@ class ZonePropertiesUI {
     hideFloatingControls() {
         if (this.elements.floatingControls) {
             this.elements.floatingControls.style.display = 'none';
+        }
+        if (this.elements.quickChip) {
+            this.elements.quickChip.style.display = 'none';
         }
         this.updateZoneDataReadout(null);
     }
@@ -960,7 +991,7 @@ class ZonePropertiesUI {
      * Smarter positioning: avoid overlapping the zone itself
      */
     updateFloatingPosition() {
-        if (!this.elements.floatingControls || this.elements.floatingControls.style.display === 'none') return;
+        if (!this.elements.quickChip || this.elements.quickChip.style.display === 'none') return;
         
         const zone = this.app.zoneManager.getSelectedZone();
         if (!zone) {
@@ -968,34 +999,41 @@ class ZonePropertiesUI {
             return;
         }
 
-        const panel = this.elements.floatingControls;
-        const rect = panel.getBoundingClientRect();
-        const panelW = rect.width || 320;
-        const panelH = rect.height || 450;
+        const chip = this.elements.quickChip;
+        const rect = chip.getBoundingClientRect();
+        const chipW = rect.width || 260;
+        const chipH = rect.height || 58;
         const viewportW = document.documentElement.clientWidth;
         const viewportH = document.documentElement.clientHeight;
         
         // Get zone screen bounds
         const bb = this.getZoneScreenBB(zone);
-        
-        // Horizontal centering relative to zone BB
-        let targetX = bb.minX + (bb.width / 2) - (panelW / 2);
-        
-        // Vertical placement: Try above the BB first
-        let targetY = bb.minY - panelH - 24; 
-        
-        // Flip to below if too close to top (header area)
-        if (targetY < 20) {
-            targetY = bb.maxY + 24;
+
+        const leftLimit = this.toolbarElement
+            ? this.toolbarElement.getBoundingClientRect().right + 16
+            : 16;
+        let rightLimit = viewportW - 16;
+        if (this.zonePanelElement) {
+            rightLimit = Math.min(rightLimit, this.zonePanelElement.getBoundingClientRect().left - 16);
+        }
+        if (this.elements.floatingControls && this.elements.floatingControls.style.display !== 'none' && !this.inspectorCollapsed) {
+            rightLimit = Math.min(rightLimit, this.elements.floatingControls.getBoundingClientRect().left - 16);
         }
 
-        // Final boundary clamping to workspace
-        const safeMargin = 10;
-        targetX = Math.max(safeMargin, Math.min(targetX, viewportW - panelW - safeMargin));
-        targetY = Math.max(safeMargin, Math.min(targetY, viewportH - panelH - safeMargin));
+        let targetX = bb.minX + (bb.width / 2) - (chipW / 2);
+        let targetY = bb.minY - chipH - 14;
+        if (targetY < 84) {
+            targetY = bb.maxY + 14;
+        }
+        if (targetY + chipH > viewportH - 16) {
+            targetY = Math.max(84, bb.minY - chipH - 14);
+        }
 
-        panel.style.left = `${targetX}px`;
-        panel.style.top = `${targetY}px`;
+        targetX = Math.max(leftLimit, Math.min(targetX, rightLimit - chipW));
+        targetY = Math.max(84, Math.min(targetY, viewportH - chipH - 16));
+
+        chip.style.left = `${targetX}px`;
+        chip.style.top = `${targetY}px`;
     }
 
     /**
@@ -1099,8 +1137,18 @@ class ZonePropertiesUI {
     /**
      * Update the selected zone with current property values
      */
-    updateSelectedZone() {
-        if (!this.app.zoneManager.selectedZoneId) return;
+    updateSelectedZone(options = {}) {
+        if (!this.app.zoneManager.selectedZoneId) return null;
+
+        const live = !!options.live;
+        const selectedZone = this.app.zoneManager.getSelectedZone();
+        if (!selectedZone) return null;
+
+        const previousSummary = {
+            name: selectedZone.name,
+            profileId: selectedZone.profileId,
+            color: selectedZone.color
+        };
 
         const labelFontSize = this.getLabelFontSizeValue();
         const borderLabelMode = this.elements.labelBorderToggle?.checked
@@ -1114,7 +1162,7 @@ class ZonePropertiesUI {
         const currentName = this.elements.floatingZoneName ? this.elements.floatingZoneName.textContent : 'Zone';
         const finalName = labelTextValue || currentName;
 
-        this.app.zoneManager.updateZone(this.app.zoneManager.selectedZoneId, {
+        const updatedZone = this.app.zoneManager.updateZone(this.app.zoneManager.selectedZoneId, {
             name: finalName,
             profileId: this.elements.zoneProfile ? this.elements.zoneProfile.value : 'custom',
             style: this.elements.zoneStyle ? this.elements.zoneStyle.value : 'solid',
@@ -1147,15 +1195,36 @@ class ZonePropertiesUI {
             labelItalic: this.elements.labelItalic ? this.elements.labelItalic.checked : false,
             labelShadow: this.elements.labelShadow ? this.elements.labelShadow.checked : true,
             labelRotation: this.elements.labelRotation ? parseInt(this.elements.labelRotation.value, 10) : 0
+        }, {
+            live,
+            persist: !live
         });
 
-        // Refresh the properties with updated data (isRefresh = true to preserve UI state)
-        const zone = this.app.zoneManager.getSelectedZone();
-        if (zone) {
-            this.showZoneProperties(zone, true);
+        if (!updatedZone) {
+            return null;
         }
 
+        this.syncZoneTitles(updatedZone.name);
+
+        const shouldRefreshList = (
+            updatedZone.name !== previousSummary.name ||
+            updatedZone.profileId !== previousSummary.profileId ||
+            updatedZone.color !== previousSummary.color
+        );
+
+        if (live) {
+            this.persistLiveZoneChanges();
+            this.updateZoneDataReadout(updatedZone);
+            this.updateLabelPositionInfo(updatedZone);
+            if (shouldRefreshList) {
+                this.refreshZoneListDebounced();
+            }
+            return updatedZone;
+        }
+
+        this.showZoneProperties(updatedZone, true);
         this.app.zoneListUI.updateZoneList();
+        return updatedZone;
     }
 
     showNamePrompt(label, defaultValue, onConfirm) {

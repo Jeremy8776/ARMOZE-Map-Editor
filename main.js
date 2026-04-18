@@ -3,8 +3,6 @@ const path = require('path');
 const fs = require('fs/promises');
 const { spawn } = require('child_process');
 
-app.disableHardwareAcceleration();
-
 function createWindow() {
     const mainWindow = new BrowserWindow({
         width: 1366,
@@ -53,24 +51,109 @@ app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// Store active process to allow input
-let activeChild = null;
+// Store active extractor process to stream output
+let activeExtractorChild = null;
 
-// IPC Handler for running commands
-ipcMain.handle('run-command', async (event, command) => {
+const EXTRACTOR_ACTIONS = new Set(['Search', 'BulkAll', 'BulkTextures', 'BulkExtension']);
+const EXTRACTOR_FORMATS = new Set(['png', 'tif', 'tga', 'dds', 'raw']);
+
+function normalizeOptionalString(value, maxLength = 4096) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length > maxLength) {
+        throw new Error('Input is too long.');
+    }
+
+    return trimmed;
+}
+
+function buildExtractorSpawnOptions(options = {}) {
+    const action = normalizeOptionalString(options.action, 32) || 'Search';
+    const format = normalizeOptionalString(options.format, 16) || 'png';
+    const searchTerm = normalizeOptionalString(options.searchTerm, 512);
+    const filterExtension = normalizeOptionalString(options.filterExtension, 32);
+    const scanDir = normalizeOptionalString(options.scanDir);
+    const outputDir = normalizeOptionalString(options.outputDir);
+    const configuredToolsDir = normalizeOptionalString(options.toolsDir);
+    const gameDir = normalizeOptionalString(options.gameDir);
+
+    if (!EXTRACTOR_ACTIONS.has(action)) {
+        throw new Error(`Unsupported extractor action: ${action}`);
+    }
+
+    if (!EXTRACTOR_FORMATS.has(format)) {
+        throw new Error(`Unsupported extractor format: ${format}`);
+    }
+
+    if (action === 'Search' && !searchTerm) {
+        throw new Error('A search term is required.');
+    }
+
+    if (action === 'BulkExtension' && !filterExtension) {
+        throw new Error('A filter extension is required.');
+    }
+
+    const bundledToolsDir = path.join(__dirname, 'tools');
+    const toolsDir = configuredToolsDir
+        ? path.resolve(__dirname, configuredToolsDir)
+        : bundledToolsDir;
+    const scriptPath = path.join(bundledToolsDir, 'ExtractTexture.ps1');
+
+    const args = [
+        '-ExecutionPolicy', 'Bypass',
+        '-File', scriptPath,
+        '-Action', action,
+        '-Format', format,
+        '-ToolsDir', toolsDir,
+        '-OpenFolder', '0'
+    ];
+
+    if (searchTerm) {
+        args.push('-ResourcePath', searchTerm);
+    }
+    if (scanDir) {
+        args.push('-ScanDir', scanDir);
+    }
+    if (outputDir) {
+        args.push('-OutputDir', outputDir);
+    }
+    if (gameDir) {
+        args.push('-GameDir', gameDir);
+    }
+    if (filterExtension) {
+        args.push('-FilterExtension', filterExtension);
+    }
+
+    return {
+        command: 'powershell.exe',
+        args
+    };
+}
+
+// IPC handler for the bundled extractor workflow
+ipcMain.handle('execute-extractor', async (event, options) => {
     return new Promise((resolve, reject) => {
-        // Kill existing process if any (though UI prevents this usually)
-        if (activeChild) {
-            try { activeChild.kill(); } catch (e) { }
+        if (activeExtractorChild) {
+            try { activeExtractorChild.kill(); } catch (e) { }
         }
 
-        const child = spawn(command, {
-            shell: true,
+        let spawnOptions;
+        try {
+            spawnOptions = buildExtractorSpawnOptions(options);
+        } catch (err) {
+            reject(err);
+            return;
+        }
+
+        const child = spawn(spawnOptions.command, spawnOptions.args, {
             windowsHide: true,
-            env: { ...process.env, FORCE_COLOR: '1' } // Force color for nicer output parsing if supported
+            env: { ...process.env, FORCE_COLOR: '1' }
         });
 
-        activeChild = child;
+        activeExtractorChild = child;
         let stdout = '';
         let stderr = '';
 
@@ -87,7 +170,7 @@ ipcMain.handle('run-command', async (event, command) => {
         });
 
         child.on('close', (code) => {
-            activeChild = null;
+            activeExtractorChild = null;
             if (code === 0) {
                 resolve({ stdout, stderr });
             } else {
@@ -96,7 +179,7 @@ ipcMain.handle('run-command', async (event, command) => {
         });
 
         child.on('error', (err) => {
-            activeChild = null;
+            activeExtractorChild = null;
             reject(err);
         });
     });
@@ -109,15 +192,6 @@ ipcMain.handle('window-maximize', () => {
     if (win?.isMaximized()) win.unmaximize(); else win?.maximize();
 });
 ipcMain.handle('window-close', () => { BrowserWindow.getFocusedWindow()?.close(); });
-
-// IPC Handler for sending input to the running command
-ipcMain.handle('send-command-input', async (event, input) => {
-    if (activeChild && activeChild.stdin) {
-        activeChild.stdin.write(input + '\n');
-        return true;
-    }
-    return false;
-});
 
 // IPC Handler for folder selection
 ipcMain.handle('select-folder', async () => {

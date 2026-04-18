@@ -28,6 +28,7 @@ class CanvasCore {
         this.onRender = null;
         this.onCoordsChanged = null;
         this.onZoomChanged = null;
+        this.renderScheduled = false;
 
         this.init();
     }
@@ -45,9 +46,15 @@ class CanvasCore {
     }
 
     requestRender() {
-        if (this.onRender) {
-            this.onRender();
-        }
+        if (this.renderScheduled) return;
+
+        this.renderScheduled = true;
+        window.requestAnimationFrame(() => {
+            this.renderScheduled = false;
+            if (this.onRender) {
+                this.onRender();
+            }
+        });
     }
 
     /**

@@ -22,6 +22,7 @@ class ZoneEditorApp {
             uploadPrompt: document.getElementById('uploadPrompt'),
             btnUpload: document.getElementById('btnUpload'),
             fileInput: document.getElementById('fileInput'),
+            overlayImageInput: document.getElementById('overlayImageInput'),
             localMapList: document.getElementById('localMapList'),
             tabBar: document.getElementById('tabBar'),
             coordX: document.getElementById('coordX'),
@@ -34,6 +35,7 @@ class ZoneEditorApp {
             btnLoadProject: document.getElementById('btnLoadProject'),
             projectInput: document.getElementById('projectInput'),
             btnExport: document.getElementById('btnExport'),
+            btnAddOverlayImage: document.getElementById('btnAddOverlayImage'),
             btnZoomIn: document.getElementById('btnZoomIn'),
             btnZoomOut: document.getElementById('btnZoomOut'),
             btnFitView: document.getElementById('btnFitView'),
@@ -62,17 +64,21 @@ class ZoneEditorApp {
     initCore() {
         this.core = new CanvasCore(this.elements.canvas, this.elements.canvasContainer);
         this.zoneManager = new ZoneManager(() => this.requestRender());
-        this.toolManager = new ToolManager(this.core, this.zoneManager);
-        this.eventHandler = new EventHandler(this.core, this.toolManager, this.zoneManager);
-        this.renderer = new ZoneRenderer(this.core, this.zoneManager);
+        this.imageOverlayManager = new ImageOverlayManager(() => this.requestRender());
+        this.imageOverlayManager.hydrateCore(this.core);
+        this.toolManager = new ToolManager(this.core, this.zoneManager, this.imageOverlayManager);
+        this.eventHandler = new EventHandler(this.core, this.toolManager, this.zoneManager, this.imageOverlayManager);
+        this.renderer = new ZoneRenderer(this.core, this.zoneManager, this.imageOverlayManager);
     }
 
     initServices() {
         this.historyManager = new HistoryManager(
-            () => this.zoneManager.getZones(),
-            (zones) => {
-                this.zoneManager.zones = zones;
+            () => this.getEditorState(),
+            (state) => {
+                this.zoneManager.zones = state?.zones || [];
                 this.zoneManager.selectedZoneId = null;
+                this.imageOverlayManager.setOverlays(state?.overlays || [], { persist: true, keepSelection: false });
+                this.imageOverlayManager.selectOverlay(null, { render: false });
                 this.core.requestRender();
                 this.zoneListUI.updateZoneList();
                 this.zonePropertiesUI.showZoneProperties(null);
@@ -82,7 +88,7 @@ class ZoneEditorApp {
 
         this.projectManager = new ProjectManager(this);
         this.fileHandler = new FileHandler(this);
-        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer);
+        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager);
         this.calibrationService = new CalibrationService(this);
         this.extractorService = new MapExtractorService(this);
         this.notificationService = new NotificationService(this);
@@ -112,10 +118,15 @@ class ZoneEditorApp {
         this.zonePropertiesUI.init({
             floatingControls: document.getElementById('floatingZoneControls'),
             floatingZoneName: document.getElementById('floatingZoneName'),
-            floatingColorQuick: document.getElementById('floatingColorQuick'),
+            quickZoneColor: document.getElementById('quickZoneColor'),
             btnFloatDuplicate: document.getElementById('btnFloatDuplicate'),
             btnFloatDelete: document.getElementById('btnFloatDelete'),
-            btnFloatClose: document.getElementById('btnFloatClose')
+            btnFloatClose: document.getElementById('btnFloatClose'),
+            quickChip: document.getElementById('zoneQuickChip'),
+            quickZoneName: document.getElementById('zoneQuickName'),
+            btnQuickDuplicate: document.getElementById('btnQuickDuplicate'),
+            btnQuickDelete: document.getElementById('btnQuickDelete'),
+            btnQuickOpenInspector: document.getElementById('btnQuickOpenInspector')
         });
         this.calibrationService.init({
             calibrationModal: document.getElementById('calibrationModal'),
@@ -181,6 +192,13 @@ class ZoneEditorApp {
         this.tabManager.createTab(filename, image);
     }
 
+    getEditorState() {
+        return {
+            zones: this.zoneManager.getZones(),
+            overlays: this.imageOverlayManager.serializeOverlays()
+        };
+    }
+
     setupCallbacks() {
         this.core.onRender = () => this.render();
         this.zoneManager.onZoneCreated = (zone) => {
@@ -192,6 +210,9 @@ class ZoneEditorApp {
         };
 
         this.zoneManager.onZoneSelected = (zone) => {
+            if (zone) {
+                this.imageOverlayManager.selectOverlay(null, { render: false });
+            }
             this.zonePropertiesUI.showZoneProperties(zone);
             this.zoneListUI.updateZoneListSelection();
         };
@@ -206,6 +227,31 @@ class ZoneEditorApp {
             this.zoneListUI.updateZoneList();
         };
         this.zoneManager.onZoneDeleted = () => {
+            this.zoneListUI.updateZoneList();
+            this.updateUI();
+        };
+
+        this.imageOverlayManager.onOverlayCreated = () => {
+            this.zoneListUI.updateZoneList();
+            this.updateUI();
+        };
+        this.imageOverlayManager.onOverlaySelected = (overlay) => {
+            if (overlay) {
+                this.zoneManager.selectZone(null);
+            }
+            this.zoneListUI.updateZoneListSelection();
+        };
+        this.imageOverlayManager.onOverlayUpdated = (overlay, options = {}) => {
+            if (options.live) {
+                this.zoneListUI.syncOverlayTintControls?.(overlay);
+            } else {
+                this.zoneListUI.updateZoneList();
+            }
+            if (!options.live) {
+                this.updateUI();
+            }
+        };
+        this.imageOverlayManager.onOverlayDeleted = () => {
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
@@ -241,6 +287,7 @@ class ZoneEditorApp {
     render() {
         if (this.core.renderBase()) {
             this.renderer.drawZones();
+            this.renderer.drawImageOverlays();
             this.renderer.drawSelection();
             const toolState = this.toolManager.getCurrentDrawState();
             this.renderer.drawSnapPreview(toolState.snapPreview);
@@ -257,6 +304,8 @@ class ZoneEditorApp {
     setupEventListeners() {
         this.elements.btnUpload.addEventListener('click', () => this.elements.fileInput.click());
         this.elements.fileInput.addEventListener('change', (e) => this.fileHandler.handleFileSelect(e));
+        this.elements.btnAddOverlayImage.addEventListener('click', () => this.elements.overlayImageInput.click());
+        this.elements.overlayImageInput.addEventListener('change', (e) => this.fileHandler.handleOverlayImageSelect(e));
 
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -297,6 +346,8 @@ class ZoneEditorApp {
         this.elements.uploadPrompt.style.display = 'flex';
         this.elements.canvas.classList.remove('visible');
         this.elements.mapInfo.textContent = "No map loaded";
+        this.imageOverlayManager.selectOverlay(null, { render: false });
+        this.updateUI();
     }
 
     openDocumentation() {
@@ -325,7 +376,8 @@ class ZoneEditorApp {
     updateUI() {
         this.elements.btnUndo.disabled = !this.historyManager.canUndo();
         this.elements.btnRedo.disabled = !this.historyManager.canRedo();
-        this.elements.btnExport.disabled = this.zoneManager.getZones().length === 0;
+        this.elements.btnExport.disabled = this.zoneManager.getZones().length === 0 && !this.imageOverlayManager.hasOverlays();
+        this.elements.btnAddOverlayImage.disabled = !this.core.mapImage;
     }
 
     duplicateSelectedZone() {

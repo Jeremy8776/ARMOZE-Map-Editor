@@ -4,17 +4,45 @@
  */
 const UITemplates = {
     FLOATING_CONTROLS: `
-        <div id="floatingZoneControls" class="floating-controls-panel" style="display: none;">
+        <div id="zoneQuickChip" class="zone-quick-chip" style="display: none;">
+            <div class="zone-quick-chip__identity">
+                <span class="zone-quick-chip__eyebrow">Zone</span>
+                <button type="button" id="zoneQuickName" class="zone-quick-chip__name">Zone Name</button>
+            </div>
+            <label class="zone-quick-chip__color" style="--selected-color:#00ff88;" aria-label="Quick zone color">
+                <span class="color-wheel-core" aria-hidden="true"></span>
+                <input type="color" id="quickZoneColor" class="compact-color-picker" value="#00ff88">
+            </label>
+            <div class="zone-quick-chip__actions">
+                <button id="btnQuickOpenInspector" class="zone-quick-chip__action zone-quick-chip__action--primary" title="Open Inspector">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18 3h3v3"/><path d="M10 14 21 3"/></svg>
+                </button>
+                <button id="btnQuickDuplicate" class="zone-quick-chip__action" title="Duplicate Zone">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </button>
+                <button id="btnQuickDelete" class="zone-quick-chip__action zone-quick-chip__action--danger" title="Delete Zone">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="floatingZoneControls" class="floating-controls-panel zone-inspector-panel" style="display: none;">
             <div class="floating-controls-header">
-                <span id="floatingZoneName" class="editable-name">Zone Name</span>
+                <div class="zone-inspector-heading">
+                    <span class="zone-inspector-kicker">Zone Inspector</span>
+                    <span id="floatingZoneName" class="editable-name">Zone Name</span>
+                </div>
                 <div class="floating-controls-actions">
                     <button id="btnFloatDuplicate" title="Duplicate"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
                     <button id="btnFloatDelete" class="btn-danger-text" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
-                    <button id="btnFloatClose" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <button id="btnFloatClose" title="Collapse Inspector"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
                 </div>
             </div>
             
             <div class="floating-controls-body">
+                <div class="zone-inspector-intro">
+                    <p>Stable editing surface for the selected zone. Use the chip on the map for quick changes.</p>
+                </div>
                 <div class="property-grid">
                         <div class="property-item">
                             <label>Profile</label>
@@ -28,26 +56,21 @@ const UITemplates = {
                         <div class="property-item">
                             <div class="property-label-row">
                                 <label>Color</label>
-                                <span class="custom-color-picker-label">Custom</span>
+                                <span class="custom-color-picker-label">Inspector</span>
                             </div>
-                            <div class="quick-style-row">
-                                <div class="quick-color-group" id="floatingColorQuick"></div>
+                            <div class="background-control-row">
                                 <label class="color-wheel-control compact-color-picker-shell" style="--selected-color:#00ff88;" aria-label="Custom color">
                                     <span class="color-wheel-core" aria-hidden="true"></span>
                                     <input type="color" id="zoneColor" class="compact-color-picker" value="#00ff88">
                                 </label>
+                                <div class="slider-row compact-slider-row">
+                                    <input type="range" id="fillOpacity" min="0" max="100" step="5">
+                                    <span id="fillOpacityVal" class="slider-val">40%</span>
+                                </div>
                             </div>
                             <div class="recent-colors-group">
                                 <span class="recent-colors-label">Recent Colors</span>
                                 <div class="recent-colors-row" id="zoneRecentColors"></div>
-                            </div>
-                        </div>
-
-                        <div class="property-item">
-                            <label>Opacity</label>
-                            <div class="slider-row">
-                                <input type="range" id="fillOpacity" min="0" max="100" step="5">
-                                <span id="fillOpacityVal" class="slider-val">40%</span>
                             </div>
                         </div>
 

@@ -106,6 +106,7 @@
                 </div>
                 <div class="tool-divider"></div>
                 <div class="tool-group">
+                    <button class="tool-btn" id="btnAddOverlayImage" title="Add Branding Image"><i data-lucide="image-plus"></i></button>
                     <button class="tool-btn" id="btnOpenExtractor" title="Texture Extractor (Ctrl+Shift+T)"><i data-lucide="package-search"></i></button>
                     <button class="tool-btn" id="btnShowHelp" title="Hotkeys & Help (?)"><i data-lucide="help-circle"></i></button>
                 </div>
@@ -120,6 +121,7 @@
                         <p>Upload an EDDS, PNG, or JPG file</p>
                         <button class="btn btn-primary btn-large" id="btnUpload">Choose File</button>
                         <input type="file" id="fileInput" accept=".edds,.dds,.png,.jpg" hidden>
+                        <input type="file" id="overlayImageInput" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" hidden>
                         
                         <div class="divider-horizontal"><span>OR SELECT LOCAL MAP</span></div>
                         
@@ -168,7 +170,17 @@
     <script src="js/core/canvas-core.js"></script>
     <script src="js/core/event-handler.js"></script>
     <script src="js/zones/zone-manager.js"></script>
+    <script src="js/zones/zone-label-utils.js"></script>
+    <script src="js/overlays/image-overlay-color-utils.js"></script>
+    <script src="js/overlays/image-overlay-manager.js"></script>
+    <script src="js/overlays/image-overlay-renderer.js"></script>
+    <script src="js/zones/zone-label-renderer.js"></script>
+    <script src="js/zones/zone-preview-renderer.js"></script>
+    <script src="js/zones/zone-export-renderer.js"></script>
     <script src="js/zones/zone-renderer.js"></script>
+    <script src="js/tools/overlay-transform-controller.js"></script>
+    <script src="js/tools/zone-label-hit-tester.js"></script>
+    <script src="js/tools/zone-snap-preview-builder.js"></script>
     <script src="js/tools/select-tool.js"></script>
     <script src="js/tools/shape-tools.js"></script>
     <script src="js/tools/path-tools.js"></script>

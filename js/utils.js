@@ -5,10 +5,10 @@
 
 const Utils = {
     /**
-     * Generate a unique ID for zones
+     * Generate a unique ID for editor entities.
      */
-    generateId() {
-        return 'zone_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
+    generateId(prefix = 'zone') {
+        return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
     },
 
     /**

@@ -3,27 +3,190 @@
    ======================================== */
 
 .floating-controls-panel {
-    position: absolute;
     z-index: 200;
-    width: 320px;
-    background: rgba(20, 22, 26, 0.75);
+    background: rgba(20, 22, 26, 0.78);
     backdrop-filter: blur(25px) saturate(200%);
     -webkit-backdrop-filter: blur(25px) saturate(200%);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 20px;
+    border-radius: 24px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
     padding: 0;
     overflow: hidden;
-    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
-                top 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.25s ease,
+                border-color 0.25s ease;
     pointer-events: auto;
     animation: floatPanelIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zone-inspector-panel {
+    position: fixed;
+    top: 88px;
+    right: 360px;
+    bottom: 24px;
+    width: 388px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+}
+
+.zone-inspector-panel.is-collapsed {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+    pointer-events: none;
+}
+
+.zone-inspector-panel.is-attention {
+    border-color: rgba(var(--color-accent-rgb), 0.45);
+    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(var(--color-accent-rgb), 0.16);
+}
+
+.zone-inspector-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.zone-inspector-kicker {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.zone-inspector-intro {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+}
+
+.zone-inspector-intro p {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.62);
 }
 
 @keyframes floatPanelIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+.zone-quick-chip {
+    position: fixed;
+    z-index: 210;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    max-width: 360px;
+    padding: 10px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(8, 10, 14, 0.82);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.54);
+    transition: left 0.22s ease, top 0.22s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.zone-quick-chip__identity {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.zone-quick-chip__eyebrow {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.38);
+}
+
+.zone-quick-chip__name {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+    font-family: var(--font-primary);
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.zone-quick-chip__color {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg, #ff5b5b, #ffd35b, #72ff72, #53d7ff, #7a6dff, #ff69d7, #ff5b5b);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 0.2px rgba(255,255,255,0.12), 0 4px 12px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+}
+
+.zone-quick-chip__color .color-wheel-core {
+    width: 24px;
+    height: 24px;
+}
+
+.zone-quick-chip__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.zone-quick-chip__action {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.78);
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.zone-quick-chip__action:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.zone-quick-chip__action--primary {
+    background: rgba(var(--color-accent-rgb), 0.16);
+    border-color: rgba(var(--color-accent-rgb), 0.32);
+    color: var(--color-accent);
+}
+
+.zone-quick-chip__action--danger:hover {
+    color: #ff6a6a;
+    border-color: rgba(255, 106, 106, 0.32);
+    background: rgba(255, 106, 106, 0.12);
 }
 
 .floating-controls-header {
@@ -33,9 +196,13 @@
     padding: 12px 16px;
     background: rgba(255, 255, 255, 0.03);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    flex-shrink: 0;
 }
 
-.floating-controls-header span {
+.floating-controls-header .editable-name {
     font-size: 13px;
     font-weight: 700;
     color: var(--color-text-primary);
@@ -71,13 +238,16 @@
 }
 
 .floating-controls-body {
-    padding: 16px 16px 20px;
+    min-height: auto;
+    padding: 18px 18px 22px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    max-height: 550px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
+}
+
+.floating-controls-body .property-grid {
+    min-height: auto;
 }
 
 /* Inline Prompt Overlay */
@@ -146,4 +316,15 @@
     background: rgba(var(--color-accent-rgb), 0.18);
     border-color: rgba(var(--color-accent-rgb), 0.45);
     color: var(--color-accent);
+}
+
+@media (max-width: 1420px) {
+    .zone-inspector-panel {
+        width: 344px;
+        right: 344px;
+    }
+
+    .zone-quick-chip {
+        max-width: 312px;
+    }
 }

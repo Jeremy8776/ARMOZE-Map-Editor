@@ -3,13 +3,131 @@
  * Handles drawing zones, selection handles, and drawing previews
  */
 class ZoneRenderer {
-    constructor(canvasCore, zoneManager) {
+    constructor(canvasCore, zoneManager, imageOverlayManager = null) {
         this.core = canvasCore;
         this.manager = zoneManager;
+        this.imageOverlayManager = imageOverlayManager;
+        this.patternTileCache = new Map();
+        this.patternCache = new Map();
+        this.textMetricsCache = new Map();
+        this.maxCacheEntries = 250;
+        this.overlayRenderer = new ImageOverlayRenderer(canvasCore, imageOverlayManager);
+        this.labelRenderer = new ZoneLabelRenderer(
+            canvasCore,
+            (ctx, font, text) => this.getTextMetrics(ctx, font, text)
+        );
+        this.previewRenderer = new ZonePreviewRenderer(
+            canvasCore,
+            (ctx, font, text) => this.getTextMetrics(ctx, font, text)
+        );
+        this.exportRenderer = new ZoneExportRenderer(canvasCore, zoneManager, {
+            createZonePattern: (...args) => this.createZonePattern(...args),
+            drawZoneLabel: (...args) => this.drawZoneLabel(...args),
+            drawImageOverlays: (...args) => this.drawImageOverlays(...args)
+        });
     }
 
     // Note: The render() method was removed as it was never used.
     // The application calls drawZones() and drawSelection() directly for more control.
+
+    pruneCache(cache) {
+        while (cache.size > this.maxCacheEntries) {
+            const oldestKey = cache.keys().next().value;
+            cache.delete(oldestKey);
+        }
+    }
+
+    getContextCacheKey(ctx) {
+        return ctx === this.core.ctx ? 'main' : 'secondary';
+    }
+
+    getTextMetrics(ctx, font, text) {
+        const key = `${this.getContextCacheKey(ctx)}|${font}|${text}`;
+        if (this.textMetricsCache.has(key)) {
+            return this.textMetricsCache.get(key);
+        }
+
+        ctx.save();
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const metrics = ctx.measureText(text);
+        ctx.restore();
+
+        const metricSummary = {
+            width: metrics.width,
+            actualBoundingBoxAscent: metrics.actualBoundingBoxAscent || 0,
+            actualBoundingBoxDescent: metrics.actualBoundingBoxDescent || 0
+        };
+
+        this.textMetricsCache.set(key, metricSummary);
+        this.pruneCache(this.textMetricsCache);
+        return metricSummary;
+    }
+
+    getPatternTile(type, color, opacity, patternDensity = 20, patternThickness = 2) {
+        const key = `${type}|${color}|${opacity}|${patternDensity}|${patternThickness}`;
+        if (this.patternTileCache.has(key)) {
+            return this.patternTileCache.get(key);
+        }
+
+        const spacing = Math.max(5, 50 - (patternDensity * 0.4));
+        let tileCanvas = null;
+
+        if (type === 'dots') {
+            const size = Math.max(6, Math.ceil(spacing));
+            tileCanvas = document.createElement('canvas');
+            tileCanvas.width = size;
+            tileCanvas.height = size;
+            const tileContext = tileCanvas.getContext('2d');
+            tileContext.fillStyle = Utils.hexToRgba(color, opacity);
+            tileContext.beginPath();
+            tileContext.arc(size / 2, size / 2, patternThickness, 0, Math.PI * 2);
+            tileContext.fill();
+        } else {
+            const drawCross = (type === 'grid' || type === 'crosshatch');
+            const tileLines = 4;
+            const size = Math.round(spacing * tileLines);
+
+            tileCanvas = document.createElement('canvas');
+            tileCanvas.width = size;
+            tileCanvas.height = size;
+            const tileContext = tileCanvas.getContext('2d');
+
+            tileContext.strokeStyle = Utils.hexToRgba(color, opacity);
+            tileContext.lineWidth = patternThickness;
+            tileContext.lineCap = 'butt';
+            tileContext.beginPath();
+
+            for (let i = 0; i < tileLines; i++) {
+                const y = i * spacing + spacing / 2;
+                tileContext.moveTo(0, y);
+                tileContext.lineTo(size, y);
+            }
+
+            if (drawCross) {
+                for (let i = 0; i < tileLines; i++) {
+                    const x = i * spacing + spacing / 2;
+                    tileContext.moveTo(x, 0);
+                    tileContext.lineTo(x, size);
+                }
+            }
+
+            tileContext.stroke();
+        }
+
+        this.patternTileCache.set(key, tileCanvas);
+        this.pruneCache(this.patternTileCache);
+        return tileCanvas;
+    }
+
+    drawImageOverlays(ctx = this.core.ctx, options = {}) {
+        this.overlayRenderer.drawImageOverlays(ctx, options);
+    }
+
+    drawImageOverlaySelection() {
+        this.overlayRenderer.drawImageOverlaySelection();
+    }
 
     drawZones() {
         const ctx = this.core.ctx;
@@ -113,632 +231,43 @@ class ZoneRenderer {
     createZonePattern(ctx, type, color, opacity, patternDensity = 20, patternAngle = 0, patternThickness = 2) {
         if (!type || type === 'solid') return null;
 
-        const spacing = Math.max(5, 50 - (patternDensity * 0.4));
-
-        // Dots: simple repeating tile, rotation via setTransform.
-        if (type === 'dots') {
-            const size = Math.max(6, Math.ceil(spacing));
-            const pCanvas = document.createElement('canvas');
-            pCanvas.width = size;
-            pCanvas.height = size;
-            const pCtx = pCanvas.getContext('2d');
-            pCtx.fillStyle = Utils.hexToRgba(color, opacity);
-            pCtx.beginPath();
-            pCtx.arc(size / 2, size / 2, patternThickness, 0, Math.PI * 2);
-            pCtx.fill();
-            const pattern = ctx.createPattern(pCanvas, 'repeat');
-            if (patternAngle !== 0 && pattern) {
-                pattern.setTransform(new DOMMatrix().rotate(patternAngle));
-            }
-            return pattern;
+        const patternKey = `${this.getContextCacheKey(ctx)}|${type}|${color}|${opacity}|${patternDensity}|${patternAngle}|${patternThickness}`;
+        if (ctx === this.core.ctx && this.patternCache.has(patternKey)) {
+            return this.patternCache.get(patternKey);
         }
-
-        // Line patterns: draw axis-aligned lines inside a tile sized to an
-        // exact integer multiple of spacing, so the tile tiles seamlessly.
-        // Rotation is applied via pattern.setTransform on the final pattern —
-        // this rotates the whole seamless field, so continuous lines stay
-        // continuous at any angle.
+        
         const baseAngleMap = {
-            'diagonal_right': -45,  // /
-            'diagonal_left':   45,  // \
+            'diagonal_right': -45,
+            'diagonal_left':   45,
             'vertical':         0,
             'horizontal':      90,
-            'grid':             0,  // horizontal + vertical lines
-            'crosshatch':      45,  // horizontal + vertical, rotated 45
+            'grid':             0,
+            'crosshatch':      45,
         };
         const baseAngle = baseAngleMap[type] ?? 0;
-        const drawCross = (type === 'grid' || type === 'crosshatch');
-
-        const tileLines = 4;
-        const size = Math.round(spacing * tileLines);
-
-        const pCanvas = document.createElement('canvas');
-        pCanvas.width = size;
-        pCanvas.height = size;
-        const pCtx = pCanvas.getContext('2d');
-
-        pCtx.strokeStyle = Utils.hexToRgba(color, opacity);
-        pCtx.lineWidth = patternThickness;
-        pCtx.lineCap = 'butt';
-
-        pCtx.beginPath();
-        // Horizontal lines — span full tile width so they continue seamlessly
-        // across the left/right wrap. Offset by spacing/2 so they don't sit on
-        // the top/bottom wrap seam (avoids half-line clipping at edges).
-        for (let i = 0; i < tileLines; i++) {
-            const y = i * spacing + spacing / 2;
-            pCtx.moveTo(0, y);
-            pCtx.lineTo(size, y);
-        }
-        if (drawCross) {
-            for (let i = 0; i < tileLines; i++) {
-                const x = i * spacing + spacing / 2;
-                pCtx.moveTo(x, 0);
-                pCtx.lineTo(x, size);
-            }
-        }
-        pCtx.stroke();
-
-        const pattern = ctx.createPattern(pCanvas, 'repeat');
+        const tileCanvas = this.getPatternTile(type, color, opacity, patternDensity, patternThickness);
+        const pattern = ctx.createPattern(tileCanvas, 'repeat');
         const totalAngle = baseAngle + patternAngle;
         if (totalAngle !== 0 && pattern) {
             pattern.setTransform(new DOMMatrix().rotate(totalAngle));
         }
+        if (ctx === this.core.ctx && pattern) {
+            this.patternCache.set(patternKey, pattern);
+            this.pruneCache(this.patternCache);
+        }
         return pattern;
     }
 
-    drawZoneLabel(zone, ctx = this.core.ctx, options = {}) {
-        if (zone.showLabel === false) return;
-
-        const mode = this.getActiveLabelMode(zone);
-        if (mode === 'pattern_checker') {
-            this.drawPatternIntegratedLabel(zone, ctx, options);
-            return;
-        }
-
-        if (mode === 'border_repeat' || mode === 'border_dash_alt') {
-            this.drawBorderIntegratedLabel(zone, mode, ctx, options);
-            return;
-        }
-
-        const layout = this.getLabelLayout(zone, ctx, options);
-        if (!layout) return;
-        this.drawFloatingLabel(zone, layout, ctx, options);
-    }
-
-    getZoneCenter(zone) {
-        if (zone.shape === 'circle') {
-            return { x: zone.cx, y: zone.cy };
-        }
-        if (zone.shape === 'rectangle') {
-            return { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2 };
-        }
-        if (zone.shape === 'line') {
-            return { x: (zone.x1 + zone.x2) / 2, y: (zone.y1 + zone.y2) / 2 };
-        }
-        if (zone.points?.length) {
-            const bounds = Utils.getPolygonBounds(zone.points);
-            return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-        }
-        return null;
-    }
-
-    getBaseLabelFontSize(zone) {
-        const explicitFontSize = parseInt(zone?.labelFontSize, 10);
-        if (Number.isFinite(explicitFontSize)) {
-            return explicitFontSize;
-        }
-
-        let baseFontSize;
-        switch (zone.labelSize) {
-            case 'small': baseFontSize = Constants?.LABEL_SIZE_SMALL || 10; break;
-            case 'large': baseFontSize = Constants?.LABEL_SIZE_LARGE || 18; break;
-            default: baseFontSize = Constants?.LABEL_SIZE_MEDIUM || 14; break;
-        }
-        return baseFontSize;
-    }
-
-    getLabelFontSize(zone, options = {}) {
-        const baseFontSize = this.getBaseLabelFontSize(zone);
-        if (options.worldStatic) {
-            return baseFontSize;
-        }
-        return Math.max(
-            baseFontSize / this.core.zoom,
-            baseFontSize * (Constants?.LABEL_MIN_SIZE_RATIO || 0.7)
-        );
-    }
-
-    getLabelFontFamily(zone) {
-        switch (zone.labelFontFamily) {
-            case 'mono':
-                return '"Share Tech Mono", monospace';
-            case 'system':
-                return '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
-            default:
-                return 'Rajdhani, sans-serif';
-        }
-    }
-
-    getLabelFontString(zone, options = {}) {
-        const fontSize = this.getLabelFontSize(zone, options);
-        const fontStyle = zone.labelItalic ? 'italic ' : '';
-        const fontWeight = zone.labelBold ? '700' : '600';
-        const fontFamily = this.getLabelFontFamily(zone);
-        return `${fontStyle}${fontWeight} ${fontSize}px ${fontFamily}`;
-    }
-
-    getLabelText(zone) {
-        return (zone.labelText || zone.name || '').trim();
-    }
-
     getActiveLabelMode(zone) {
-        if (zone.showLabel === false) return 'hidden';
-        if (zone.patternLabelMode === 'checker_embed') return 'pattern_checker';
-        if (zone.borderLabelMode === 'dash_alt') return 'border_dash_alt';
-        if (zone.borderLabelMode === 'repeat') return 'border_repeat';
-        return 'floating';
-    }
-
-    getZoneBounds(zone) {
-        if (zone.shape === 'circle') {
-            return {
-                x: zone.cx - zone.radius,
-                y: zone.cy - zone.radius,
-                width: zone.radius * 2,
-                height: zone.radius * 2
-            };
-        }
-        if (zone.shape === 'rectangle') {
-            return {
-                x: zone.x,
-                y: zone.y,
-                width: zone.width,
-                height: zone.height
-            };
-        }
-        if (zone.shape === 'line') {
-            return {
-                x: Math.min(zone.x1, zone.x2),
-                y: Math.min(zone.y1, zone.y2),
-                width: Math.abs(zone.x2 - zone.x1),
-                height: Math.abs(zone.y2 - zone.y1)
-            };
-        }
-        if (zone.points?.length) {
-            return Utils.getPolygonBounds(zone.points);
-        }
-        return null;
-    }
-
-    applyZonePath(ctx, zone) {
-        ctx.beginPath();
-        if (zone.shape === 'circle') {
-            ctx.arc(zone.cx, zone.cy, zone.radius, 0, Math.PI * 2);
-            return;
-        }
-        if (zone.shape === 'rectangle') {
-            ctx.rect(zone.x, zone.y, zone.width, zone.height);
-            return;
-        }
-        if (zone.shape === 'line') {
-            ctx.moveTo(zone.x1, zone.y1);
-            ctx.lineTo(zone.x2, zone.y2);
-            return;
-        }
-        if (zone.points?.length) {
-            ctx.moveTo(zone.points[0].x, zone.points[0].y);
-            for (let i = 1; i < zone.points.length; i++) {
-                ctx.lineTo(zone.points[i].x, zone.points[i].y);
-            }
-            ctx.closePath();
-        }
-    }
-
-    getZoneSegments(zone) {
-        if (zone.shape === 'rectangle') {
-            return [
-                { x1: zone.x, y1: zone.y, x2: zone.x + zone.width, y2: zone.y },
-                { x1: zone.x + zone.width, y1: zone.y, x2: zone.x + zone.width, y2: zone.y + zone.height },
-                { x1: zone.x + zone.width, y1: zone.y + zone.height, x2: zone.x, y2: zone.y + zone.height },
-                { x1: zone.x, y1: zone.y + zone.height, x2: zone.x, y2: zone.y }
-            ];
-        }
-
-        if (zone.shape === 'line') {
-            return [{ x1: zone.x1, y1: zone.y1, x2: zone.x2, y2: zone.y2 }];
-        }
-
-        if (zone.shape === 'circle') {
-            const segments = [];
-            // Reduced steps to ensure segments are long enough to hold text at larger font sizes
-            // circumference / steps should be > tokenWidth + 12
-            const steps = 12; 
-            for (let i = 0; i < steps; i++) {
-                const startAngle = (i / steps) * Math.PI * 2;
-                const endAngle = ((i + 1) / steps) * Math.PI * 2;
-                segments.push({
-                    x1: zone.cx + Math.cos(startAngle) * zone.radius,
-                    y1: zone.cy + Math.sin(startAngle) * zone.radius,
-                    x2: zone.cx + Math.cos(endAngle) * zone.radius,
-                    y2: zone.cy + Math.sin(endAngle) * zone.radius
-                });
-            }
-            return segments;
-        }
-
-        if (zone.points?.length) {
-            const segments = [];
-            for (let i = 0; i < zone.points.length; i++) {
-                const start = zone.points[i];
-                const end = zone.points[(i + 1) % zone.points.length];
-                segments.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y });
-            }
-            return segments;
-        }
-
-        return [];
+        return this.labelRenderer.getActiveLabelMode(zone);
     }
 
     getLabelLayout(zone, ctx = this.core.ctx, options = {}) {
-        if (!zone || zone.showLabel === false) return null;
-
-        const text = this.getLabelText(zone);
-        if (!text) return null;
-
-        const anchor = this.getZoneCenter(zone);
-        if (!anchor) return null;
-
-        const centerX = anchor.x + (zone.labelOffsetX || 0);
-        const centerY = anchor.y + (zone.labelOffsetY || 0);
-        const zoomFactor = options.worldStatic ? 1 : this.core.zoom;
-        const fontSize = this.getLabelFontSize(zone, options);
-        const padding = 4 / zoomFactor;
-        const radius = 3 / zoomFactor;
-        const bgOpacity = zone.labelBgOpacity !== undefined ? zone.labelBgOpacity : 0.7;
-        const bgColor = zone.labelBgColor || '#000000';
-
-        ctx.save();
-        ctx.font = this.getLabelFontString(zone, options);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const metrics = ctx.measureText(text);
-        ctx.restore();
-
-        const textHeight = Math.max(
-            fontSize,
-            (metrics.actualBoundingBoxAscent || fontSize * 0.7) + (metrics.actualBoundingBoxDescent || fontSize * 0.3)
-        );
-        const bgWidth = metrics.width + padding * 2;
-        const bgHeight = textHeight + padding * 2;
-
-        return {
-            centerX,
-            centerY,
-            anchorX: anchor.x,
-            anchorY: anchor.y,
-            boxX: centerX - bgWidth / 2,
-            boxY: centerY - bgHeight / 2,
-            bgWidth,
-            bgHeight,
-            text,
-            fontSize,
-            radius,
-            bgOpacity,
-            bgColor
-        };
+        return this.labelRenderer.getLabelLayout(zone, ctx, options);
     }
 
-    drawFloatingLabel(zone, layout, ctx = this.core.ctx, options = {}) {
-        const zoomFactor = options.worldStatic ? 1 : this.core.zoom;
-        ctx.font = this.getLabelFontString(zone, options);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        ctx.save();
-        ctx.translate(layout.centerX, layout.centerY);
-        if (zone.labelRotation) {
-            ctx.rotate((zone.labelRotation * Math.PI) / 180);
-        }
-
-        if (layout.bgOpacity > 0) {
-            ctx.fillStyle = Utils.hexToRgba(layout.bgColor, layout.bgOpacity);
-            this.roundRect(ctx, -layout.bgWidth / 2, -layout.bgHeight / 2, layout.bgWidth, layout.bgHeight, layout.radius);
-            ctx.fill();
-        }
-
-        if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-            ctx.shadowBlur = 4 / zoomFactor;
-            ctx.shadowOffsetX = 1 / zoomFactor;
-            ctx.shadowOffsetY = 1 / zoomFactor;
-        }
-
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1);
-        ctx.fillText(layout.text, 0, 0);
-        ctx.restore();
-    }
-
-    getPatternLabelRotation(zone) {
-        if (zone.patternAngle) {
-            return (zone.patternAngle * Math.PI) / 180;
-        }
-        if (zone.fillPattern === 'diagonal_right') return -Math.PI / 4;
-        if (zone.fillPattern === 'diagonal_left') return Math.PI / 4;
-        return 0;
-    }
-
-    drawPatternIntegratedLabel(zone, ctx = this.core.ctx, options = {}) {
-        const text = this.getLabelText(zone);
-        if (!text) return;
-
-        const bounds = this.getZoneBounds(zone);
-        if (!bounds) return;
-
-        const renderOptions = { ...options, worldStatic: true };
-        const fontSize = this.getLabelFontSize(zone, renderOptions);
-        ctx.save();
-        this.applyZonePath(ctx, zone);
-        ctx.clip();
-        ctx.font = this.getLabelFontString(zone, renderOptions);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const metrics = ctx.measureText(text);
-        const spacingX = metrics.width + 44;
-        const spacingY = fontSize * 2.4;
-        const rotation = (zone.labelRotation !== undefined) ? (zone.labelRotation * Math.PI) / 180 : this.getPatternLabelRotation(zone);
-        const centerX = bounds.x + bounds.width / 2;
-        const centerY = bounds.y + bounds.height / 2;
-
-        ctx.translate(centerX, centerY);
-        ctx.rotate(rotation);
-        ctx.translate(-centerX, -centerY);
-
-        if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-            ctx.shadowBlur = 3;
-        }
-
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1);
-        let rowIndex = 0;
-        for (let y = bounds.y - spacingY; y <= bounds.y + bounds.height + spacingY; y += spacingY) {
-            const offsetX = rowIndex % 2 === 0 ? 0 : spacingX / 2;
-            for (let x = bounds.x - spacingX; x <= bounds.x + bounds.width + spacingX; x += spacingX) {
-                ctx.fillText(text, x + offsetX, y);
-            }
-            rowIndex++;
-        }
-
-        ctx.restore();
-    }
-
-    drawTextOnSegment(ctx, text, segment, distanceAlong, zone, options = {}) {
-        options = options || {};
-
-        const dx = segment.x2 - segment.x1;
-        const dy = segment.y2 - segment.y1;
-        const length = Math.hypot(dx, dy);
-        if (!length) return;
-
-        let angle = Math.atan2(dy, dx);
-        
-        // Ensure text is always readable (not upside down)
-        // Normalizing angle to (-PI/2, PI/2]
-        if (angle > Math.PI / 2) angle -= Math.PI;
-        if (angle <= -Math.PI / 2) angle += Math.PI;
-
-        const ux = dx / length;
-        const uy = dy / length;
-        let px = segment.x1 + ux * distanceAlong;
-        let py = segment.y1 + uy * distanceAlong;
-
-        if (options.lineOffset) {
-            const normalA = { x: -uy, y: ux };
-            const normalB = { x: uy, y: -ux };
-            let chosenNormal = normalA;
-
-            if (options.offsetMode === 'outside') {
-                const zoneCenter = this.getZoneCenter(zone);
-                if (zoneCenter) {
-                    const midpoint = {
-                        x: (segment.x1 + segment.x2) / 2,
-                        y: (segment.y1 + segment.y2) / 2
-                    };
-                    const toCenter = {
-                        x: zoneCenter.x - midpoint.x,
-                        y: zoneCenter.y - midpoint.y
-                    };
-                    const dotA = (normalA.x * toCenter.x) + (normalA.y * toCenter.y);
-                    const dotB = (normalB.x * toCenter.x) + (normalB.y * toCenter.y);
-                    chosenNormal = dotA < dotB ? normalA : normalB;
-                }
-            }
-
-            px += chosenNormal.x * options.lineOffset;
-            py += chosenNormal.y * options.lineOffset;
-        }
-
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(angle);
-        if (options.drawToken) {
-            const tokenPaddingX = options.paddingX ?? 7;
-            const tokenPaddingY = options.paddingY ?? 3;
-            const tokenFontSize = options.fontSize ?? this.getBaseLabelFontSize(zone);
-            const tokenHeight = options.height || tokenFontSize + tokenPaddingY * 2;
-            const tokenWidth = options.width;
-            const tokenRadius = options.radius ?? 4;
-
-            ctx.fillStyle = options.tokenFill || Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95);
-            this.roundRect(
-                ctx,
-                -tokenWidth / 2,
-                -tokenHeight / 2,
-                tokenWidth,
-                tokenHeight,
-                tokenRadius
-            );
-            ctx.fill();
-
-            if (options.tokenStroke) {
-                ctx.strokeStyle = options.tokenStroke;
-                ctx.lineWidth = options.tokenStrokeWidth ?? 1;
-                this.roundRect(
-                    ctx,
-                    -tokenWidth / 2,
-                    -tokenHeight / 2,
-                    tokenWidth,
-                    tokenHeight,
-                    tokenRadius
-                );
-                ctx.stroke();
-            }
-
-            ctx.fillStyle = options.textColor || '#ffffff';
-        }
-        ctx.fillText(text, 0, 0);
-        ctx.restore();
-    }
-
-    drawBorderIntegratedLabel(zone, mode, ctx = this.core.ctx, options = {}) {
-        const text = this.getLabelText(zone);
-        if (!text) return;
-
-        const renderOptions = { ...options, worldStatic: true };
-        const borderWidth = zone.borderWidth || 3;
-        const fontSize = this.getLabelFontSize(zone, renderOptions);
-
-        ctx.save();
-        ctx.font = this.getLabelFontString(zone, renderOptions);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        const metrics = ctx.measureText(text);
-        const textWidth = metrics.width;
-        const tokenPaddingX = 8;
-        const tokenPaddingY = 3;
-        const tokenWidth = textWidth + tokenPaddingX * 2;
-        const tokenHeight = fontSize + tokenPaddingY * 2;
-        const outsideOffset = borderWidth + (tokenHeight / 2) + 5;
-
-        // Specialized handling for circles to ensure perfect wrapping and smoothness
-        if (zone.shape === 'circle') {
-            this.drawCircleBorderLabel(zone, text, mode, ctx, renderOptions, {
-                tokenWidth, tokenHeight, outsideOffset, tokenPaddingX, tokenPaddingY, fontSize
-            });
-            ctx.restore();
-            return;
-        }
-
-        const segments = this.getZoneSegments(zone);
-        if (!segments.length) {
-            ctx.restore();
-            return;
-        }
-
-        const dashLength = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 5;
-        const dashGap = zone.style === 'dotted' ? borderWidth * 1.5 : borderWidth * 3;
-        
-        if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-            ctx.shadowBlur = 3;
-        }
-        
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || zone.color || '#ffffff', 0.9 * (zone.labelOpacity ?? 1));
-
-        for (const segment of segments) {
-            const segLength = Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1);
-            // Relaxed culling for circles to allow larger font sizes to render
-            const minSpace = zone.shape === 'circle' ? tokenWidth * 0.5 : tokenWidth + 12;
-            if (segLength < minSpace) continue;
-
-            const placements = [];
-            if (mode === 'border_dash_alt') {
-                const labelDashLength = Math.max(dashLength, tokenWidth + 10);
-                const plainDashLength = Math.max(dashLength, Math.min(labelDashLength * 0.7, tokenWidth * 0.75));
-                const cycleLength = labelDashLength + dashGap + plainDashLength + dashGap;
-                for (let distance = (labelDashLength / 2) + 4; distance <= segLength - (labelDashLength / 2) - 4; distance += cycleLength) {
-                    placements.push(distance);
-                }
-            } else {
-                const interval = tokenWidth + Math.max(26, dashGap * 1.2);
-                for (let distance = tokenWidth / 2 + 8; distance < segLength - tokenWidth / 2; distance += interval) {
-                    placements.push(distance);
-                }
-                if (!placements.length) {
-                    placements.push(segLength / 2);
-                }
-            }
-
-            for (const distance of placements) {
-                this.drawTextOnSegment(ctx, text, segment, distance, zone, {
-                    ...renderOptions,
-                    lineOffset: outsideOffset,
-                    offsetMode: 'outside',
-                    drawToken: mode === 'border_dash_alt',
-                    width: tokenWidth,
-                    height: tokenHeight,
-                    fontSize: fontSize,
-                    paddingX: tokenPaddingX,
-                    paddingY: tokenPaddingY,
-                    tokenFill: Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95),
-                    tokenStroke: Utils.hexToRgba(zone.color || '#00ff88', 1),
-                    tokenStrokeWidth: 1,
-                    textColor: Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1)
-                });
-            }
-        }
-
-        ctx.restore();
-    }
-
-    drawCircleBorderLabel(zone, text, mode, ctx, renderOptions, metrics) {
-        const circumference = 2 * Math.PI * zone.radius;
-        const interval = metrics.tokenWidth + 40;
-        const count = Math.max(1, Math.floor(circumference / interval));
-        const angleStep = (Math.PI * 2) / count;
-
-        if (zone.labelShadow) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-            ctx.shadowBlur = 3;
-        }
-        ctx.fillStyle = Utils.hexToRgba(zone.labelColor || zone.color || '#ffffff', 0.9 * (zone.labelOpacity ?? 1));
-
-        for (let i = 0; i < count; i++) {
-            const angle = i * angleStep;
-            // Point on the circle
-            const px = zone.cx + Math.cos(angle) * zone.radius;
-            const py = zone.cy + Math.sin(angle) * zone.radius;
-            
-            // Tangent direction
-            const tx = -Math.sin(angle);
-            const ty = Math.cos(angle);
-            
-            // Create a virtual segment for drawTextOnSegment
-            // The segment is a tangent at (px, py)
-            const segment = {
-                x1: px - tx * 10,
-                y1: py - ty * 10,
-                x2: px + tx * 10,
-                y2: py + ty * 10
-            };
-
-            this.drawTextOnSegment(ctx, text, segment, 10, zone, {
-                ...renderOptions,
-                lineOffset: metrics.outsideOffset,
-                offsetMode: 'outside',
-                drawToken: mode === 'border_dash_alt',
-                width: metrics.tokenWidth,
-                height: metrics.tokenHeight,
-                fontSize: metrics.fontSize,
-                paddingX: metrics.tokenPaddingX,
-                paddingY: metrics.tokenPaddingY,
-                tokenFill: Utils.hexToRgba(zone.color || '#00ff88', zone.borderOpacity ?? 0.95),
-                tokenStroke: Utils.hexToRgba(zone.color || '#00ff88', 1),
-                tokenStrokeWidth: 1,
-                textColor: Utils.hexToRgba(zone.labelColor || '#ffffff', zone.labelOpacity ?? 1)
-            });
-        }
+    drawZoneLabel(zone, ctx = this.core.ctx, options = {}) {
+        this.labelRenderer.drawZoneLabel(zone, ctx, options);
     }
 
     /**
@@ -759,6 +288,11 @@ class ZoneRenderer {
     }
 
     drawSelection() {
+        if (this.imageOverlayManager?.selectedOverlayId) {
+            this.drawImageOverlaySelection();
+            return;
+        }
+
         const selectedZoneId = this.manager.selectedZoneId;
         if (!selectedZoneId) return;
 
@@ -856,307 +390,25 @@ class ZoneRenderer {
     }
 
     drawSnapPreview(preview) {
-        if (!preview) return;
-
-        const ctx = this.core.ctx;
-        const guideColor = '#ffe66d';
-        const accentColor = '#00ff88';
-
-        ctx.save();
-        ctx.strokeStyle = guideColor;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 6]);
-        ctx.shadowColor = 'rgba(255, 230, 109, 0.35)';
-        ctx.shadowBlur = 10;
-
-        for (const x of preview.verticals || []) {
-            const screen = this.core.mapToScreen(x, 0);
-            ctx.beginPath();
-            ctx.moveTo(screen.x, 0);
-            ctx.lineTo(screen.x, this.core.canvas.height);
-            ctx.stroke();
-        }
-
-        for (const y of preview.horizontals || []) {
-            const screen = this.core.mapToScreen(0, y);
-            ctx.beginPath();
-            ctx.moveTo(0, screen.y);
-            ctx.lineTo(this.core.canvas.width, screen.y);
-            ctx.stroke();
-        }
-
-        if (preview.anchor) {
-            const anchor = this.core.mapToScreen(preview.anchor.x, preview.anchor.y);
-            ctx.setLineDash([]);
-            ctx.fillStyle = accentColor;
-            ctx.shadowColor = 'rgba(0, 255, 136, 0.45)';
-            ctx.shadowBlur = 16;
-            ctx.beginPath();
-            ctx.arc(anchor.x, anchor.y, 6, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = guideColor;
-            ctx.beginPath();
-            ctx.arc(anchor.x, anchor.y, 11, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-
-        this.drawSnapBadge(preview);
-
-        if (!preview.edgeSegments?.length) return;
-
-        ctx.save();
-        ctx.translate(this.core.panX, this.core.panY);
-        ctx.scale(this.core.zoom, this.core.zoom);
-        ctx.setLineDash([]);
-        ctx.strokeStyle = guideColor;
-        ctx.lineWidth = 5 / this.core.zoom;
-        ctx.shadowColor = 'rgba(255, 230, 109, 0.35)';
-        ctx.shadowBlur = 18 / this.core.zoom;
-
-        for (const segment of preview.edgeSegments) {
-            ctx.beginPath();
-            ctx.moveTo(segment.x1, segment.y1);
-            ctx.lineTo(segment.x2, segment.y2);
-            ctx.stroke();
-        }
-
-        ctx.restore();
+        this.previewRenderer.drawSnapPreview(preview);
     }
 
     drawSnapBadge(preview) {
-        if (!preview.anchor) return;
-
-        const ctx = this.core.ctx;
-        const anchor = this.core.mapToScreen(preview.anchor.x, preview.anchor.y);
-        const badgeText = `X ${Math.round(preview.anchor.x)}  Y ${Math.round(preview.anchor.y)}`;
-
-        ctx.save();
-        ctx.font = '700 12px "Share Tech Mono", monospace';
-        const metrics = ctx.measureText(badgeText);
-        const width = metrics.width + 18;
-        const height = 24;
-        const x = anchor.x + 14;
-        const y = anchor.y - 34;
-
-        ctx.fillStyle = 'rgba(10, 12, 15, 0.92)';
-        ctx.strokeStyle = 'rgba(255, 230, 109, 0.85)';
-        ctx.lineWidth = 1.5;
-        this.roundRect(ctx, x, y, width, height, 8);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffe66d';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(badgeText, x + 9, y + height / 2 + 0.5);
-        ctx.restore();
+        this.previewRenderer.drawSnapBadge(preview);
     }
 
     /**
      * Draw the current shape being drawn by a tool
      */
     drawCurrentShape(tool, drawingPoints, tempShape, lastMousePos) {
-        if (!tool) return;
-
-        const ctx = this.core.ctx;
-        ctx.save();
-        ctx.translate(this.core.panX, this.core.panY);
-        ctx.scale(this.core.zoom, this.core.zoom);
-
-        ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
-        ctx.strokeStyle = '#00ff88';
-        ctx.lineWidth = 2 / this.core.zoom;
-        ctx.setLineDash([5 / this.core.zoom, 5 / this.core.zoom]);
-
-        if (tempShape) {
-            if (tempShape.type === 'rectangle') {
-                ctx.beginPath();
-                ctx.rect(tempShape.x, tempShape.y, tempShape.width, tempShape.height);
-                ctx.fill();
-                ctx.stroke();
-            } else if (tempShape.type === 'circle') {
-                ctx.beginPath();
-                ctx.arc(tempShape.cx, tempShape.cy, tempShape.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            } else if (tempShape.type === 'line') {
-                ctx.lineWidth = 3 / this.core.zoom;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(tempShape.x1, tempShape.y1);
-                ctx.lineTo(tempShape.x2, tempShape.y2);
-                ctx.stroke();
-
-                // Draw endpoint dots
-                ctx.setLineDash([]);
-                ctx.fillStyle = '#00ff88';
-                ctx.beginPath();
-                ctx.arc(tempShape.x1, tempShape.y1, 4 / this.core.zoom, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(tempShape.x2, tempShape.y2, 4 / this.core.zoom, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        // Draw pen path in progress
-        if (tool === 'pen' && drawingPoints.length > 0) {
-            ctx.beginPath();
-            ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
-            for (let i = 1; i < drawingPoints.length; i++) {
-                ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
-            }
-            // Line to current mouse position
-            if (lastMousePos) {
-                ctx.lineTo(lastMousePos.x, lastMousePos.y);
-            }
-            ctx.stroke();
-
-            // Draw anchor points
-            ctx.fillStyle = '#00ff88';
-            ctx.setLineDash([]);
-            for (let i = 0; i < drawingPoints.length; i++) {
-                const point = drawingPoints[i];
-                ctx.beginPath();
-
-                // Highlight start point if hovering to close loop
-                if (i === 0 && tool === 'pen' && tempShape && tempShape.closeLoopHover) {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.arc(point.x, point.y, 8 / this.core.zoom, 0, Math.PI * 2);
-                } else {
-                    ctx.fillStyle = '#00ff88';
-                    ctx.arc(point.x, point.y, 5 / this.core.zoom, 0, Math.PI * 2);
-                }
-
-                ctx.fill();
-                // Add a border to make points more visible
-                ctx.strokeStyle = '#0a0c0f';
-                ctx.lineWidth = 1.5 / this.core.zoom;
-                ctx.stroke();
-            }
-        }
-
-        // Draw freehand in progress
-        if (tool === 'freehand' && drawingPoints.length > 0) {
-            ctx.setLineDash([]); // Solid line for freehand
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-
-            ctx.beginPath();
-            ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
-            for (let i = 1; i < drawingPoints.length; i++) {
-                ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
-            }
-
-            // Close the path to show it will form a shape
-            if (drawingPoints.length > 2) {
-                ctx.lineTo(drawingPoints[0].x, drawingPoints[0].y);
-                ctx.fill();
-            }
-            ctx.stroke();
-        }
-
-        ctx.restore();
+        this.previewRenderer.drawCurrentShape(tool, drawingPoints, tempShape, lastMousePos);
     }
 
     /**
      * Export zones as transparent PNG overlay
      */
     exportAsImage(settings = {}) {
-        if (!this.core.mapImage) return null;
-
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = this.core.mapWidth;
-        exportCanvas.height = this.core.mapHeight;
-        const ctx = exportCanvas.getContext('2d');
-
-        // Transparent background
-        ctx.clearRect(0, 0, this.core.mapWidth, this.core.mapHeight);
-
-        // Draw map if requested
-        if (settings.includeMap) {
-            ctx.drawImage(this.core.mapImage, 0, 0, this.core.mapWidth, this.core.mapHeight);
-        }
-
-        // Draw zones
-        const zones = this.manager.getZones();
-        for (const zone of zones) {
-            if (!zone.visible) continue;
-            
-            const fillOp = zone.fillOpacity !== undefined ? zone.fillOpacity : (zone.opacity || 0.4);
-            const borderOp = zone.borderOpacity !== undefined ? zone.borderOpacity : 1.0;
-            const bWidth = zone.borderWidth || 3;
-            const pDensity = zone.patternDensity || 20;
-            const pAngle = zone.patternAngle || 0;
-            const pThick = zone.patternThickness || 2;
-
-            let fillStyle;
-            if (zone.fillPattern && zone.fillPattern !== 'solid') {
-                fillStyle = this.createZonePattern(ctx, zone.fillPattern, zone.color, fillOp, pDensity, pAngle, pThick);
-            }
-            if (!fillStyle) {
-                fillStyle = Utils.hexToRgba(zone.color, fillOp);
-            }
-            
-            ctx.fillStyle = fillStyle;
-            ctx.strokeStyle = Utils.hexToRgba(zone.color, borderOp);
-            ctx.lineWidth = bWidth;
-
-            if (zone.style === 'dashed') {
-                ctx.setLineDash([bWidth * 5, bWidth * 3]);
-            } else if (zone.style === 'dotted') {
-                ctx.setLineDash([bWidth * 1.5, bWidth * 1.5]);
-            } else {
-                ctx.setLineDash([]);
-            }
-
-            if (zone.shape === 'circle') {
-                ctx.beginPath();
-                ctx.arc(zone.cx, zone.cy, zone.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            } else if (zone.shape === 'rectangle') {
-                ctx.beginPath();
-                ctx.rect(zone.x, zone.y, zone.width, zone.height);
-                ctx.fill();
-                ctx.stroke();
-            } else if (zone.shape === 'line') {
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(zone.x1, zone.y1);
-                ctx.lineTo(zone.x2, zone.y2);
-                ctx.stroke();
-                // Endpoints
-                ctx.setLineDash([]);
-                ctx.fillStyle = zone.color;
-                ctx.beginPath();
-                ctx.arc(zone.x1, zone.y1, 4, 0, Math.PI * 2);
-                ctx.arc(zone.x2, zone.y2, 4, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (zone.points && zone.points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(zone.points[0].x, zone.points[0].y);
-                for (let i = 1; i < zone.points.length; i++) {
-                    ctx.lineTo(zone.points[i].x, zone.points[i].y);
-                }
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            }
-        }
-
-        ctx.setLineDash([]);
-        for (const zone of zones) {
-            if (!zone.visible) continue;
-            this.drawZoneLabel(zone, ctx, { worldStatic: true });
-        }
-
-        return exportCanvas;
+        return this.exportRenderer.exportAsImage(settings);
     }
 }
 

@@ -259,6 +259,54 @@ body.is-resizing-panels {
     height: 14px;
 }
 
+.overlay-tint-toggle.is-active {
+    opacity: 1;
+    color: var(--color-accent);
+    background: rgba(var(--color-accent-rgb), 0.12);
+}
+
+.overlay-tint-chip {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+    opacity: 0;
+    transition: opacity 0.15s, transform 0.15s, border-color 0.15s;
+    cursor: pointer;
+}
+
+.zone-item:hover .overlay-tint-chip,
+.zone-item.selected .overlay-tint-chip {
+    opacity: 1;
+}
+
+.overlay-tint-chip:hover {
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.overlay-tint-chip__swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--overlay-tint, #00ff88);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+.overlay-tint-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
 .zone-visibility {
     background: transparent;
     border: none;

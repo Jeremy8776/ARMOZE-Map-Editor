@@ -2,15 +2,19 @@
  * Export Handler - Orchestrates various export formats
  */
 class ExportHandler {
-    constructor(core, zoneManager, renderer) {
+    constructor(core, zoneManager, renderer, imageOverlayManager = null) {
         this.core = core;
         this.zoneManager = zoneManager;
         this.renderer = renderer;
+        this.imageOverlayManager = imageOverlayManager;
     }
 
     export(format, settings = {}) {
         const zones = this.zoneManager.getZones();
-        if (zones.length === 0) return alert('No zones to export!');
+        const overlays = this.imageOverlayManager?.serializeOverlays?.() || [];
+        const needsZoneGeometry = format === 'enfusion' || format === 'json' || format === 'workbench' || format === 'all';
+        if (needsZoneGeometry && zones.length === 0) return alert('No zones to export!');
+        if (!needsZoneGeometry && zones.length === 0 && overlays.length === 0) return alert('No zones or branding images to export!');
 
         const scale = settings.mapScale || 1;
         const oX = settings.originX || 0;

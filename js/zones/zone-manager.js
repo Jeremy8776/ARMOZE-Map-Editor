@@ -85,17 +85,28 @@ class ZoneManager {
         return zone;
     }
 
-    updateZone(id, updates) {
+    updateZone(id, updates, options = {}) {
         const zoneIndex = this.zones.findIndex(z => z.id === id);
         if (zoneIndex !== -1) {
             this.zones[zoneIndex] = { ...this.zones[zoneIndex], ...updates };
+            const updatedZone = this.zones[zoneIndex];
 
             if (this.onZoneUpdated) {
-                this.onZoneUpdated(this.zones[zoneIndex]);
+                this.onZoneUpdated(updatedZone, options);
             }
-            this.saveToStorage();
-            this.requestRender();
+
+            if (options.persist !== false) {
+                this.saveToStorage();
+            }
+
+            if (options.render !== false) {
+                this.requestRender();
+            }
+
+            return updatedZone;
         }
+
+        return null;
     }
 
     deleteZone(id) {

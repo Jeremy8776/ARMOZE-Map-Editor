@@ -3,9 +3,10 @@
  * Handles selection, dragging zones, and resizing via handles
  */
 class SelectTool {
-    constructor(canvasCore, zoneManager) {
+    constructor(canvasCore, zoneManager, imageOverlayManager = null) {
         this.core = canvasCore;
         this.manager = zoneManager;
+        this.imageOverlayManager = imageOverlayManager;
 
         this.isDragging = false;
         this.isDraggingHandle = false;
@@ -16,12 +17,16 @@ class SelectTool {
         this.labelDragOffset = { x: 0, y: 0 };
         this.hasDragged = false; // Track if actual dragging occurred
         this.snapPreview = null;
+        this.labelUtils = new ZoneLabelUtils(canvasCore);
+        this.labelHitTester = new ZoneLabelHitTester(canvasCore, this.labelUtils);
+        this.snapPreviewBuilder = new ZoneSnapPreviewBuilder();
+        this.overlayTransforms = new OverlayTransformController(this);
 
         // Callback for history save
         this.onDragComplete = null;
 
         this.handleSelectStartWhileDragging = (event) => {
-            if (this.isDragging || this.isDraggingHandle || this.isDraggingLabel) {
+            if (this.isDragging || this.isDraggingHandle || this.isDraggingLabel || this.overlayTransforms.hasActiveInteraction()) {
                 event.preventDefault();
             }
         };
@@ -35,7 +40,11 @@ class SelectTool {
         }
     }
 
-    onDown(mapPos) {
+    onDown(mapPos, event = null) {
+        if (this.overlayTransforms.handlePointerDown(mapPos)) {
+            return;
+        }
+
         if (this.manager.selectedZoneId) {
             const labelHit = this.findLabelAtPoint(mapPos);
             if (labelHit) {
@@ -75,6 +84,7 @@ class SelectTool {
         // Check if clicking on a zone
         const zone = this.manager.findZoneAtPoint(mapPos, this.core.zoom);
         if (zone) {
+            this.imageOverlayManager?.selectOverlay(null, { render: false });
             // If clicking on already selected zone, start dragging
             if (zone.id === this.manager.selectedZoneId) {
                 this.isDragging = true;
@@ -110,12 +120,15 @@ class SelectTool {
             }
         } else {
             this.manager.selectZone(null);
+            this.imageOverlayManager?.selectOverlay(null, { render: false });
         }
         this.core.requestRender();
     }
 
-    onMove(mapPos) {
-        if (this.isDraggingLabel && this.manager.selectedZoneId) {
+    onMove(mapPos, event = null) {
+        if (this.overlayTransforms.handlePointerMove(mapPos, event)) {
+            this.core.requestRender();
+        } else if (this.isDraggingLabel && this.manager.selectedZoneId) {
             this.dragLabel(mapPos);
             this.core.requestRender();
         } else if (this.isDraggingHandle && this.manager.selectedZoneId) {
@@ -126,11 +139,20 @@ class SelectTool {
             this.core.requestRender();
         } else {
             // Handle hover and cursor updates
-            const hoveredZone = this.manager.findZoneAtPoint(mapPos, this.core.zoom) || this.findZoneLabelAtPoint(mapPos);
-            if (hoveredZone && hoveredZone.id !== this.manager.hoveredZoneId) {
-                this.manager.setHoveredZone(hoveredZone.id);
-            } else if (!hoveredZone && this.manager.hoveredZoneId) {
-                this.manager.setHoveredZone(null);
+            const hoveredOverlay = this.imageOverlayManager?.findOverlayAtPoint(mapPos);
+            if (hoveredOverlay) {
+                this.imageOverlayManager.setHoveredOverlay(hoveredOverlay.id);
+                if (this.manager.hoveredZoneId) {
+                    this.manager.setHoveredZone(null);
+                }
+            } else {
+                this.imageOverlayManager?.setHoveredOverlay(null);
+                const hoveredZone = this.manager.findZoneAtPoint(mapPos, this.core.zoom) || this.findZoneLabelAtPoint(mapPos);
+                if (hoveredZone && hoveredZone.id !== this.manager.hoveredZoneId) {
+                    this.manager.setHoveredZone(hoveredZone.id);
+                } else if (!hoveredZone && this.manager.hoveredZoneId) {
+                    this.manager.setHoveredZone(null);
+                }
             }
 
             this.updateCursor(mapPos);
@@ -138,12 +160,16 @@ class SelectTool {
     }
 
     onUp(mapPos) {
-        if ((this.isDragging || this.isDraggingHandle || this.isDraggingLabel) && this.hasDragged) {
+        const overlayDragged = this.overlayTransforms.hasActiveInteraction() && this.overlayTransforms.hasDragged;
+        const anyDragged = this.hasDragged || overlayDragged;
+        if ((this.isDragging || this.isDraggingHandle || this.isDraggingLabel || overlayDragged) && anyDragged) {
             // Trigger update callback
             const zone = this.manager.getSelectedZone();
             if (zone && this.manager.onZoneUpdated) {
                 this.manager.onZoneUpdated(zone);
             }
+            this.manager.saveToStorage();
+            this.imageOverlayManager?.saveToStorage();
 
             // Trigger history save callback
             if (this.onDragComplete) {
@@ -157,6 +183,7 @@ class SelectTool {
         this.draggedHandleIndex = -1;
         this.dragStart = null;
         this.hasDragged = false;
+        this.overlayTransforms.reset();
         this.setDragInteractionLock(false);
         this.clearSnapPreview();
         this.updateCursor(mapPos || this.dragStart || { x: 0, y: 0 });
@@ -167,6 +194,7 @@ class SelectTool {
         this.isDraggingHandle = false;
         this.isDraggingLabel = false;
         this.dragStart = null;
+        this.overlayTransforms.reset();
         this.setDragInteractionLock(false);
         this.clearSnapPreview();
     }
@@ -273,7 +301,7 @@ class SelectTool {
         const zone = this.manager.getSelectedZone();
         if (!zone) return;
 
-        const anchor = this.getZoneCenter(zone);
+        const anchor = this.labelUtils.getZoneCenter(zone);
         if (!anchor) return;
 
         const labelCenter = {
@@ -346,123 +374,13 @@ class SelectTool {
         return this.core.snapToGrid(anchor);
     }
 
-    getZoneCenter(zone) {
-        if (!zone) return null;
-        if (zone.shape === 'circle') {
-            return { x: zone.cx, y: zone.cy };
-        }
-        if (zone.shape === 'rectangle') {
-            return { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2 };
-        }
-        if (zone.shape === 'line') {
-            return { x: (zone.x1 + zone.x2) / 2, y: (zone.y1 + zone.y2) / 2 };
-        }
-        if (zone.points?.length) {
-            const bounds = Utils.getPolygonBounds(zone.points);
-            return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-        }
-        return null;
-    }
-
-    getLabelFontSize(zone) {
-        const explicitFontSize = parseInt(zone?.labelFontSize, 10);
-        if (Number.isFinite(explicitFontSize)) {
-            return Math.max(explicitFontSize / this.core.zoom, explicitFontSize * (Constants?.LABEL_MIN_SIZE_RATIO || 0.7));
-        }
-
-        switch (zone?.labelSize) {
-            case 'small': return Math.max((Constants?.LABEL_SIZE_SMALL || 10) / this.core.zoom, (Constants?.LABEL_SIZE_SMALL || 10) * (Constants?.LABEL_MIN_SIZE_RATIO || 0.7));
-            case 'large': return Math.max((Constants?.LABEL_SIZE_LARGE || 18) / this.core.zoom, (Constants?.LABEL_SIZE_LARGE || 18) * (Constants?.LABEL_MIN_SIZE_RATIO || 0.7));
-            default: return Math.max((Constants?.LABEL_SIZE_MEDIUM || 14) / this.core.zoom, (Constants?.LABEL_SIZE_MEDIUM || 14) * (Constants?.LABEL_MIN_SIZE_RATIO || 0.7));
-        }
-    }
-
-    getLabelFontFamily(zone) {
-        switch (zone?.labelFontFamily) {
-            case 'mono':
-                return '"Share Tech Mono", monospace';
-            case 'system':
-                return '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
-            default:
-                return 'Rajdhani, sans-serif';
-        }
-    }
-
-    getLabelFontString(zone) {
-        const fontStyle = zone?.labelItalic ? 'italic ' : '';
-        const fontWeight = zone?.labelBold ? '700' : '600';
-        return `${fontStyle}${fontWeight} ${this.getLabelFontSize(zone)}px ${this.getLabelFontFamily(zone)}`;
-    }
-
-    getLabelText(zone) {
-        return (zone?.labelText || zone?.name || '').trim();
-    }
-
-    getActiveLabelMode(zone) {
-        if (!zone || zone.showLabel === false) return 'hidden';
-        if (zone.patternLabelMode === 'checker_embed') return 'pattern_checker';
-        if (zone.borderLabelMode === 'dash_alt') return 'border_dash_alt';
-        if (zone.borderLabelMode === 'repeat') return 'border_repeat';
-        return 'floating';
-    }
-
     findLabelAtPoint(point) {
         const zone = this.manager.getSelectedZone();
-        if (!zone || zone.showLabel === false || this.getActiveLabelMode(zone) !== 'floating') return null;
-        return this.getLabelHitBox(zone, point);
-    }
-
-    getLabelHitBox(zone, point = null) {
-        if (!zone || zone.showLabel === false || this.getActiveLabelMode(zone) !== 'floating') return null;
-
-        const anchor = this.getZoneCenter(zone);
-        if (!anchor) return null;
-        const text = this.getLabelText(zone);
-        if (!text) return null;
-
-        const ctx = this.core.ctx;
-        ctx.save();
-        ctx.font = this.getLabelFontString(zone);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const metrics = ctx.measureText(text);
-        ctx.restore();
-
-        const fontSize = this.getLabelFontSize(zone);
-        const padding = 4 / this.core.zoom;
-        const textHeight = Math.max(
-            fontSize,
-            (metrics.actualBoundingBoxAscent || fontSize * 0.7) + (metrics.actualBoundingBoxDescent || fontSize * 0.3)
-        );
-        const width = metrics.width + padding * 2;
-        const height = textHeight + padding * 2;
-        const centerX = anchor.x + (zone.labelOffsetX || 0);
-        const centerY = anchor.y + (zone.labelOffsetY || 0);
-        const hitPadding = 6 / this.core.zoom;
-        const box = {
-            x: centerX - width / 2 - hitPadding,
-            y: centerY - height / 2 - hitPadding,
-            width: width + hitPadding * 2,
-            height: height + hitPadding * 2,
-            centerX,
-            centerY
-        };
-
-        if (!point) return box;
-        return Utils.pointInRect(point, box) ? box : null;
+        return this.labelHitTester.findLabelAtPoint(zone, point);
     }
 
     findZoneLabelAtPoint(point) {
-        const zones = this.manager.getZones();
-        for (let i = zones.length - 1; i >= 0; i--) {
-            const zone = zones[i];
-            if (!zone.visible || zone.showLabel === false || this.getActiveLabelMode(zone) !== 'floating') continue;
-            const hit = this.getLabelHitBox(zone, point);
-            if (hit) {
-                return zone;
-            }
-        }
-        return null;
+        return this.labelHitTester.findZoneLabelAtPoint(this.manager.getZones(), point);
     }
 
     syncLineGeometry(zone) {
@@ -483,48 +401,33 @@ class SelectTool {
             this.clearSnapPreview();
             return;
         }
-
-        const preview = {
-            anchor: { x: anchor.x, y: anchor.y },
-            verticals: [anchor.x],
-            horizontals: [anchor.y],
-            edgeSegments: []
-        };
-
-        if (zone.shape === 'rectangle') {
-            preview.edgeSegments = [
-                { x1: zone.x, y1: zone.y, x2: zone.x + zone.width, y2: zone.y },
-                { x1: zone.x + zone.width, y1: zone.y, x2: zone.x + zone.width, y2: zone.y + zone.height },
-                { x1: zone.x + zone.width, y1: zone.y + zone.height, x2: zone.x, y2: zone.y + zone.height },
-                { x1: zone.x, y1: zone.y + zone.height, x2: zone.x, y2: zone.y }
-            ];
-        } else if (zone.shape === 'circle') {
-            preview.edgeSegments = [
-                { x1: zone.cx - zone.radius, y1: zone.cy, x2: zone.cx + zone.radius, y2: zone.cy },
-                { x1: zone.cx, y1: zone.cy - zone.radius, x2: zone.cx, y2: zone.cy + zone.radius }
-            ];
-        } else if (zone.shape === 'line') {
-            preview.edgeSegments = [
-                { x1: zone.x1, y1: zone.y1, x2: zone.x2, y2: zone.y2 }
-            ];
-        } else if (zone.points?.length) {
-            const bounds = Utils.getPolygonBounds(zone.points);
-            preview.edgeSegments = [
-                { x1: bounds.x, y1: bounds.y, x2: bounds.x + bounds.width, y2: bounds.y },
-                { x1: bounds.x + bounds.width, y1: bounds.y, x2: bounds.x + bounds.width, y2: bounds.y + bounds.height },
-                { x1: bounds.x + bounds.width, y1: bounds.y + bounds.height, x2: bounds.x, y2: bounds.y + bounds.height },
-                { x1: bounds.x, y1: bounds.y + bounds.height, x2: bounds.x, y2: bounds.y }
-            ];
-        }
-
-        this.snapPreview = preview;
+        this.snapPreview = this.snapPreviewBuilder.build(zone, anchor);
     }
 
     updateCursor(mapPos) {
         const container = this.core.container;
 
-        if (this.isDraggingLabel) {
+        if (this.overlayTransforms.hasActiveInteraction() || this.isDraggingLabel) {
             container.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (this.imageOverlayManager?.selectedOverlayId && this.imageOverlayManager.findRotationHandleAtPoint(mapPos, this.core.zoom)) {
+            container.style.cursor = 'grab';
+            return;
+        }
+
+        if (this.imageOverlayManager?.selectedOverlayId) {
+            const overlayHandleIndex = this.imageOverlayManager.findHandleAtPoint(mapPos, this.core.zoom);
+            if (overlayHandleIndex !== -1) {
+                container.style.cursor = this.getCornerResizeCursor(overlayHandleIndex);
+                return;
+            }
+        }
+
+        const overlay = this.imageOverlayManager?.findOverlayAtPoint(mapPos);
+        if (overlay) {
+            container.style.cursor = overlay.id === this.imageOverlayManager.selectedOverlayId ? 'move' : 'pointer';
             return;
         }
 
@@ -541,8 +444,14 @@ class SelectTool {
 
         // Handle
         if (this.manager.selectedZoneId) {
-            if (this.findHandleAtPoint(mapPos) !== -1) {
-                container.style.cursor = 'nwse-resize';
+            const zoneHandleIndex = this.findHandleAtPoint(mapPos);
+            if (zoneHandleIndex !== -1) {
+                const zone = this.manager.getSelectedZone();
+                if (zone?.shape === 'rectangle') {
+                    container.style.cursor = this.getCornerResizeCursor(zoneHandleIndex);
+                } else {
+                    container.style.cursor = 'nwse-resize';
+                }
                 return;
             }
         }
@@ -554,6 +463,10 @@ class SelectTool {
         } else {
             container.style.cursor = 'default';
         }
+    }
+
+    getCornerResizeCursor(handleIndex) {
+        return handleIndex === 0 || handleIndex === 2 ? 'nwse-resize' : 'nesw-resize';
     }
 }
 

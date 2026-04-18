@@ -3,14 +3,15 @@
  * Manages active tool state and delegates to specific tool implementations
  */
 class ToolManager {
-    constructor(canvasCore, zoneManager) {
+    constructor(canvasCore, zoneManager, imageOverlayManager = null) {
         this.core = canvasCore;
         this.zoneManager = zoneManager;
+        this.imageOverlayManager = imageOverlayManager;
         this.currentTool = 'select';
 
         // Initialize tools
         this.tools = {
-            select: new SelectTool(canvasCore, zoneManager),
+            select: new SelectTool(canvasCore, zoneManager, imageOverlayManager),
             rectangle: new RectangleTool(canvasCore, zoneManager),
             circle: new CircleTool(canvasCore, zoneManager),
             line: new LineTool(canvasCore, zoneManager),

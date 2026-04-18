@@ -51,12 +51,44 @@ class FileHandler {
     }
 
     /**
-     * Load a standard image file (PNG, JPG, etc.)
+     * Load a standard image file (PNG, JPG, SVG, etc.)
      * @param {File} file - The image file to load
      */
     async loadImageFile(file) {
         const img = await Utils.loadImage(file);
         this.app.onMapLoaded(img, file.name);
+    }
+
+    async importOverlayImage(file, placement = null) {
+        if (!this.app.core?.mapImage) {
+            return this.loadImageFile(file);
+        }
+
+        const ext = file.name.toLowerCase().split('.').pop();
+        const svgMarkupOriginal = ext === 'svg' ? await file.text() : '';
+        const image = await Utils.loadImage(file);
+        const mapPoint = placement
+            ? this.app.core.screenToMap(placement.x, placement.y)
+            : null;
+        if (this.app.historyManager) {
+            this.app.historyManager.saveHistory();
+        }
+        const overlay = this.app.imageOverlayManager.createOverlayFromImage(
+            image,
+            file.name.replace(/\.[^.]+$/, ''),
+            mapPoint ? { x: mapPoint.x, y: mapPoint.y } : {},
+            {
+                persist: true,
+                sourceName: file.name,
+                sourceType: ext === 'svg' ? 'svg' : 'raster',
+                tintMode: ext === 'svg' ? 'vector' : 'pixel',
+                svgMarkupOriginal
+            }
+        );
+
+        if (overlay) {
+            this.app.updateUI();
+        }
     }
 
     /**
@@ -99,6 +131,15 @@ class FileHandler {
         if (file) {
             this.loadMapFile(file);
         }
+        e.target.value = '';
+    }
+
+    handleOverlayImageSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+            this.importOverlayImage(file);
+        }
+        e.target.value = '';
     }
 
     /**
@@ -124,7 +165,17 @@ class FileHandler {
             prompt.classList.remove('drag-over');
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                this.loadMapFile(files[0]);
+                const file = files[0];
+                const ext = file.name.toLowerCase().split('.').pop();
+                const isMapTexture = ext === 'edds' || ext === 'dds';
+                const hasMap = !!this.app.core?.mapImage;
+                const placement = { x: e.clientX, y: e.clientY };
+
+                if (hasMap && !isMapTexture) {
+                    this.importOverlayImage(file, placement);
+                } else {
+                    this.loadMapFile(file);
+                }
             }
         });
     }

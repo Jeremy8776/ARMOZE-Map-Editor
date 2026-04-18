@@ -51,12 +51,13 @@ class TabManager {
      * @param {HTMLImageElement} image - The map image
      * @param {Array} zones - Optional array of zones to load
      */
-    createTab(name, image, zones = []) {
+    createTab(name, image, zones = [], overlays = []) {
         const newTab = {
             id: Date.now().toString(),
             name: name,
             image: image,
             zones: zones,
+            overlays: overlays,
             history: [],
             historyIndex: -1,
             view: null
@@ -107,6 +108,7 @@ class TabManager {
         const tab = this.tabs[this.activeTabIndex];
 
         tab.zones = this.app.zoneManager.getZones();
+        tab.overlays = this.app.imageOverlayManager.serializeOverlays();
         tab.history = [...this.app.historyManager.getHistory()];
         tab.historyIndex = this.app.historyManager.getHistoryIndex();
         tab.view = {
@@ -139,6 +141,8 @@ class TabManager {
         // 2. Restore Zones
         this.app.zoneManager.zones = Utils.deepClone(tab.zones);
         this.app.zoneManager.selectedZoneId = null;
+        this.app.imageOverlayManager.setOverlays(Utils.deepClone(tab.overlays || []), { persist: true, keepSelection: false });
+        this.app.imageOverlayManager.selectOverlay(null, { render: false });
 
         // 3. Restore History
         this.app.historyManager.setHistory(tab.history, tab.historyIndex);

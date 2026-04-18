@@ -3,10 +3,11 @@
  * Routes mouse and keyboard events to the appropriate managers
  */
 class EventHandler {
-    constructor(canvasCore, toolManager, zoneManager) {
+    constructor(canvasCore, toolManager, zoneManager, imageOverlayManager = null) {
         this.core = canvasCore;
         this.toolManager = toolManager;
         this.zoneManager = zoneManager;
+        this.imageOverlayManager = imageOverlayManager;
         this.isPanning = false;
         this.dragStart = null;
         this.lastMousePos = null;
@@ -129,6 +130,18 @@ class EventHandler {
 
         // Delete selected zone (only when not typing)
         // FIX: Save history before deleting to enable undo
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            const selectedOverlay = this.imageOverlayManager?.getSelectedOverlay();
+            if (selectedOverlay) {
+                e.preventDefault();
+                if (window.app && window.app.historyManager) {
+                    window.app.historyManager.saveHistory();
+                }
+                this.imageOverlayManager.deleteOverlay(selectedOverlay.id);
+                return;
+            }
+        }
+
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.zoneManager.selectedZoneId) {
             e.preventDefault();
             // Access app's history manager through the global app instance
@@ -139,22 +152,6 @@ class EventHandler {
             return;
         }
 
-        // Keyboard shortcuts for tools
-        if (!e.ctrlKey && !e.metaKey) {
-            switch (e.key.toLowerCase()) {
-                case 'v': this.toolManager.setTool('select'); break;
-                case 'r': this.toolManager.setTool('rectangle'); break;
-                case 'c': this.toolManager.setTool('circle'); break;
-                case 'l': this.toolManager.setTool('line'); break;
-                case 'p': this.toolManager.setTool('pen'); break;
-                case 'd': this.toolManager.setTool('freehand'); break;
-                case 's': this.core.toggleSnap(); break;
-                case 'f': this.core.fitToView(); break;
-                case '=':
-                case '+': this.core.setZoom(0.1); break;
-                case '-': this.core.setZoom(-0.1); break;
-            }
-        }
     }
 }
 

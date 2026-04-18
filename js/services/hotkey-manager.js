@@ -74,10 +74,19 @@ class HotkeyManager {
                     e.preventDefault();
                     this.app.elements.btnToggleSnap.click();
                     break;
-            case 'f':
-                e.preventDefault();
-                this.app.core.fitToView();
-                break;
+                case 'f':
+                    e.preventDefault();
+                    this.app.core.fitToView();
+                    break;
+                case '=':
+                case '+':
+                    e.preventDefault();
+                    this.app.core.setZoom(0.1);
+                    break;
+                case '-':
+                    e.preventDefault();
+                    this.app.core.setZoom(-0.1);
+                    break;
         }
 
         if (tool) {

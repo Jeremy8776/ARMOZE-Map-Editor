@@ -10,6 +10,9 @@ const Constants = {
     /** Snap grid size in map units */
     SNAP_GRID_SIZE: 100,
 
+    /** Rotation snap increment in degrees when snap mode is enabled */
+    SNAP_ROTATION_STEP: 15,
+
     /** Minimum zoom level */
     MIN_ZOOM: 0.1,
 
