@@ -743,6 +743,34 @@
     background: rgba(255, 255, 255, 0.03);
 }
 
+/* --- Form Action Row (Cancel / Extract) --- */
+.extractor-actions {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.extractor-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 18px;
+    line-height: 1;
+    font-size: 13px;
+    border-radius: 999px;
+    box-sizing: border-box;
+}
+
+.extractor-actions .btn svg,
+.extractor-actions .btn .lucide {
+    width: 14px;
+    height: 14px;
+}
+
 /* --- Spin Animation --- */
 @keyframes spin {
     from { transform: rotate(0deg); }

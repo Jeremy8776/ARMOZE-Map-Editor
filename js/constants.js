@@ -95,7 +95,7 @@ const Constants = {
     EXPORT_LINE_WIDTH_THICK: 4,
 
     // ==================== APP INFO ====================
-    APP_VERSION: 'v1.5.0 - MODULAR',
+    APP_VERSION: 'v1.6.0 - MODULAR',
     GITHUB_URL: 'https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor'
 };
 

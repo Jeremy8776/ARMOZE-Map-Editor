@@ -396,31 +396,47 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
 });
 
 // Auto-Update Checker
-const startAutoUpdateCheck = () => {
+//
+// Two-tier strategy:
+//   1. electron-updater handles in-app download + install when a release with
+//      proper electron-builder artifacts (latest.yml + signed installer) is
+//      available on GitHub.
+//   2. Falls back to a manual GitHub Releases API check that surfaces a banner
+//      with a link to the release page, for cases where electron-updater can't
+//      find its metadata (e.g. older releases predating the build pipeline, or
+//      when running on a platform without a published artifact).
+let autoUpdater = null;
+try {
+    ({ autoUpdater } = require('electron-updater'));
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+} catch (err) {
+    console.warn('electron-updater not installed; falling back to manual update check.', err.message);
+}
+
+const sendToRenderer = (channel, payload) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.send(channel, payload);
+};
+
+const startManualGitHubCheck = () => {
     const repositoryPath = getGitHubRepositoryPath();
     const currentVersion = packageMetadata.version;
-
-    // Check GitHub API
     const request = net.request(`https://api.github.com/repos/${repositoryPath}/releases/latest`);
 
     request.on('response', (response) => {
         let body = '';
-        response.on('data', (chunk) => {
-            body += chunk;
-        });
-
+        response.on('data', (chunk) => { body += chunk; });
         response.on('end', () => {
             try {
                 if (response.statusCode === 200) {
                     const data = JSON.parse(body);
                     const latestVersion = data.tag_name.replace('v', '');
-
-                    // Simple semantic version comparison
                     if (isNewerVersion(currentVersion, latestVersion) && isSafeGitHubReleaseUrl(data.html_url, repositoryPath)) {
-                        BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', {
+                        sendToRenderer('update-available', {
                             version: latestVersion,
                             url: data.html_url,
-                            notes: data.body
+                            notes: data.body,
+                            canAutoInstall: false
                         });
                     }
                 }
@@ -435,6 +451,67 @@ const startAutoUpdateCheck = () => {
     });
 
     request.end();
+};
+
+const startAutoUpdateCheck = () => {
+    if (!autoUpdater) {
+        startManualGitHubCheck();
+        return;
+    }
+
+    let fellBack = false;
+    const fallback = (reason) => {
+        if (fellBack) return;
+        fellBack = true;
+        console.warn('electron-updater fallback:', reason);
+        startManualGitHubCheck();
+    };
+
+    autoUpdater.on('update-available', (info) => {
+        const repositoryPath = getGitHubRepositoryPath();
+        sendToRenderer('update-available', {
+            version: info.version,
+            url: `https://github.com/${repositoryPath}/releases/tag/v${info.version}`,
+            notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : '',
+            canAutoInstall: true
+        });
+    });
+
+    autoUpdater.on('update-not-available', () => {
+        // Up to date; nothing to do.
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+        sendToRenderer('update-progress', {
+            percent: Math.round(progress.percent || 0),
+            bytesPerSecond: progress.bytesPerSecond,
+            transferred: progress.transferred,
+            total: progress.total
+        });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        sendToRenderer('update-downloaded', {
+            version: info.version
+        });
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('autoUpdater error:', err);
+        // If we never even saw "update-available", there's no banner up yet —
+        // try the manual check so the user still sees a notification when a
+        // GitHub release exists but lacks electron-updater metadata.
+        sendToRenderer('update-error', {
+            message: err?.message || 'Update failed'
+        });
+        fallback(err?.message || 'autoUpdater error');
+    });
+
+    try {
+        autoUpdater.checkForUpdates().catch((err) => fallback(err?.message || 'checkForUpdates rejected'));
+    } catch (err) {
+        fallback(err?.message || 'checkForUpdates threw');
+    }
 };
 
 function isNewerVersion(current, latest) {
@@ -465,4 +542,17 @@ ipcMain.handle('open-external', async (event, url) => {
         throw new Error('Blocked unsafe external URL.');
     }
     await shell.openExternal(url);
+});
+
+// IPC: kick off in-app download via electron-updater (called from "Download" button)
+ipcMain.handle('start-update-download', async () => {
+    if (!autoUpdater) throw new Error('Auto-updater unavailable in this build.');
+    return autoUpdater.downloadUpdate();
+});
+
+// IPC: install the downloaded update and relaunch.
+ipcMain.handle('quit-and-install', () => {
+    if (!autoUpdater) throw new Error('Auto-updater unavailable in this build.');
+    // Force restart, force run after install. Only invoked once "update-downloaded" has fired.
+    autoUpdater.quitAndInstall(false, true);
 });

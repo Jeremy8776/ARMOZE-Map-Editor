@@ -33,7 +33,6 @@ class ExportHandler {
             case 'json': this.exportJSON(transformedZones); break;
             case 'image': this.exportImage(settings); break;
             case 'image_with_map': this.exportImage({ ...settings, includeMap: true, baseName: (settings.baseName || 'map_overlay') + '_full' }); break;
-            case 'tiff': this.exportTIFF(settings); break;
             case 'workbench': this.exportWorkbenchPlugin(transformedZones); break;
             case 'all': this.exportAll(transformedZones, settings); break;
         }
@@ -74,16 +73,14 @@ class ExportHandler {
         const canvas = this.renderer.exportAsImage(settings);
         if (!canvas) return;
         const finalCanvas = settings.resizeToPow2 !== false ? this.resizeToPowerOf2(canvas) : canvas;
-        Utils.downloadCanvas(finalCanvas, `${settings.baseName || 'zone_overlay'}${settings.textureSuffix || '_A'}.png`);
-    }
-
-    exportTIFF(settings = {}) {
-        const canvas = this.renderer.exportAsImage(settings);
-        if (!canvas) return;
-        const finalCanvas = settings.resizeToPow2 !== false ? this.resizeToPowerOf2(canvas) : canvas;
-        const imageData = finalCanvas.getContext('2d').getImageData(0, 0, finalCanvas.width, finalCanvas.height);
-        const tiffData = UTIF.encodeImage(imageData.data, finalCanvas.width, finalCanvas.height);
-        Utils.downloadFile(new Blob([tiffData], { type: 'image/tiff' }), `${settings.baseName || 'zone_overlay'}${settings.textureSuffix || '_A'}.tiff`, 'image/tiff');
+        const fmt = settings.imageFormat === 'tiff' ? 'tiff' : 'png';
+        const ext = fmt === 'tiff' ? '.tiff' : '.png';
+        const filename = `${settings.baseName || 'zone_overlay'}${settings.textureSuffix || '_A'}${ext}`;
+        try {
+            Utils.downloadCanvas(finalCanvas, filename, fmt);
+        } catch (err) {
+            this.notificationService?.showAlert(err.message || 'Image export failed.', { title: 'Export Failed', tone: 'danger' });
+        }
     }
 
     exportWorkbenchPlugin(zones) {

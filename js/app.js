@@ -178,6 +178,15 @@ class ZoneEditorApp {
             if (window.electronAPI.onUpdateAvailable) {
                 window.electronAPI.onUpdateAvailable((data) => this.notificationService.showUpdateNotification(data));
             }
+            if (window.electronAPI.onUpdateProgress) {
+                window.electronAPI.onUpdateProgress((data) => this.notificationService.setUpdateProgress(data?.percent));
+            }
+            if (window.electronAPI.onUpdateDownloaded) {
+                window.electronAPI.onUpdateDownloaded(() => this.notificationService.setUpdateReady());
+            }
+            if (window.electronAPI.onUpdateError) {
+                window.electronAPI.onUpdateError((data) => this.notificationService.setUpdateError(data?.message));
+            }
         }
     }
 
@@ -368,7 +377,8 @@ class ZoneEditorApp {
             invertY: this.elements.invertY.checked,
             textureSuffix: this.elements.textureSuffix?.value || Constants.DEFAULT_TEXTURE_SUFFIX,
             resizeToPow2: this.elements.resizePow2?.checked ?? true,
-            baseName: this.elements.baseName?.value || Constants.DEFAULT_EXPORT_FILENAME
+            baseName: this.elements.baseName?.value || Constants.DEFAULT_EXPORT_FILENAME,
+            imageFormat: document.getElementById('imageFormat')?.value || 'png'
         };
         this.exportHandler.export(format, settings);
         this.hideExportModal();

@@ -12,6 +12,8 @@ class NotificationService {
 
     showUpdateNotification(data) {
         if (this.updateBanner && document.body.contains(this.updateBanner)) {
+            // Already showing — just refresh metadata in case.
+            this.updateBanner._data = { ...this.updateBanner._data, ...data };
             return;
         }
 
@@ -25,8 +27,9 @@ class NotificationService {
             padding: 15px; border-radius: 12px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             z-index: 9999; display: flex; flex-direction: column; gap: 10px;
-            min-width: 300px; animation: slideInUp 0.3s ease-out;
+            min-width: 320px; animation: slideInUp 0.3s ease-out;
         `;
+        banner._data = data || {};
 
         const head = document.createElement('div');
         head.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
@@ -46,25 +49,65 @@ class NotificationService {
 
         const copy = document.createElement('p');
         copy.style.cssText = 'margin:0; font-size:12px; color:#ccc;';
-        copy.textContent = 'A new version of ARMOZE is available on GitHub.';
+        copy.textContent = data?.canAutoInstall
+            ? 'Click below to download and install the new version.'
+            : 'A new version of ARMOZE is available on GitHub.';
+
+        // Progress bar (hidden until download starts)
+        const progressWrap = document.createElement('div');
+        progressWrap.style.cssText = 'display:none; flex-direction:column; gap:4px;';
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = 'height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;';
+        const progressFill = document.createElement('div');
+        progressFill.style.cssText = 'height:100%; width:0%; background:var(--color-accent); transition:width 0.2s ease;';
+        progressBar.appendChild(progressFill);
+        const progressLabel = document.createElement('span');
+        progressLabel.style.cssText = 'font-size:11px; color:#aaa;';
+        progressLabel.textContent = 'Downloading… 0%';
+        progressWrap.append(progressBar, progressLabel);
 
         const action = document.createElement('button');
         action.type = 'button';
         action.className = 'btn btn-primary btn-small';
         action.style.width = '100%';
-        action.textContent = 'Download Now';
+        action.textContent = data?.canAutoInstall ? 'Download & Install' : 'Open Release Page';
 
-        banner.append(head, copy, action);
+        banner.append(head, copy, progressWrap, action);
         document.body.appendChild(banner);
         this.updateBanner = banner;
 
+        // Refs the renderer can mutate via setUpdateProgress / setUpdateReady / setUpdateError
+        banner._refs = { title, copy, progressWrap, progressFill, progressLabel, action };
+
         action.addEventListener('click', () => {
-            if (window.electronAPI?.openExternal) {
-                window.electronAPI.openExternal(data.url).catch(() => {
+            const current = banner._data || {};
+            // State: ready-to-install — relaunch
+            if (current.state === 'ready') {
+                window.electronAPI?.quitAndInstall?.().catch(() => {
+                    this.showToast('Could not start installer.', 'error');
+                });
+                return;
+            }
+            // State: in-app download supported — kick off download
+            if (current.canAutoInstall && window.electronAPI?.startUpdateDownload) {
+                action.disabled = true;
+                action.textContent = 'Starting…';
+                window.electronAPI.startUpdateDownload().catch((err) => {
+                    action.disabled = false;
+                    action.textContent = 'Open Release Page';
+                    banner._data.canAutoInstall = false;
+                    copy.textContent = 'In-app update failed. Open the release page to grab it manually.';
+                    this.showToast(err?.message || 'Update download failed.', 'error');
+                });
+                return;
+            }
+            // Fallback: open external GitHub release page
+            if (window.electronAPI?.openExternal && current.url) {
+                window.electronAPI.openExternal(current.url).catch(() => {
                     this.showToast('Could not open the update page.', 'error');
                 });
-            } else {
-                window.open(data.url, '_blank');
+            } else if (current.url) {
+                window.open(current.url, '_blank');
             }
         });
 
@@ -72,6 +115,43 @@ class NotificationService {
             banner.remove();
             this.updateBanner = null;
         });
+    }
+
+    setUpdateProgress(percent) {
+        const banner = this.updateBanner;
+        if (!banner?._refs) return;
+        const { progressWrap, progressFill, progressLabel, action } = banner._refs;
+        progressWrap.style.display = 'flex';
+        const pct = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        progressFill.style.width = `${pct}%`;
+        progressLabel.textContent = `Downloading… ${pct}%`;
+        action.disabled = true;
+        action.textContent = 'Downloading…';
+        banner._data.state = 'downloading';
+    }
+
+    setUpdateReady() {
+        const banner = this.updateBanner;
+        if (!banner?._refs) return;
+        const { copy, progressWrap, progressFill, progressLabel, action } = banner._refs;
+        progressWrap.style.display = 'flex';
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Download complete';
+        copy.textContent = 'Update ready. Restart now to install.';
+        action.disabled = false;
+        action.textContent = 'Restart & Install';
+        banner._data.state = 'ready';
+    }
+
+    setUpdateError(message) {
+        const banner = this.updateBanner;
+        if (!banner?._refs) return;
+        const { copy, action } = banner._refs;
+        copy.textContent = message || 'Update failed. Try the release page instead.';
+        action.disabled = false;
+        action.textContent = 'Open Release Page';
+        banner._data.canAutoInstall = false;
+        banner._data.state = 'error';
     }
 
     /**

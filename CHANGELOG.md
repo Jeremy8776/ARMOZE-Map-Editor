@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-04-26
+
+### Added
+- **In-App Auto-Updates**: Packaged builds now download and install updates in one click via `electron-updater`. The toast banner walks through Available → Downloading (with progress bar) → Restart & Install. Older releases without electron-updater metadata gracefully fall back to opening the GitHub release page.
+- **TIFF Image Export**: New "Image Format" selector in the Export modal — both *Image Overlay* and *Map + Overlay* outputs can now be saved as TIFF in addition to PNG.
+- **electron-builder Pipeline**: Added `npm run pack` / `dist` / `release` scripts and a `build` config (NSIS target, GitHub publish provider) so installers and `latest.yml` artifacts are produced and published in one command.
+
+### Fixed
+- **Map Extractor IDs**: Re-aligned the extractor handler with the actual DOM IDs in `map-extractor-view.js` (`extractorSearchTerm`, `extractorFilterExtension`, `searchTermGroup`, `filterExtensionGroup`, `extractorStatus`, `extractorResultMessage`) — the extractor was previously broken due to stale ID references. Also wired the missing `btnCancelExtractor` listener.
+- **PowerShell Extraction Tools**: Fixed invalid `(Read-Host) -or (default)` pattern in `ExtractTexture.ps1` (the `-or` operator is boolean, not coalesce) and replaced unsupported `return if (...) {} else {}` syntax in `LibExtract.psm1` (parse error in Windows PowerShell 5.1).
+- **PAK Filtered Extraction**: `Expand-PakFile` now tries multiple path-separator variants of filtered extraction before giving up, instead of falling back to a slow full-PAK extract.
+- **Dead TIFF Code**: The previous `exportTIFF` referenced `UTIF` but the library was never loaded; UTIF is now loaded in `index.html`.
+
+### Changed
+- **Launcher Robustness**: `Launch ARMOZE.bat` now checks `.electron-runner` first before falling through to `node_modules/.bin/electron.cmd`, with a clearer error message pointing users at `npm install`.
+
 ## [1.5.0] - 2026-02-05
 
 ### Added

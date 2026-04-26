@@ -46,6 +46,35 @@
     transition: all var(--transition-fast);
 }
 
+/* Dark dropdown styling — applied to every <select> in the app so
+   the open option list never falls back to native white. The closed
+   state inherits a chevron + dark gradient via the ruleset below. */
+.property-group select,
+.property-item select,
+.setting-row select,
+.compact-select,
+select.app-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 36px;
+    background-color: rgba(0, 0, 0, 0.22);
+    background-image:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.72)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat, no-repeat;
+    background-position: 0 0, calc(100% - 12px) 50%;
+    background-size: auto, 14px 14px;
+    cursor: pointer;
+}
+
+/* Dark popup options — Chromium honours these for the dropdown list. */
+select option,
+select optgroup {
+    background-color: #101317;
+    color: #f2f4f8;
+}
+
 .property-group input[type="text"]:focus,
 .property-group select:focus,
 .property-item input[type="text"]:focus,

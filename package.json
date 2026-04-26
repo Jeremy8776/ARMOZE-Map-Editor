@@ -1,22 +1,63 @@
 {
   "name": "armoze-map-overlay",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Desktop editor for authoring tactical map overlays and branding assets for Arma Reforger maps.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish=always"
   },
   "keywords": [],
   "author": "Jeremy8776",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor.git"
+    "url": "https://github.com/Jeremy8776/ARMOZE-Map-Editor.git"
   },
-  "homepage": "https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor",
+  "homepage": "https://github.com/Jeremy8776/ARMOZE-Map-Editor",
   "license": "MIT",
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
-    "electron": "^28.3.3"
+    "electron": "^28.3.3",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.armoze.editor",
+    "productName": "ARMOZE",
+    "icon": "logo-icon.ico",
+    "files": [
+      "**/*",
+      "!**/.electron-cache/**",
+      "!**/.electron-runner/**",
+      "!**/.npm-cache/**",
+      "!**/_*test_*/**",
+      "!**/_extractor_probe/**",
+      "!**/electron-*.txt",
+      "!**/release/**",
+      "!**/dist/**",
+      "!**/tests/**",
+      "!**/.github/**",
+      "!**/.git/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "logo-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Jeremy8776",
+      "repo": "ARMOZE-Map-Editor"
+    }
   }
 }

@@ -295,9 +295,19 @@ const Utils = {
     },
 
     /**
-     * Download a canvas as PNG
+     * Download a canvas as a raster image. Supports PNG (default) and TIFF.
      */
-    downloadCanvas(canvas, filename) {
+    downloadCanvas(canvas, filename, format = 'png') {
+        if (format === 'tiff') {
+            if (typeof UTIF === 'undefined' || !UTIF.encodeImage) {
+                throw new Error('TIFF encoder (UTIF) not loaded');
+            }
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const tiffData = UTIF.encodeImage(imageData.data, canvas.width, canvas.height);
+            Utils.downloadFile(new Blob([tiffData], { type: 'image/tiff' }), filename, 'image/tiff');
+            return;
+        }
         const link = document.createElement('a');
         link.download = filename;
         link.href = canvas.toDataURL('image/png');

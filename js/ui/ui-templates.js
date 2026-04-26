@@ -313,8 +313,8 @@ const UITemplates = {
                 <div class="modal-body">
                     <div class="export-options">
                         <label class="export-option"><input type="radio" name="exportFormat" value="enfusion" checked><div class="export-option-content"><span class="export-option-title">EnfusionScript (.c)</span><p>Direct copy-paste for Enfusion code blocks.</p></div></label>
-                        <label class="export-option"><input type="radio" name="exportFormat" value="image"><div class="export-option-content"><span class="export-option-title">Image Overlay (.png)</span><p>Transparent overlay for Map Configs.</p></div></label>
-                        <label class="export-option"><input type="radio" name="exportFormat" value="image_with_map"><div class="export-option-content"><span class="export-option-title">Map + Overlay (.png)</span><p>Full map image with zones drawn on top.</p></div></label>
+                        <label class="export-option"><input type="radio" name="exportFormat" value="image"><div class="export-option-content"><span class="export-option-title">Image Overlay</span><p>Transparent overlay for Map Configs.</p></div></label>
+                        <label class="export-option"><input type="radio" name="exportFormat" value="image_with_map"><div class="export-option-content"><span class="export-option-title">Map + Overlay</span><p>Full map image with zones drawn on top.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="json"><div class="export-option-content"><span class="export-option-title">JSON Config</span><p>Portable state for sharing/re-editing.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="workbench"><div class="export-option-content"><span class="export-option-title">Workbench Plugin (.c)</span><p>Plugin for script-based map generation.</p></div></label>
                     </div>
@@ -331,6 +331,13 @@ const UITemplates = {
                         </div>
                         <div class="setting-row">
                             <label class="checkbox-label"><input type="checkbox" id="invertY" checked><span>Invert Y Axis (Tactical standard)</span></label>
+                        </div>
+                        <div class="setting-row">
+                            <label>Image Format</label>
+                            <select id="imageFormat" style="flex:1">
+                                <option value="png" selected>PNG</option>
+                                <option value="tiff">TIFF (16-bit friendly)</option>
+                            </select>
                         </div>
                         <button class="btn btn-secondary btn-full" id="btnOpenCalibration"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4"/><path d="M12 16V8"/></svg> Calibrate Coordinate System</button>
                     </div>
