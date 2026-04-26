@@ -7,3 +7,10 @@ Maps/temp_extract/
 node_modules/
 dist/
 release/
+.electron-cache/
+.electron-runner/
+.npm-cache/
+_expand_test_*/
+_extractor_probe/
+_filter_test_*/
+electron-*.txt

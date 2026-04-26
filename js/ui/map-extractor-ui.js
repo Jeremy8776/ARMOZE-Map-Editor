@@ -93,14 +93,15 @@ class MapExtractorUI {
         }
 
         // Core actions
-        document.getElementById('btnRunExtractor').addEventListener('click', () => this.handleRun());
-        document.getElementById('btnResetExtractor').addEventListener('click', () => this.resetUI());
-        document.getElementById('btnBackFromProgress').addEventListener('click', () => this.resetUI());
-        document.getElementById('btnCloseExtractor').addEventListener('click', () => this.hide());
-        document.getElementById('btnImportMap').addEventListener('click', () => this.handleImport());
+        document.getElementById('btnRunExtractor')?.addEventListener('click', () => this.handleRun());
+        document.getElementById('btnCancelExtractor')?.addEventListener('click', () => this.hide());
+        document.getElementById('btnResetExtractor')?.addEventListener('click', () => this.resetUI());
+        document.getElementById('btnBackFromProgress')?.addEventListener('click', () => this.resetUI());
+        document.getElementById('btnCloseExtractor')?.addEventListener('click', () => this.hide());
+        document.getElementById('btnImportMap')?.addEventListener('click', () => this.handleImport());
 
         // Enter key on search input triggers extraction
-        document.getElementById('extractorSearch').addEventListener('keydown', (e) => {
+        document.getElementById('extractorSearchTerm')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.handleRun();
         });
 
@@ -134,9 +135,11 @@ class MapExtractorUI {
     switchMode(mode) {
         this.mode = mode; // "Search", "BulkAll", "BulkTextures", "BulkExtension"
 
-        const searchFields = document.getElementById('searchModeFields');
-        const extensionFields = document.getElementById('extensionModeFields');
-        const formatRow = document.getElementById('formatRow');
+        const searchFields = document.getElementById('searchTermGroup');
+        const extensionFields = document.getElementById('filterExtensionGroup');
+        const formatRow = document.getElementById('extractorFormat')?.closest('.property-group');
+
+        if (!searchFields || !extensionFields || !formatRow) return;
 
         // Reset
         searchFields.style.display = 'none';
@@ -162,7 +165,7 @@ class MapExtractorUI {
         this.resetUI();
         this.modal.classList.add('visible');
         // Slight delay for entrance animation to complete before focusing
-        setTimeout(() => document.getElementById('extractorSearch')?.focus(), 150);
+        setTimeout(() => document.getElementById('extractorSearchTerm')?.focus(), 150);
     }
 
     hide() {
@@ -178,10 +181,10 @@ class MapExtractorUI {
         if (progress) progress.style.display = 'none';
         if (result) result.style.display = 'none';
 
-        const searchInput = document.getElementById('extractorSearch');
+        const searchInput = document.getElementById('extractorSearchTerm');
         if (searchInput) searchInput.value = '';
 
-        const extInput = document.getElementById('extractorExtension');
+        const extInput = document.getElementById('extractorFilterExtension');
         if (extInput) extInput.value = '';
 
         const actionSelect = document.getElementById('extractorAction');
@@ -217,7 +220,7 @@ class MapExtractorUI {
         log.innerHTML = '';
         bar.style.width = '0%';
         percent.textContent = '0%';
-        document.getElementById('progressStatus').textContent = 'Initializing...';
+        document.getElementById('extractorStatus').textContent = 'Initializing...';
         document.getElementById('extractorResult').style.display = 'none';
     }
 
@@ -238,7 +241,7 @@ class MapExtractorUI {
 
     handleCommandOutput(output) {
         const log = document.getElementById('extractorLog');
-        const status = document.getElementById('progressStatus');
+        const status = document.getElementById('extractorStatus');
         const bar = document.getElementById('extractorProgressBar');
         const percent = document.getElementById('progressPercent');
 
@@ -304,15 +307,15 @@ class MapExtractorUI {
         let extension = '';
 
         if (action === 'Search') {
-            searchTerm = document.getElementById('extractorSearch').value.trim();
+            searchTerm = document.getElementById('extractorSearchTerm').value.trim();
             if (!searchTerm) {
-                this.shakeInput('extractorSearch');
+                this.shakeInput('extractorSearchTerm');
                 return;
             }
         } else if (action === 'BulkExtension') {
-            extension = document.getElementById('extractorExtension').value.trim();
+            extension = document.getElementById('extractorFilterExtension').value.trim();
             if (!extension) {
-                this.shakeInput('extractorExtension');
+                this.shakeInput('extractorFilterExtension');
                 return;
             }
         }
@@ -342,7 +345,7 @@ class MapExtractorUI {
             this.handleExtractionResult(result);
         } catch (err) {
             this.showResultState('error');
-            document.getElementById('resultMessage').innerHTML =
+            document.getElementById('extractorResultMessage').innerHTML =
                 `<strong>Error:</strong> ${err.message}`;
             document.getElementById('btnImportMap').style.display = 'none';
             this.removeOpenFolderButton();
@@ -366,11 +369,11 @@ class MapExtractorUI {
         const importBtn = document.getElementById('btnImportMap');
 
         if (isManual) {
-            document.getElementById('resultMessage').textContent = result.message;
+            document.getElementById('extractorResultMessage').textContent = result.message;
             importBtn.style.display = 'none';
             this.removeOpenFolderButton();
         } else {
-            document.getElementById('resultMessage').innerHTML =
+            document.getElementById('extractorResultMessage').innerHTML =
                 '<strong>Success!</strong> Extraction completed.';
 
             // Allow importing. The IPC backend will detect if it's a directory and extract the core map image from inside it.

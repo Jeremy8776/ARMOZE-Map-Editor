@@ -2,7 +2,7 @@
 # Function library for PAK extraction and texture conversion.
 
 function Expand-PakFile {
-    # Extracts a single file from a PAK. Tries filtered first, falls back to full extraction.
+    # Extracts a single file from a PAK using PakInspector's filtered extraction.
     param(
         [object]$Pak,
         [string]$InternalPath,
@@ -14,25 +14,29 @@ function Expand-PakFile {
     New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
     
     $targetName = [System.IO.Path]::GetFileName($InternalPath)
-    
-    # Method 1: Filtered extraction
-    & $PakInspectorPath extract $Pak.FullName $TempDir -f $InternalPath 2>&1 | Out-Null
-    $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
-    
-    # Method 2: Filtered with raw flag
-    if (-not $found -or $found.Count -eq 0) {
-        & $PakInspectorPath extract $Pak.FullName $TempDir -f $InternalPath -r 2>&1 | Out-Null
+
+    $pathCandidates = @(
+        $InternalPath,
+        $InternalPath.Replace("/", "\"),
+        $InternalPath.Replace("\", "/")
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    foreach ($candidate in $pathCandidates) {
+        & $PakInspectorPath extract $Pak.FullName $TempDir -f $candidate 2>&1 | Out-Null
         $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
-    }
-    
-    # Method 3: Full extraction
-    if (-not $found -or $found.Count -eq 0) {
-        Write-Host "  Filtered extract unavailable, extracting full PAK..." -ForegroundColor DarkGray
-        & $PakInspectorPath extract $Pak.FullName $TempDir 2>&1 | Out-Null
+        if ($found -and $found.Count -gt 0) {
+            return $found
+        }
+
+        & $PakInspectorPath extract $Pak.FullName $TempDir -f $candidate -r 2>&1 | Out-Null
         $found = Get-ChildItem $TempDir -Recurse -Filter $targetName -ErrorAction SilentlyContinue
+        if ($found -and $found.Count -gt 0) {
+            return $found
+        }
     }
-    
-    return $found
+
+    Write-Host "  Filtered extract failed for: $InternalPath" -ForegroundColor Red
+    return @()
 }
 
 function Expand-FullPak {
@@ -84,7 +88,10 @@ function Convert-EddsToImage {
     $fallback = Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object {
         $_.Extension -match "\.(png|tif|dds|tga|jpg)$"
     } | Select-Object -First 1
-    return if ($fallback) { $fallback.FullName } else { $null }
+    if ($fallback) {
+        return $fallback.FullName
+    }
+    return $null
 }
 
 function Save-ToOutput {
@@ -131,7 +138,10 @@ function Invoke-ExtractedFileProcess {
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($FilePath)
     if ([System.IO.Path]::GetExtension($FilePath).ToLower() -eq ".edds") {
         $imagePath = Convert-EddsToImage -EddsFilePath $FilePath -Edds2ImagePath $Edds2ImagePath -PreferredFormat $EddsFormat
-        return if ($imagePath) { Save-ToOutput -SourcePath $imagePath -DesiredName $baseName -OutputDir $OutputDir } else { $null }
+        if ($imagePath) {
+            return Save-ToOutput -SourcePath $imagePath -DesiredName $baseName -OutputDir $OutputDir
+        }
+        return $null
     }
     return Save-ToOutput -SourcePath $FilePath -DesiredName $baseName -OutputDir $OutputDir
 }
@@ -176,7 +186,7 @@ function Invoke-SearchMode {
     }
     
     $sel = if ($allMatches.Count -eq 1) { $allMatches[0] } else { $uniqueMatches[$selection-1] }
-    $foundPath = $sel.Path.Replace("\", "/")
+    $foundPath = $sel.Path
     
     $eddsFormat = if ([System.IO.Path]::GetExtension($foundPath).ToLower() -eq ".edds") { Get-EddsFormatChoice } else { "png" }
     

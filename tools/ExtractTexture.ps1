@@ -23,8 +23,15 @@ $edds2image = Join-Path $ToolsDir "edds2image.exe"
 $interactiveMode = [string]::IsNullOrWhiteSpace($ResourcePath)
 
 if ($interactiveMode) {
-    $ScanDir = if ($ScanDir) { $ScanDir } else { (Read-Host "Scan Directory [Default: $GameDir\addons\data]") -or (Join-Path $GameDir "addons\data") }
-    $OutputDir = if ($OutputDir) { $OutputDir } else { (Read-Host "Output Directory [Default: Documents\MapSave_Exports]") -or (Join-Path ([Environment]::GetFolderPath("MyDocuments")) "MapSave_Exports") }
+    if ([string]::IsNullOrWhiteSpace($ScanDir)) {
+        $scanInput = Read-Host "Scan Directory [Default: $GameDir\addons\data]"
+        $ScanDir = if ([string]::IsNullOrWhiteSpace($scanInput)) { Join-Path $GameDir "addons\data" } else { $scanInput }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+        $outputInput = Read-Host "Output Directory [Default: Documents\MapSave_Exports]"
+        $OutputDir = if ([string]::IsNullOrWhiteSpace($outputInput)) { Join-Path ([Environment]::GetFolderPath("MyDocuments")) "MapSave_Exports" } else { $outputInput }
+    }
 }
 
 # --- Derive Addon Name & Prep Folders ---
@@ -61,6 +68,10 @@ if ($interactiveMode) {
     $autoFmt = if ($Format) { $Format } else { "png" }
     if ($Action -eq "Search") {
         $foundPak = foreach($p in $pakFiles){ if((& $pakInspector inspect $p.FullName 2>&1) -match [regex]::Escape($ResourcePath)){ $p; break } }
+        if (-not $foundPak) {
+            Write-Host "No PAK entry matched '$ResourcePath'." -ForegroundColor Red
+            return
+        }
         $extracted = Expand-PakFile -Pak $foundPak -InternalPath $ResourcePath.Replace("\","/") -TempDir $tempDir -PakInspectorPath $pakInspector
         if ($extracted) { Invoke-ExtractedFileProcess -FilePath $extracted[0].FullName -OutputDir $OutputDir -Edds2ImagePath $edds2image -EddsFormat $autoFmt | Out-Null }
     } else {
