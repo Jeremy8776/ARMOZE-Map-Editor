@@ -7,4 +7,5 @@ window.LOCAL_MAPS = [
     { name: "Ruha", file: "Ruha_map.png" },
     { name: "Anizay", file: "anizay_ras.png" },
     { name: "UK", file: "UK.png" },
+    { name: "Zimnitrita", file: "Zimnitrita.png" },
 ];
