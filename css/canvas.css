@@ -216,7 +216,9 @@
     color: #04140a;
 }
 .map-status-badge[data-state="available"] {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.78);
+    color: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .map-progress {

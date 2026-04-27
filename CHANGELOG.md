@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto-Updater Diagnosability**: Wired `autoUpdater.logger = console` so update events are logged to `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. Makes it possible to diagnose why electron-updater might fall back to the manual GitHub-API path on a given build.
 - **Update Banner Copy**: The update banner now states explicitly whether it's offering a one-click in-app install or just opening the GitHub release page, so it's obvious which code path fired.
 
+## [1.6.31] - 2026-04-27
+
+### Fixed
+- **Map size badge contrast**: the "X MB" badge on uninstalled Map Library cards now uses a darker, more opaque background (`rgba(0, 0, 0, 0.78)`) so it's readable against bright thumbnails like UK and Anizay.
+
 ## [1.6.3] - 2026-04-27
 
 ### Added
