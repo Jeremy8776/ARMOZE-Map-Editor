@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto-Updater Diagnosability**: Wired `autoUpdater.logger = console` so update events are logged to `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. Makes it possible to diagnose why electron-updater might fall back to the manual GitHub-API path on a given build.
 - **Update Banner Copy**: The update banner now states explicitly whether it's offering a one-click in-app install or just opening the GitHub release page, so it's obvious which code path fired.
 
+## [1.6.3] - 2026-04-27
+
+### Added
+- **Map Library Thumbnails**: Each catalog map now ships with a small bundled JPEG preview (~30 KB each, ~330 KB total). The Map Library shows real previews for every map — installed or not — instead of a generic placeholder icon.
+
+### Changed
+- **Documentation**: README, `docs/wiki/Home.md`, and `docs/wiki/Getting-Started.md` updated to describe the on-demand Map Library, in-app auto-updates, and TIFF export. Catalog architecture briefly explained for users curious where their downloads land.
+- **Pending-card hover**: uninstalled maps now de-saturate slightly (instead of the previous heavy grey-out) and pop to full colour on hover, since the card has a real preview to show.
+
 ## [1.6.2] - 2026-04-27
 
 ### Added

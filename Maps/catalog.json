@@ -1,11 +1,13 @@
 {
   "schemaVersion": 1,
   "host": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1",
+  "thumbnailDir": "Maps/thumbnails",
   "maps": [
     {
       "id": "arland-clean",
       "name": "Arland (Clean)",
       "file": "Arland.png",
+      "thumbnail": "Maps/thumbnails/Arland.jpg",
       "sizeBytes": 16255835,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/Arland.png"
     },
@@ -13,6 +15,7 @@
       "id": "arland-rasterized",
       "name": "Arland (Rasterized)",
       "file": "ArlandRasterized.png",
+      "thumbnail": "Maps/thumbnails/ArlandRasterized.jpg",
       "sizeBytes": 2943972,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/ArlandRasterized.png"
     },
@@ -20,6 +23,7 @@
       "id": "cain-rasterized",
       "name": "Cain (Rasterized)",
       "file": "CainRasterized.png",
+      "thumbnail": "Maps/thumbnails/CainRasterized.jpg",
       "sizeBytes": 5191602,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/CainRasterized.png"
     },
@@ -27,6 +31,7 @@
       "id": "everon-clean",
       "name": "Everon (Clean)",
       "file": "Everon.png",
+      "thumbnail": "Maps/thumbnails/Everon.jpg",
       "sizeBytes": 3782054,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/Everon.png"
     },
@@ -34,6 +39,7 @@
       "id": "everon-rasterized",
       "name": "Everon (Rasterized)",
       "file": "EveronRasterized.png",
+      "thumbnail": "Maps/thumbnails/EveronRasterized.jpg",
       "sizeBytes": 8238578,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/EveronRasterized.png"
     },
@@ -41,6 +47,7 @@
       "id": "ruha",
       "name": "Ruha",
       "file": "Ruha_map.png",
+      "thumbnail": "Maps/thumbnails/Ruha_map.jpg",
       "sizeBytes": 26980875,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/Ruha_map.png"
     },
@@ -48,6 +55,7 @@
       "id": "anizay",
       "name": "Anizay",
       "file": "anizay_ras.png",
+      "thumbnail": "Maps/thumbnails/anizay_ras.jpg",
       "sizeBytes": 26316232,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/anizay_ras.png"
     },
@@ -55,6 +63,7 @@
       "id": "uk",
       "name": "UK",
       "file": "UK.png",
+      "thumbnail": "Maps/thumbnails/UK.jpg",
       "sizeBytes": 3020794,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/UK.png"
     },
@@ -62,6 +71,7 @@
       "id": "zimnitrita",
       "name": "Zimnitrita",
       "file": "Zimnitrita.png",
+      "thumbnail": "Maps/thumbnails/Zimnitrita.jpg",
       "sizeBytes": 87436135,
       "downloadUrl": "https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/download/maps-library-v1/Zimnitrita.png"
     }

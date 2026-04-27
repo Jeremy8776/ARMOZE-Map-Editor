@@ -11,20 +11,21 @@
 
 ARMOZE is an Electron desktop editor for building map overlays and gameplay zones for tactical games. It gives you a visual workflow for:
 
-1. Loading a map image or selecting an installed local map
+1. Loading a map image or downloading one on-demand from the built-in Map Library
 2. Drawing zones directly on the map
 3. Styling borders, fills, labels, and integrated markings
 4. Saving projects and reopening them later
-5. Exporting to script and overlay formats
+5. Exporting to script and overlay formats (PNG, TIFF, JSON, EnfusionScript, Workbench Plugin)
 
 ## Current feature set
 
 ### Map workflow
 - Desktop-first Electron app with `npm start`
 - Drag-and-drop map loading for `.png`, `.jpg`, `.dds`, and `.edds`
-- Local map browser with tabbed editing
+- **Map Library** with bundled preview thumbnails — official maps download on demand from a permanent GitHub release and live in `%APPDATA%/ARMOZE/Maps/` (Windows) so they survive app updates
 - Multiple map tabs with preserved zoom and pan state
 - Built-in map extractor and import flow for desktop assets
+- One-click in-app updates via electron-updater
 
 ### Drawing and editing
 - Select, pan, rectangle, circle, line, pen, and freehand tools
@@ -44,7 +45,7 @@ ARMOZE is an Electron desktop editor for building map overlays and gameplay zone
 ### Export and project management
 - EnfusionScript export
 - Workbench Plugin export
-- PNG overlay export
+- PNG / TIFF overlay export (image overlay or map + overlay composite)
 - JSON config export
 - Coordinate foundation controls with origin offset, map scale, invert-Y, and calibration
 - Save/load full projects as JSON

@@ -90,12 +90,18 @@ class MapBrowserUI {
         thumb.className = 'map-thumbnail';
         thumb.loading = 'lazy';
         thumb.alt = entry.name;
+
+        // Three-tier thumbnail source:
+        //   1. If installed, use the actual full-res file (already on disk).
+        //   2. Otherwise use the small bundled JPG preview from Maps/thumbnails.
+        //   3. Fall back to the SVG icon if neither is available.
         if (installed) {
             const installedAsset = this.installedAssets?.find(a => a.file === entry.file);
-            thumb.src = installedAsset?.url || this.fallbackThumbnail;
+            thumb.src = installedAsset?.url || this.resolveBundledPath(entry.thumbnail) || this.fallbackThumbnail;
+        } else if (entry.thumbnail) {
+            thumb.src = this.resolveBundledPath(entry.thumbnail) || this.fallbackThumbnail;
         } else {
             thumb.src = this.fallbackThumbnail;
-            thumb.style.opacity = '0.45';
         }
         thumb.onerror = () => { thumb.src = this.fallbackThumbnail; };
 
@@ -287,6 +293,19 @@ class MapBrowserUI {
         // Lucide hydrates icons on next tick; safe even if global is missing
         setTimeout(() => { try { window.lucide?.createIcons?.(); } catch {} }, 0);
         return btn;
+    }
+
+    /**
+     * Resolve a path relative to the app's HTML root (e.g. "Maps/thumbnails/X.jpg").
+     * Returns a URL the <img> tag can load directly.
+     */
+    resolveBundledPath(relativePath) {
+        if (!relativePath || typeof relativePath !== 'string') return null;
+        try {
+            return new URL(relativePath, window.location.href).toString();
+        } catch {
+            return null;
+        }
     }
 
     showError(msg) {

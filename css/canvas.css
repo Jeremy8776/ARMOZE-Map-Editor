@@ -185,7 +185,11 @@
     cursor: pointer;
 }
 .map-list-item-pending .map-thumbnail {
-    filter: grayscale(0.6);
+    filter: grayscale(0.35) brightness(0.85);
+    transition: filter 0.2s var(--ease-out-expo);
+}
+.map-list-item-pending:hover .map-thumbnail {
+    filter: grayscale(0) brightness(1);
 }
 
 .map-status-badge {

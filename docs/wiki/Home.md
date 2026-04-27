@@ -4,12 +4,13 @@ ARMOZE is a desktop-first Electron editor for building tactical map overlays and
 
 ## What it covers
 
-- Map loading from image files or installed local map assets
+- Map loading from image files, the on-demand **Map Library** (downloads official maps from a permanent GitHub release), or user imports
 - Multi-tab map editing
 - Visual zone creation with rectangle, circle, line, pen, and freehand tools
 - Floating zone styling with profiles, fills, borders, patterns, and labels
 - Built-in extractor workflow for local map asset preparation
 - Script and overlay export for downstream tactical workflows
+- One-click in-app updates via electron-updater (packaged builds)
 
 ## Quick links
 
