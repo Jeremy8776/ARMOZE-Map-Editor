@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto-Updater Diagnosability**: Wired `autoUpdater.logger = console` so update events are logged to `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. Makes it possible to diagnose why electron-updater might fall back to the manual GitHub-API path on a given build.
 - **Update Banner Copy**: The update banner now states explicitly whether it's offering a one-click in-app install or just opening the GitHub release page, so it's obvious which code path fired.
 
+## [1.6.32] - 2026-04-27
+
+### Added
+- **Recurring update checks**: in addition to the startup check, the app now polls for updates every 30 minutes while running. If a new release is published, the toast appears without needing a restart.
+- **`check-for-updates` IPC handler**: an explicit "check now" entry point is wired in main, ready for a UI button later.
+
+### Fixed
+- **Listener leak**: `startAutoUpdateCheck` previously re-registered `autoUpdater.on(...)` listeners every call. With the new recurring-check interval, that would have stacked up over time. Listeners are now wired exactly once.
+
 ## [1.6.31] - 2026-04-27
 
 ### Fixed

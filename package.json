@@ -1,6 +1,6 @@
 {
   "name": "armoze-map-overlay",
-  "version": "1.6.31",
+  "version": "1.6.32",
   "description": "Desktop editor for authoring tactical map overlays and branding assets for Arma Reforger maps.",
   "main": "main.js",
   "scripts": {

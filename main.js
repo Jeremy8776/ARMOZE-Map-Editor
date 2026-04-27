@@ -602,19 +602,13 @@ const startManualGitHubCheck = () => {
     request.end();
 };
 
-const startAutoUpdateCheck = () => {
-    if (!autoUpdater) {
-        startManualGitHubCheck();
-        return;
-    }
+// Track per-check fallback state so listeners can dispatch without stacking.
+let currentCheckFellBack = false;
+let updateListenersWired = false;
 
-    let fellBack = false;
-    const fallback = (reason) => {
-        if (fellBack) return;
-        fellBack = true;
-        console.warn('electron-updater fallback:', reason);
-        startManualGitHubCheck();
-    };
+const wireAutoUpdaterListeners = () => {
+    if (!autoUpdater || updateListenersWired) return;
+    updateListenersWired = true;
 
     autoUpdater.on('update-available', (info) => {
         const repositoryPath = getGitHubRepositoryPath();
@@ -647,14 +641,32 @@ const startAutoUpdateCheck = () => {
 
     autoUpdater.on('error', (err) => {
         console.error('autoUpdater error:', err);
-        // If we never even saw "update-available", there's no banner up yet —
-        // try the manual check so the user still sees a notification when a
-        // GitHub release exists but lacks electron-updater metadata.
         sendToRenderer('update-error', {
             message: err?.message || 'Update failed'
         });
-        fallback(err?.message || 'autoUpdater error');
+        // Fallback once per check cycle so we don't spam the manual check.
+        if (!currentCheckFellBack) {
+            currentCheckFellBack = true;
+            startManualGitHubCheck();
+        }
     });
+};
+
+const startAutoUpdateCheck = () => {
+    if (!autoUpdater) {
+        startManualGitHubCheck();
+        return;
+    }
+
+    wireAutoUpdaterListeners();
+    currentCheckFellBack = false;
+
+    const fallback = (reason) => {
+        if (currentCheckFellBack) return;
+        currentCheckFellBack = true;
+        console.warn('electron-updater fallback:', reason);
+        startManualGitHubCheck();
+    };
 
     try {
         autoUpdater.checkForUpdates().catch((err) => fallback(err?.message || 'checkForUpdates rejected'));
@@ -676,13 +688,26 @@ function isNewerVersion(current, latest) {
     return false;
 }
 
-// Check for updates shortly after startup in packaged builds only.
+// Check for updates shortly after startup, then on a recurring interval
+// while the app is running. The renderer banner de-dupes so re-firing
+// for the same already-known version is a no-op.
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 app.whenReady().then(() => {
     if (!app.isPackaged) {
         return;
     }
 
     setTimeout(startAutoUpdateCheck, 3000);
+    setInterval(startAutoUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
+});
+
+// IPC: manual "Check for updates" trigger from the renderer.
+ipcMain.handle('check-for-updates', async () => {
+    if (!app.isPackaged) {
+        return { skipped: true, reason: 'dev build' };
+    }
+    startAutoUpdateCheck();
+    return { ok: true };
 });
 
 // IPC to open external links (for the update button)
