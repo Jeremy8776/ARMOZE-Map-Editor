@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-04-27
+
+### Fixed
+- **Auto-Updater Diagnosability**: Wired `autoUpdater.logger = console` so update events are logged to `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. Makes it possible to diagnose why electron-updater might fall back to the manual GitHub-API path on a given build.
+- **Update Banner Copy**: The update banner now states explicitly whether it's offering a one-click in-app install or just opening the GitHub release page, so it's obvious which code path fired.
+
+## [1.6.2] - 2026-04-27
+
+### Added
+- **Map Library (Catalog System)**: Maps are no longer bundled inside the installer. The new `Maps/catalog.json` lists all official maps and the side-drawer renders each as a card with `Available` / `Downloading` / `Installed` states. Click any uninstalled map (or its install icon) to download it on demand from a permanent `maps-library-v1` GitHub release. Installed maps live in `%APPDATA%/ARMOZE/Maps/` so they survive app updates.
+- **Per-card download progress**: a live progress bar + percentage badge during install.
+- **Remove from PC**: trash icon on installed cards reclaims disk; re-installable any time.
+- **GitHub Actions Release Pipeline** (`.github/workflows/release.yml`): pushing a `v*` tag (or manual dispatch) builds the Windows NSIS installer and publishes it + `latest.yml` to GitHub Releases via electron-builder, using the workflow's built-in `GITHUB_TOKEN`. No more local `npm run release`.
+- **Auto-Updater Diagnosability**: `autoUpdater.logger = console` so update events land in `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. The update banner copy now states explicitly whether the click does a one-click in-app install or just opens the GitHub release page.
+
+### Changed
+- **Installer Size**: Dropping all bundled map PNGs cuts the unpacked install from ~349 MB → ~165 MB. The 87 MB Zimnitrita map (and every other official map) is downloaded only when the user opts in.
+- **Imported Maps Path**: Map Extractor / file-picker imports now write to `%APPDATA%/ARMOZE/Maps/` instead of the install directory. They show up in the side-drawer as catalog "Extras" and aren't wiped by app updates.
+- **Map Side-Drawer**: rebuilt around the catalog. Backwards-compatible with user-imported maps that aren't in the catalog (still listed as extras).
+
+### Removed
+- **`Maps/maps.js`** manifest — replaced by `Maps/catalog.json` (a structured manifest with download URLs and sizes).
+- **Bundled map PNGs** — moved to the `maps-library-v1` release as downloadable assets.
+
 ## [1.6.0] - 2026-04-26
 
 ### Added

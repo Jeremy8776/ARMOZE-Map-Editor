@@ -50,8 +50,8 @@ class NotificationService {
         const copy = document.createElement('p');
         copy.style.cssText = 'margin:0; font-size:12px; color:#ccc;';
         copy.textContent = data?.canAutoInstall
-            ? 'Click below to download and install the new version.'
-            : 'A new version of ARMOZE is available on GitHub.';
+            ? 'One-click in-app update available. Click below to install.'
+            : 'In-app updater unavailable on this build — opens the GitHub release page.';
 
         // Progress bar (hidden until download starts)
         const progressWrap = document.createElement('div');

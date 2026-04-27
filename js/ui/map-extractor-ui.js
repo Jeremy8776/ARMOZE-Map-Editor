@@ -462,14 +462,12 @@ class MapExtractorUI {
                 const res = await window.electronAPI.importMapAsset(this.lastExtractedFile, desiredName);
                 
                 if (res.success) {
-                    // Update the global local maps list for the side-drawer UI
-                    if (window.LOCAL_MAPS) {
-                        window.LOCAL_MAPS.push({ name: res.friendlyName, file: res.fileName });
-                        if (this.app.mapBrowserUI?.renderLocalMapList) {
-                            this.app.mapBrowserUI.renderLocalMapList(window.LOCAL_MAPS);
-                        }
+                    // Refresh the side-drawer — it scans userData/Maps so the
+                    // newly imported file shows up automatically.
+                    if (this.app.mapBrowserUI?.refresh) {
+                        await this.app.mapBrowserUI.refresh();
                     }
-                    
+
                     // Tell the Canvas renderer to switch to the natively stored map
                     this.app.fileHandler.loadLocalMapImage(res.fileName, false);
                     

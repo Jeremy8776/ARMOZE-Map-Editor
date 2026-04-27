@@ -1,0 +1,52 @@
+name: Release
+
+# Builds the Windows NSIS installer and publishes it to GitHub Releases
+# (with the latest.yml metadata electron-updater needs for in-app updates).
+#
+# Triggers:
+#   - Push of a tag matching v*    -> creates a release for that tag
+#   - Manual dispatch (workflow_dispatch) -> uses the version in package.json
+#
+# The default GITHUB_TOKEN has Contents:write inside this repo, which is all
+# electron-builder needs to upload assets. No PAT required.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build & publish (electron-builder)
+        env:
+          # electron-builder reads GH_TOKEN; the workflow's built-in
+          # GITHUB_TOKEN has the right scope to publish to this repo.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Skip code signing — we don't have a cert configured.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run release

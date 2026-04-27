@@ -1,6 +1,6 @@
 {
   "name": "armoze-map-overlay",
-  "version": "1.6.0",
+  "version": "1.6.2",
   "description": "Desktop editor for authoring tactical map overlays and branding assets for Arma Reforger maps.",
   "main": "main.js",
   "scripts": {
@@ -42,7 +42,14 @@
       "!**/dist/**",
       "!**/tests/**",
       "!**/.github/**",
-      "!**/.git/**"
+      "!**/.git/**",
+      "!Maps/*.png",
+      "!Maps/*.jpg",
+      "!Maps/*.jpeg",
+      "!Maps/*.webp",
+      "!Maps/*.tif",
+      "!Maps/*.tiff",
+      "!Maps/*.dds"
     ],
     "win": {
       "target": "nsis",

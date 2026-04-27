@@ -180,6 +180,60 @@
     opacity: 1;
 }
 
+/* Catalog status / install states */
+.map-list-item-pending {
+    cursor: pointer;
+}
+.map-list-item-pending .map-thumbnail {
+    filter: grayscale(0.6);
+}
+
+.map-status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+}
+.map-status-badge[data-state="installed"] {
+    background: rgba(0, 200, 110, 0.85);
+    color: #04140a;
+}
+.map-status-badge[data-state="downloading"] {
+    background: rgba(var(--color-accent-rgb), 0.85);
+    color: #04140a;
+}
+.map-status-badge[data-state="available"] {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.map-progress {
+    height: 4px;
+    width: calc(100% - 12px);
+    margin: 0 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    position: absolute;
+    left: 0;
+    bottom: 38px;
+    z-index: 1;
+}
+.map-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--color-accent);
+    transition: width 0.2s ease;
+}
+
 .action-icon {
     color: var(--color-text-muted);
     padding: 2px;

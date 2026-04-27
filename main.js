@@ -95,11 +95,38 @@ function isSafeGitHubReleaseUrl(url, repositoryPath) {
 }
 
 function getMapsDir() {
+    // Bundled Maps shipped inside the install dir (catalog.json + any
+    // legacy bundled assets — none for v1.6.2 onward).
     return path.join(__dirname, 'Maps');
+}
+
+function getUserMapsDir() {
+    // Where catalog-installed maps live. Survives app updates and
+    // sits in the user's APPDATA so we don't need write access to
+    // Program Files.
+    return path.join(app.getPath('userData'), 'Maps');
+}
+
+async function ensureUserMapsDir() {
+    const dir = getUserMapsDir();
+    await fs.mkdir(dir, { recursive: true });
+    return dir;
+}
+
+function resolveMapAssetPath(fileName) {
+    // Prefer the user-installed copy, fall back to the bundled copy.
+    // Returns { absPath, source } | null.
+    const userPath = path.join(getUserMapsDir(), fileName);
+    const bundledPath = path.join(getMapsDir(), fileName);
+    return { userPath, bundledPath };
 }
 
 function getMapAssetFileUrl(fileName) {
     return pathToFileURL(path.join(getMapsDir(), fileName)).toString();
+}
+
+function getCatalogPath() {
+    return path.join(getMapsDir(), 'catalog.json');
 }
 
 function normalizeOptionalString(value, maxLength = 4096) {
@@ -293,20 +320,39 @@ ipcMain.handle('open-path', async (event, pathStr) => {
     await shell.openPath(pathStr);
 });
 
-ipcMain.handle('list-map-assets', async () => {
+async function readMapsFromDir(dir) {
     try {
-        const mapsDir = getMapsDir();
-        const entries = await fs.readdir(mapsDir, { withFileTypes: true });
-        const imageFiles = entries
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        return entries
             .filter(entry => entry.isFile())
             .map(entry => entry.name)
-            .filter(name => /\.(png|jpe?g|webp|tif|tiff|dds)$/i.test(name))
-            .sort((a, b) => a.localeCompare(b));
+            .filter(name => /\.(png|jpe?g|webp|tif|tiff|dds)$/i.test(name));
+    } catch {
+        return [];
+    }
+}
 
-        return imageFiles.map(fileName => ({
-            file: fileName,
-            url: getMapAssetFileUrl(fileName),
-            name: path.basename(fileName, path.extname(fileName))
+ipcMain.handle('list-map-assets', async () => {
+    try {
+        await ensureUserMapsDir();
+        const [bundled, userInstalled] = await Promise.all([
+            readMapsFromDir(getMapsDir()),
+            readMapsFromDir(getUserMapsDir())
+        ]);
+
+        // Union, prefer userInstalled (catalog downloads override any bundled
+        // copy of the same filename, so re-downloading replaces cleanly).
+        const seen = new Set();
+        const ordered = [];
+        for (const name of userInstalled) { seen.add(name); ordered.push({ name, source: 'user' }); }
+        for (const name of bundled) { if (!seen.has(name)) ordered.push({ name, source: 'bundled' }); }
+        ordered.sort((a, b) => a.name.localeCompare(b.name));
+
+        return ordered.map(({ name, source }) => ({
+            file: name,
+            source,
+            url: pathToFileURL(path.join(source === 'user' ? getUserMapsDir() : getMapsDir(), name)).toString(),
+            name: path.basename(name, path.extname(name))
                 .replace(/[_-]+/g, ' ')
                 .replace(/\b\w/g, c => c.toUpperCase())
         }));
@@ -322,24 +368,138 @@ ipcMain.handle('get-map-asset-url', async (event, fileName) => {
         throw new Error('A map asset filename is required.');
     }
 
-    const resolvedPath = path.resolve(getMapsDir(), normalizedFileName);
-    const relativePath = path.relative(getMapsDir(), resolvedPath);
+    // Look in user-installed first, then bundled. Reject any path traversal.
+    const { userPath, bundledPath } = resolveMapAssetPath(normalizedFileName);
+    for (const candidate of [userPath, bundledPath]) {
+        const baseDir = candidate === userPath ? getUserMapsDir() : getMapsDir();
+        const resolvedPath = path.resolve(baseDir, normalizedFileName);
+        const relativePath = path.relative(baseDir, resolvedPath);
+        if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+            continue;
+        }
+        const stat = await fs.stat(resolvedPath).catch(() => null);
+        if (stat?.isFile()) {
+            return pathToFileURL(resolvedPath).toString();
+        }
+    }
+    throw new Error(`Map asset not found: ${normalizedFileName}`);
+});
+
+ipcMain.handle('get-map-catalog', async () => {
+    try {
+        const text = await fs.readFile(getCatalogPath(), 'utf8');
+        return JSON.parse(text);
+    } catch (err) {
+        console.error('Catalog read failed:', err);
+        return { schemaVersion: 1, maps: [] };
+    }
+});
+
+ipcMain.handle('list-installed-catalog-maps', async () => {
+    await ensureUserMapsDir();
+    const userInstalled = await readMapsFromDir(getUserMapsDir());
+    return userInstalled;
+});
+
+ipcMain.handle('delete-catalog-map', async (event, fileName) => {
+    const normalizedFileName = normalizeOptionalString(fileName, 260);
+    if (!normalizedFileName) throw new Error('Filename required.');
+    const baseDir = getUserMapsDir();
+    const resolvedPath = path.resolve(baseDir, normalizedFileName);
+    const relativePath = path.relative(baseDir, resolvedPath);
     if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         throw new Error('Invalid map asset path.');
     }
-
-    const stat = await fs.stat(resolvedPath).catch(() => null);
-    if (!stat?.isFile()) {
-        throw new Error(`Map asset not found: ${normalizedFileName}`);
-    }
-
-    return getMapAssetFileUrl(relativePath);
+    await fs.unlink(resolvedPath).catch((err) => {
+        if (err?.code !== 'ENOENT') throw err;
+    });
+    return true;
 });
 
-// IPC Handler for importing a map asset
+// Streams a map download from the catalog-host URL into the user's
+// Maps dir, emitting progress events to the renderer for the calling
+// map id. Validates the URL belongs to our maps-library release host.
+ipcMain.handle('download-catalog-map', async (event, payload) => {
+    const id = normalizeOptionalString(payload?.id, 64);
+    const file = normalizeOptionalString(payload?.file, 260);
+    const url = normalizeOptionalString(payload?.url, 2048);
+    const expectedSize = Number(payload?.sizeBytes) || 0;
+
+    if (!id || !file || !url) throw new Error('id, file and url required.');
+
+    // URL allow-list: only download from our maps-library asset host on github.com.
+    let parsed;
+    try { parsed = new URL(url); } catch { throw new Error('Invalid URL.'); }
+    const repositoryPath = getGitHubRepositoryPath();
+    const allowedPrefix = `/${repositoryPath}/releases/download/maps-library-`;
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com' || !parsed.pathname.startsWith(allowedPrefix)) {
+        throw new Error('Blocked: catalog download URL must point to the maps-library release on this repo.');
+    }
+
+    await ensureUserMapsDir();
+    const destPath = path.join(getUserMapsDir(), file);
+    const tmpPath = `${destPath}.part`;
+
+    const sender = event.sender;
+    const sendProgress = (data) => sender.send('catalog-download-progress', { id, ...data });
+
+    const request = net.request({ url, redirect: 'follow' });
+    return new Promise((resolve, reject) => {
+        request.on('response', async (response) => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Download failed: HTTP ${response.statusCode}`));
+                return;
+            }
+            const total = Number(response.headers['content-length']) || expectedSize || 0;
+            let received = 0;
+            try {
+                const fileHandle = await fs.open(tmpPath, 'w');
+                response.on('data', (chunk) => {
+                    received += chunk.length;
+                    fileHandle.write(chunk).catch(() => {});
+                    if (total > 0) {
+                        sendProgress({ percent: Math.round((received / total) * 100), received, total });
+                    } else {
+                        sendProgress({ percent: 0, received, total: 0 });
+                    }
+                });
+                response.on('end', async () => {
+                    try {
+                        await fileHandle.close();
+                        await fs.rename(tmpPath, destPath);
+                        sendProgress({ percent: 100, received, total: total || received, done: true });
+                        resolve({ id, file, sizeBytes: received });
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+                response.on('error', async (err) => {
+                    await fileHandle.close().catch(() => {});
+                    await fs.unlink(tmpPath).catch(() => {});
+                    reject(err);
+                });
+            } catch (err) {
+                reject(err);
+            }
+        });
+        request.on('error', (err) => reject(err));
+        request.end();
+    });
+});
+
+// Legacy handler signature (kept for safety)
+ipcMain.handle('open-user-maps-folder', async () => {
+    const dir = await ensureUserMapsDir();
+    await shell.openPath(dir);
+    return dir;
+});
+
+// IPC Handler for importing a map asset (from extractor / file picker).
+// Writes into the user-data Maps directory so it survives app updates
+// and doesn't require write access to Program Files.
 ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
     try {
-        const mapsDir = getMapsDir();
+        const mapsDir = await ensureUserMapsDir();
         let targetFile = sourcePath;
         
         // Smart parse: If the UI passed a directory (e.g. Map_2 folder), automatically locate the image inside
@@ -355,14 +515,12 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
 
         const fileName = path.basename(targetFile);
         const destPath = path.join(mapsDir, fileName);
-        
-        // Copy the physical file
+
+        // Copy the physical file. The map list (renderer-side) is now
+        // built by scanning the user-data Maps directory at runtime —
+        // no maps.js manifest to update.
         await fs.copyFile(targetFile, destPath);
-        
-        // Update maps.js
-        const mapsJsPath = path.join(mapsDir, 'maps.js');
-        let content = await fs.readFile(mapsJsPath, 'utf-8');
-        
+
         // Generate a friendly name (e.g. "my_map_tile.png" -> "My Map Tile")
         let friendlyName = path.basename(fileName, path.extname(fileName))
             .replace(/[_-]/g, ' ')
@@ -370,24 +528,7 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
         if (preferredName && preferredName.trim()) {
             friendlyName = preferredName.trim().replace(/\s+/g, ' ');
         }
-            
-        // JSON.stringify yields a safely-escaped JavaScript string literal, which
-        // prevents user-supplied names or filenames from breaking the maps.js
-        // array (e.g. a quote or backslash in a filename could previously produce
-        // invalid JS and brick the app on next load).
-        const nameLiteral = JSON.stringify(friendlyName);
-        const fileLiteral = JSON.stringify(fileName);
-        const existingPattern = new RegExp(`\\{\\s*name:\\s*"[^"]*",\\s*file:\\s*"${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*\\},?`, 'i');
-        const newEntry = `    { name: ${nameLiteral}, file: ${fileLiteral} },`;
 
-        if (existingPattern.test(content)) {
-            content = content.replace(existingPattern, newEntry.trim());
-        } else if (content.includes('];')) {
-            content = content.replace(/];/, `${newEntry}\n];`);
-        }
-        
-        await fs.writeFile(mapsJsPath, content);
-        
         return { success: true, friendlyName, fileName };
     } catch (err) {
         console.error('Import Error:', err);
@@ -410,6 +551,14 @@ try {
     ({ autoUpdater } = require('electron-updater'));
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
+    // Verbose log to help diagnose update issues — written to the user's
+    // logs dir (Windows: %APPDATA%/ARMOZE/logs/main.log) and to stdout.
+    autoUpdater.logger = console;
+    // Allow installing over an unsigned Windows build (matches our current
+    // release pipeline — code signing is on the roadmap). Without this,
+    // squirrel rejects the package on signature mismatch.
+    autoUpdater.disableWebInstaller = false;
+    autoUpdater.allowDowngrade = false;
 } catch (err) {
     console.warn('electron-updater not installed; falling back to manual update check.', err.message);
 }
