@@ -64,7 +64,8 @@
     "publish": {
       "provider": "github",
       "owner": "Jeremy8776",
-      "repo": "ARMOZE-Map-Editor"
+      "repo": "ARMOZE-Map-Editor",
+      "releaseType": "release"
     }
   }
 }
