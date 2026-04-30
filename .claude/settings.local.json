@@ -1,7 +1,36 @@
 {
   "permissions": {
     "allow": [
-      "Bash(start \"\" \"Launch ARMOZE.bat\")"
+      "Bash(start \"\" \"Launch ARMOZE.bat\")",
+      "Bash(git fetch *)",
+      "Bash(gh pr *)",
+      "Bash(git checkout *)",
+      "Bash(gh api *)",
+      "Bash(git merge *)",
+      "Bash(grep -E \"package\\\\.json$|main\\\\.js$|preload|notification\" -i)",
+      "Bash(npm test *)",
+      "Bash(grep -i -E \"changelog|constants\\\\.js$\")",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)",
+      "Bash(GH_TOKEN=$\\(gh auth token\\) npm run release)",
+      "Bash(gh release *)",
+      "Bash(awk '/^## \\\\[1\\\\.6\\\\.0\\\\]/,/^## \\\\[1\\\\.5\\\\.0\\\\]/' CHANGELOG.md)",
+      "Bash(sed '$d')",
+      "Read(//tmp/**)",
+      "Bash(git pull *)",
+      "Bash(awk '{printf \"%-25s %s\\\\n\", $NF, $5}')",
+      "Bash(git rm *)",
+      "Bash(git tag *)",
+      "Bash(gh run *)",
+      "Bash(git commit -m 'fix\\(ci\\): use explicit test file path instead of glob *)",
+      "Bash(git commit -m 'build: publish releases directly instead of as drafts *)",
+      "Bash(grep -i -E \"readme|docs?\\\\.|wiki|\\\\.md$\")",
+      "Bash(git commit -m 'v1.6.31: darken map size badge background *)",
+      "Bash(git commit -m 'v1.6.32: recurring update checks every 30 min *)"
     ]
   }
 }
