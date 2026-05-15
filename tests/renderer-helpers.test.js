@@ -38,6 +38,7 @@ const CanvasCore = loadScriptExport('js/core/canvas-core.js', 'CanvasCore', {
     window: { addEventListener: () => {}, requestAnimationFrame: (callback) => callback() },
     Constants: { SNAP_GRID_SIZE: 100 }
 });
+const LucideIconUtils = loadScriptExport('js/ui/lucide-icon-utils.js', 'LucideIconUtils');
 
 function toPlainJson(value) {
     return JSON.parse(JSON.stringify(value));
@@ -270,6 +271,23 @@ test('InspectorLayoutService toggles accordions as a single-open stack', () => {
 test('TabManager renders dirty tab titles with a save marker', () => {
     assert.equal(TabManager.getTabTitleText({ name: 'ArlandRasterize', dirty: false }), 'ArlandRasterize');
     assert.equal(TabManager.getTabTitleText({ name: 'ArlandRasterize', dirty: true }), 'ArlandRasterize *');
+});
+
+test('LucideIconUtils hydrates only raw icon placeholders', () => {
+    const calls = [];
+    const rawIcon = { tagName: 'I', getAttribute: () => 'save' };
+    const svgIcon = { tagName: 'svg', getAttribute: () => 'save' };
+    const scope = {
+        querySelectorAll: () => [rawIcon, svgIcon]
+    };
+    const lucide = {
+        createIcons: (options) => calls.push(options)
+    };
+
+    assert.equal(LucideIconUtils.hydrate(scope, lucide), true);
+    assert.equal(calls.length, 1);
+    assert.equal(Array.isArray(calls[0].icons), false);
+    assert.equal(calls[0].nameAttr, 'data-lucide');
 });
 
 test('TabManager tab controls use inline svg icons without lucide hydration', () => {

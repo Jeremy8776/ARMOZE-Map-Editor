@@ -327,8 +327,7 @@ class MapBrowserUI {
         btn.title = title;
         btn.setAttribute('aria-label', title);
         btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-        // Lucide hydrates icons on next tick; safe even if global is missing
-        setTimeout(() => { try { window.lucide?.createIcons?.(); } catch {} }, 0);
+        setTimeout(() => { try { window.LucideIconUtils?.hydrate(btn); } catch {} }, 0);
         return btn;
     }
 

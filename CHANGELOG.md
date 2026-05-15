@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.34] - 2026-05-15
+
+### Fixed
+- **Lucide icon hydration**: routed icon rendering through a guarded helper so dynamic UI no longer passes DOM node lists as Lucide icon registries.
+- **Release version progression**: moved the current app state past the installed `1.6.33` build so desktop auto-update can detect the next release.
+
 ## [1.6.33] - 2026-05-15
 
 ### Added

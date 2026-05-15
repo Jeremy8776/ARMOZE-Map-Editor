@@ -76,9 +76,7 @@ class ZoneListUI {
 
         this.attachEventListeners();
 
-        if (window.lucide) {
-            lucide.createIcons();
-        }
+        window.LucideIconUtils?.hydrate(this.elements.zoneList);
     }
 
     renderLayerItem(layer, index = 0) {

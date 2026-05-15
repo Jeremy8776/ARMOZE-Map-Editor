@@ -15,8 +15,7 @@ class MapExtractorUI {
     }
 
     refreshIcons(scope = this.modal || document) {
-        if (!window.lucide || !scope) return;
-        lucide.createIcons({ icons: scope.querySelectorAll('[data-lucide]') });
+        window.LucideIconUtils?.hydrate(scope);
     }
 
     async init() {

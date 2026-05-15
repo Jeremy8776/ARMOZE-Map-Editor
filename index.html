@@ -61,7 +61,7 @@
             <div class="header-brand">
                 <div class="logo"><img src="logo-icon.svg" alt="ARMOZE" /></div>
                 <h1>ARMOZE</h1>
-                <a href="#" class="version" id="appVersionLink" target="_blank">v1.6.33 - MODULAR</a>
+                <a href="#" class="version" id="appVersionLink" target="_blank">v1.6.34 - MODULAR</a>
             </div>
             <div class="header-info">
                 <div class="coords-display" id="coordsDisplay">
@@ -200,6 +200,7 @@
     <script src="js/services/map-extractor-service.js"></script>
 
     <!-- UI -->
+    <script src="js/ui/lucide-icon-utils.js"></script>
     <script src="js/ui/tab-manager.js"></script>
     <script src="js/ui/zone-list-ui.js"></script>
     <script src="js/ui/zone-color-manager.js"></script>
@@ -215,6 +216,6 @@
     <script src="js/export-handler.js"></script>
     <script src="js/context-menu.js"></script>
     <script src="js/app.js"></script>
-    <script>document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });</script>
+    <script>document.addEventListener('DOMContentLoaded', () => { window.LucideIconUtils?.hydrate(document); });</script>
 </body>
 </html>

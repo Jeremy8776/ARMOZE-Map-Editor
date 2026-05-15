@@ -201,10 +201,7 @@ class ContextMenu {
         this.menu.style.left = x + 'px';
         this.menu.style.top = y + 'px';
 
-        // Initialize Lucide icons
-        if (window.lucide) {
-            lucide.createIcons({ icons: this.menu.querySelectorAll('[data-lucide]') });
-        }
+        window.LucideIconUtils?.hydrate(this.menu);
     }
 
     hide() {
