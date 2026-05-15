@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto-Updater Diagnosability**: Wired `autoUpdater.logger = console` so update events are logged to `%APPDATA%/ARMOZE/logs/main.log` and the renderer console. Makes it possible to diagnose why electron-updater might fall back to the manual GitHub-API path on a given build.
 - **Update Banner Copy**: The update banner now states explicitly whether it's offering a one-click in-app install or just opening the GitHub release page, so it's obvious which code path fired.
 
+## [1.6.33] - 2026-05-15
+
+### Added
+- **Layer Order Service**: New `LayerOrderService` normalizes and persists a single layer stack across zones and image overlays. Exposes ordering APIs (`getLayers`, `moveLayer`, `placeLayerOnTop`, etc.) used by the renderer, tool manager, zone list, and project/tab restore so layer order stays consistent between sessions.
+- **Inspector Layout Service**: New `InspectorLayoutService` provides pinned/floating inspector layout logic — drag, resize, pin/unpin, insets, and persisted layout.
+- **Inspector pin/float**: ZoneInspectorShell now supports floating and pinned modes with drag handle, resize, overlay-aware titles, and chip positioning. When pinned, the app reserves inset space so the canvas isn't covered.
+
+### Changed
+- **Zone list**: now renders layers with `data-layer-index`/`draggable` and uses layer order for hit-testing.
+- **Select & transform tools**: `SelectTool` and `OverlayTransformController` now consult layer order to determine the top layer and pointer allowance.
+- **Image overlays**: `ImageOverlayManager` retains layer order; the image-overlay renderer accepts an overlays override; renderer draw switched to `drawLayers`.
+
+### Fixed
+- Cursor/hover and disabled-button styles; properties overlay group toggles.
+
 ## [1.6.32] - 2026-04-27
 
 ### Added
