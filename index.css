@@ -21,10 +21,17 @@ html, body {
     -webkit-font-smoothing: antialiased;
 }
 
+#app {
+    --inspector-inset-top: 0px;
+    --inspector-inset-right: 0px;
+    --inspector-inset-bottom: 0px;
+    --inspector-inset-left: 0px;
+}
+
 /* The map view should fill the whole workspace behind the floating chrome. */
 .main-view-column {
     position: absolute;
-    inset: 0;
+    inset: var(--inspector-inset-top) var(--inspector-inset-right) var(--inspector-inset-bottom) var(--inspector-inset-left);
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -54,6 +61,22 @@ html, body {
     padding: 0;
     margin: 0;
     z-index: 110;
+}
+
+#app.inspector-pinned-left .toolbar {
+    left: calc(var(--inspector-inset-left) + 24px);
+}
+
+#app.inspector-pinned-right .zone-panel {
+    right: calc(var(--inspector-inset-right) + 24px);
+}
+
+#app.inspector-pinned-left .tab-bar {
+    left: calc(var(--inspector-inset-left) + 96px);
+}
+
+#app.inspector-pinned-right .tab-bar {
+    right: calc(var(--inspector-inset-right) + 360px);
 }
 
 .tab-bar:has(.tab) {

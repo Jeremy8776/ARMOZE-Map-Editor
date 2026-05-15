@@ -142,6 +142,7 @@ class TabManager {
         this.app.zoneManager.zones = Utils.deepClone(tab.zones);
         this.app.zoneManager.selectedZoneId = null;
         this.app.imageOverlayManager.setOverlays(Utils.deepClone(tab.overlays || []), { persist: true, keepSelection: false });
+        this.app.layerOrderService?.ensureLayerOrders({ persist: true });
         this.app.imageOverlayManager.selectOverlay(null, { render: false });
 
         // 3. Restore History

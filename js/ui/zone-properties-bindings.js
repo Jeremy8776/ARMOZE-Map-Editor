@@ -9,6 +9,7 @@
  */
 function bindZonePropertiesEvents(ui) {
     const els = ui.elements;
+    const hasOverlaySelection = () => !!ui.getSelectedOverlay?.();
 
     const markAsCustom = () => {
         if (els.zoneProfile) els.zoneProfile.value = 'custom';
@@ -205,6 +206,24 @@ function bindZonePropertiesEvents(ui) {
 
     if (els.floatingZoneName) {
         els.floatingZoneName.addEventListener('click', () => {
+            const overlay = ui.getSelectedOverlay?.();
+            if (overlay) {
+                ui.app.notificationService?.showPrompt('', {
+                    title: 'Rename Image',
+                    defaultValue: ui.app.imageOverlayManager.getOverlayDisplayName(overlay),
+                    confirmLabel: 'Save'
+                }).then((newName) => {
+                    if (!newName) return;
+                    if (ui.app.historyManager) ui.app.historyManager.saveHistory();
+                    const updatedOverlay = ui.app.imageOverlayManager.updateOverlay(overlay.id, {
+                        name: newName.trim()
+                    });
+                    ui.showOverlayProperties(updatedOverlay, true);
+                    ui.app.zoneListUI.updateZoneList();
+                });
+                return;
+            }
+
             const zone = ui.app.zoneManager.getSelectedZone();
             if (!zone) return;
             ui.app.notificationService?.showPrompt('', {
@@ -224,10 +243,10 @@ function bindZonePropertiesEvents(ui) {
     }
 
     if (els.btnFloatDuplicate) {
-        els.btnFloatDuplicate.addEventListener('click', () => ui.app.duplicateSelectedZone());
+        els.btnFloatDuplicate.addEventListener('click', () => hasOverlaySelection() ? ui.app.duplicateSelectedOverlay() : ui.app.duplicateSelectedZone());
     }
     if (els.btnFloatDelete) {
-        els.btnFloatDelete.addEventListener('click', () => ui.deleteSelectedZone());
+        els.btnFloatDelete.addEventListener('click', () => hasOverlaySelection() ? ui.deleteSelectedOverlay() : ui.deleteSelectedZone());
     }
     if (els.btnFloatClose) {
         els.btnFloatClose.addEventListener('click', () => ui.setInspectorCollapsed(true));
@@ -235,11 +254,24 @@ function bindZonePropertiesEvents(ui) {
 
     if (els.quickZoneColor) {
         els.quickZoneColor.addEventListener('input', () => {
+            const overlay = ui.getSelectedOverlay?.();
+            if (overlay) {
+                ui.setColorInputValue('overlayTintColor', els.quickZoneColor.value);
+                if (els.overlayTintEnabled) els.overlayTintEnabled.checked = true;
+                ui.updateSelectedOverlay({ live: true });
+                return;
+            }
+
             ui.setColorInputValue('zoneColor', els.quickZoneColor.value);
             if (els.zoneProfile) els.zoneProfile.value = 'custom';
             ui.updateSelectedZone({ live: true });
         });
         els.quickZoneColor.addEventListener('change', () => {
+            if (hasOverlaySelection()) {
+                ui.updateSelectedOverlay();
+                return;
+            }
+
             ui.rememberRecentColor('zone', els.quickZoneColor.value);
             ui.updateSelectedZone();
         });
@@ -252,10 +284,44 @@ function bindZonePropertiesEvents(ui) {
         els.btnQuickOpenInspector.addEventListener('click', () => ui.openInspector());
     }
     if (els.btnQuickDuplicate) {
-        els.btnQuickDuplicate.addEventListener('click', () => ui.app.duplicateSelectedZone());
+        els.btnQuickDuplicate.addEventListener('click', () => hasOverlaySelection() ? ui.app.duplicateSelectedOverlay() : ui.app.duplicateSelectedZone());
     }
     if (els.btnQuickDelete) {
-        els.btnQuickDelete.addEventListener('click', () => ui.deleteSelectedZone());
+        els.btnQuickDelete.addEventListener('click', () => hasOverlaySelection() ? ui.deleteSelectedOverlay() : ui.deleteSelectedZone());
+    }
+
+    if (els.overlayNameInput) {
+        els.overlayNameInput.addEventListener('input', () => ui.updateSelectedOverlay({ live: true }));
+        els.overlayNameInput.addEventListener('change', () => ui.updateSelectedOverlay());
+    }
+    if (els.overlayTintEnabled) {
+        els.overlayTintEnabled.addEventListener('change', () => ui.updateSelectedOverlay());
+    }
+    if (els.overlayTintColor) {
+        els.overlayTintColor.addEventListener('input', () => {
+            ui.syncColorInputPreview(els.overlayTintColor);
+            ui.setColorInputValue('quickZoneColor', els.overlayTintColor.value);
+            if (els.overlayTintEnabled) els.overlayTintEnabled.checked = true;
+            ui.updateSelectedOverlay({ live: true });
+        });
+        els.overlayTintColor.addEventListener('change', () => ui.updateSelectedOverlay());
+    }
+    if (els.overlayTintMode) {
+        els.overlayTintMode.addEventListener('change', () => ui.updateSelectedOverlay());
+    }
+    if (els.overlayOpacity) {
+        els.overlayOpacity.addEventListener('input', () => {
+            if (els.overlayOpacityVal) els.overlayOpacityVal.textContent = `${els.overlayOpacity.value}%`;
+            ui.updateSelectedOverlay({ live: true });
+        });
+        els.overlayOpacity.addEventListener('change', () => ui.updateSelectedOverlay());
+    }
+    if (els.overlayRotation) {
+        els.overlayRotation.addEventListener('input', () => {
+            if (els.overlayRotationVal) els.overlayRotationVal.textContent = `${els.overlayRotation.value} deg`;
+            ui.updateSelectedOverlay({ live: true });
+        });
+        els.overlayRotation.addEventListener('change', () => ui.updateSelectedOverlay());
     }
 }
 

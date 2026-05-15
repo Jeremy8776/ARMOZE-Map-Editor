@@ -36,10 +36,96 @@
     -webkit-overflow-scrolling: touch;
 }
 
+.zone-inspector-panel.is-floating-custom {
+    right: auto;
+    bottom: auto;
+}
+
+.zone-inspector-panel.is-panel-dragging {
+    transition: none;
+    cursor: grabbing;
+    opacity: 0.92;
+}
+
+body.is-dragging-inspector {
+    user-select: none;
+    cursor: grabbing;
+}
+
+body.is-resizing-inspector {
+    user-select: none;
+}
+
+.zone-inspector-panel.is-pinned-left,
+.zone-inspector-panel.is-pinned-right {
+    top: 72px;
+    bottom: 0;
+    width: 392px;
+    max-width: min(560px, calc(100vw - 96px));
+    border-top: 0;
+    border-bottom: 0;
+}
+
+.zone-inspector-panel.is-pinned-left {
+    left: 0;
+    right: auto;
+    border-radius: 0 18px 18px 0;
+}
+
+.zone-inspector-panel.is-pinned-right {
+    right: 0;
+    left: auto;
+    border-radius: 18px 0 0 18px;
+}
+
 .zone-inspector-panel.is-collapsed {
     transform: translateX(calc(100% + 24px));
     opacity: 0;
     pointer-events: none;
+}
+
+.inspector-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    z-index: 5;
+    cursor: nwse-resize;
+}
+
+.inspector-resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid rgba(255, 255, 255, 0.42);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.42);
+}
+
+.zone-inspector-panel.is-pinned-right .inspector-resize-handle,
+.zone-inspector-panel.is-pinned-left .inspector-resize-handle {
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    height: auto;
+    cursor: ew-resize;
+}
+
+.zone-inspector-panel.is-pinned-right .inspector-resize-handle {
+    left: 0;
+    right: auto;
+}
+
+.zone-inspector-panel.is-pinned-left .inspector-resize-handle {
+    right: 0;
+}
+
+.zone-inspector-panel.is-pinned-left .inspector-resize-handle::after,
+.zone-inspector-panel.is-pinned-right .inspector-resize-handle::after {
+    display: none;
 }
 
 .zone-inspector-panel.is-attention {
@@ -200,6 +286,11 @@
     top: 0;
     z-index: 2;
     flex-shrink: 0;
+    cursor: grab;
+}
+
+.floating-controls-header:active {
+    cursor: grabbing;
 }
 
 .floating-controls-header .editable-name {
@@ -243,7 +334,7 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    overflow: visible;
+    overflow: auto;
 }
 
 .floating-controls-body .property-grid {

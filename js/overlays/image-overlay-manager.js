@@ -58,6 +58,7 @@ class ImageOverlayManager {
             naturalWidth: overlay.naturalWidth || overlay.width || 0,
             naturalHeight: overlay.naturalHeight || overlay.height || 0,
             rotation: overlay.rotation || 0,
+            layerOrder: Number.isFinite(overlay.layerOrder) ? overlay.layerOrder : undefined,
             renderVersion: overlay.renderVersion || 0
         };
     }

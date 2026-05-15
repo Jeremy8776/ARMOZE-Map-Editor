@@ -3,10 +3,11 @@
  * Handles drawing zones, selection handles, and drawing previews
  */
 class ZoneRenderer {
-    constructor(canvasCore, zoneManager, imageOverlayManager = null) {
+    constructor(canvasCore, zoneManager, imageOverlayManager = null, layerOrderService = null) {
         this.core = canvasCore;
         this.manager = zoneManager;
         this.imageOverlayManager = imageOverlayManager;
+        this.layerOrderService = layerOrderService;
         this.patternTileCache = new Map();
         this.patternCache = new Map();
         this.textMetricsCache = new Map();
@@ -129,100 +130,121 @@ class ZoneRenderer {
         this.overlayRenderer.drawImageOverlaySelection();
     }
 
+    drawLayers() {
+        if (!this.layerOrderService) {
+            this.drawZones();
+            this.drawImageOverlays();
+            return;
+        }
+
+        const layers = this.layerOrderService.getLayers({ order: 'bottom-first' });
+        for (const layer of layers) {
+            if (layer.kind === 'zone') {
+                this.drawZone(layer.item);
+            } else if (layer.kind === 'overlay') {
+                this.overlayRenderer.drawImageOverlays(this.core.ctx, { overlays: [layer.item] });
+            }
+        }
+    }
+
     drawZones() {
         const ctx = this.core.ctx;
         const zones = this.manager.getZones();
 
         for (const zone of zones) {
-            if (!zone.visible) continue;
-
-            ctx.save();
-            ctx.translate(this.core.panX, this.core.panY);
-            ctx.scale(this.core.zoom, this.core.zoom);
-
-            const fillOp = zone.fillOpacity !== undefined ? zone.fillOpacity : (zone.opacity || 0.4);
-            const borderOp = zone.borderOpacity !== undefined ? zone.borderOpacity : 1.0;
-            const bWidth = zone.borderWidth || 3;
-            const pDensity = zone.patternDensity || 20;
-            const pAngle = zone.patternAngle || 0;
-            const pThick = zone.patternThickness || 2;
-
-            let fillStyle;
-            if (zone.fillPattern && zone.fillPattern !== 'solid') {
-                fillStyle = this.createZonePattern(ctx, zone.fillPattern, zone.color, fillOp, pDensity, pAngle, pThick);
-            }
-            if (!fillStyle) {
-                fillStyle = Utils.hexToRgba(zone.color, fillOp);
-            }
-
-            const strokeColor = Utils.hexToRgba(zone.color, borderOp);
-            const isSelected = zone.id === this.manager.selectedZoneId;
-            const isHovered = zone.id === this.manager.hoveredZoneId;
-
-            ctx.fillStyle = fillStyle;
-            ctx.strokeStyle = strokeColor;
-            
-            // Adjust line width with hover/selection multipliers
-            let actualWidth = bWidth;
-            if (isSelected) actualWidth += 2;
-            else if (isHovered) actualWidth += 1;
-            ctx.lineWidth = actualWidth / this.core.zoom;
-
-            // Set line dash based on style
-            if (zone.style === 'dashed') {
-                ctx.setLineDash([(actualWidth * 5) / this.core.zoom, (actualWidth * 3) / this.core.zoom]);
-            } else if (zone.style === 'dotted') {
-                ctx.setLineDash([(actualWidth * 1.5) / this.core.zoom, (actualWidth * 1.5) / this.core.zoom]);
-            } else {
-                ctx.setLineDash([]);
-            }
-
-            if (zone.shape === 'circle') {
-                ctx.beginPath();
-                ctx.arc(zone.cx, zone.cy, zone.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            } else if (zone.shape === 'rectangle') {
-                ctx.beginPath();
-                ctx.rect(zone.x, zone.y, zone.width, zone.height);
-                ctx.fill();
-                ctx.stroke();
-            } else if (zone.shape === 'line') {
-                ctx.lineWidth = (actualWidth + 2) / this.core.zoom;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(zone.x1, zone.y1);
-                ctx.lineTo(zone.x2, zone.y2);
-                ctx.stroke();
-
-                // Draw endpoint circles
-                ctx.setLineDash([]);
-                ctx.fillStyle = strokeColor;
-                ctx.beginPath();
-                ctx.arc(zone.x1, zone.y1, (actualWidth + 1) / this.core.zoom, 0, Math.PI * 2);
-                ctx.arc(zone.x2, zone.y2, (actualWidth + 1) / this.core.zoom, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (zone.points && zone.points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(zone.points[0].x, zone.points[0].y);
-                for (let i = 1; i < zone.points.length; i++) {
-                    ctx.lineTo(zone.points[i].x, zone.points[i].y);
-                }
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            }
-
-            // Reset dash for labels
-            ctx.setLineDash([]);
-
-            // Draw zone label
-            if (this.core.zoom > 0.0) {
-                this.drawZoneLabel(zone);
-            }
-
-            ctx.restore();
+            this.drawZone(zone);
         }
+    }
+
+    drawZone(zone, ctx = this.core.ctx) {
+        if (!zone?.visible) return;
+
+        ctx.save();
+        ctx.translate(this.core.panX, this.core.panY);
+        ctx.scale(this.core.zoom, this.core.zoom);
+
+        const fillOp = zone.fillOpacity !== undefined ? zone.fillOpacity : (zone.opacity || 0.4);
+        const borderOp = zone.borderOpacity !== undefined ? zone.borderOpacity : 1.0;
+        const bWidth = zone.borderWidth || 3;
+        const pDensity = zone.patternDensity || 20;
+        const pAngle = zone.patternAngle || 0;
+        const pThick = zone.patternThickness || 2;
+
+        let fillStyle;
+        if (zone.fillPattern && zone.fillPattern !== 'solid') {
+            fillStyle = this.createZonePattern(ctx, zone.fillPattern, zone.color, fillOp, pDensity, pAngle, pThick);
+        }
+        if (!fillStyle) {
+            fillStyle = Utils.hexToRgba(zone.color, fillOp);
+        }
+
+        const strokeColor = Utils.hexToRgba(zone.color, borderOp);
+        const isSelected = zone.id === this.manager.selectedZoneId;
+        const isHovered = zone.id === this.manager.hoveredZoneId;
+
+        ctx.fillStyle = fillStyle;
+        ctx.strokeStyle = strokeColor;
+        
+        // Adjust line width with hover/selection multipliers
+        let actualWidth = bWidth;
+        if (isSelected) actualWidth += 2;
+        else if (isHovered) actualWidth += 1;
+        ctx.lineWidth = actualWidth / this.core.zoom;
+
+        // Set line dash based on style
+        if (zone.style === 'dashed') {
+            ctx.setLineDash([(actualWidth * 5) / this.core.zoom, (actualWidth * 3) / this.core.zoom]);
+        } else if (zone.style === 'dotted') {
+            ctx.setLineDash([(actualWidth * 1.5) / this.core.zoom, (actualWidth * 1.5) / this.core.zoom]);
+        } else {
+            ctx.setLineDash([]);
+        }
+
+        if (zone.shape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(zone.cx, zone.cy, zone.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        } else if (zone.shape === 'rectangle') {
+            ctx.beginPath();
+            ctx.rect(zone.x, zone.y, zone.width, zone.height);
+            ctx.fill();
+            ctx.stroke();
+        } else if (zone.shape === 'line') {
+            ctx.lineWidth = (actualWidth + 2) / this.core.zoom;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(zone.x1, zone.y1);
+            ctx.lineTo(zone.x2, zone.y2);
+            ctx.stroke();
+
+            // Draw endpoint circles
+            ctx.setLineDash([]);
+            ctx.fillStyle = strokeColor;
+            ctx.beginPath();
+            ctx.arc(zone.x1, zone.y1, (actualWidth + 1) / this.core.zoom, 0, Math.PI * 2);
+            ctx.arc(zone.x2, zone.y2, (actualWidth + 1) / this.core.zoom, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (zone.points && zone.points.length > 0) {
+            ctx.beginPath();
+            ctx.moveTo(zone.points[0].x, zone.points[0].y);
+            for (let i = 1; i < zone.points.length; i++) {
+                ctx.lineTo(zone.points[i].x, zone.points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Reset dash for labels
+        ctx.setLineDash([]);
+
+        // Draw zone label
+        if (this.core.zoom > 0.0) {
+            this.drawZoneLabel(zone, ctx);
+        }
+
+        ctx.restore();
     }
 
     /**

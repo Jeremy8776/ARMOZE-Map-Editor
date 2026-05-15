@@ -96,6 +96,8 @@ class ZonePropertiesUI {
             return;
         }
 
+        this.createOverlayInspectorControls();
+        this.shell.initPanelInteractions();
         this.setupAccordionInteractions();
         this.quickColors = ['#00ff88', '#ff4757', '#0066ff', '#f1c40f', '#9b59b6', '#ffffff'];
 
@@ -106,6 +108,66 @@ class ZonePropertiesUI {
         this.colorManager.renderRows();
         this.setupEventListeners();
         this.colorManager.syncAllPreviews();
+    }
+
+    createOverlayInspectorControls() {
+        const propertyGrid = this.elements.floatingControls?.querySelector('.property-grid');
+        if (!propertyGrid || propertyGrid.querySelector('.overlay-property-group')) return;
+
+        const overlayGroup = document.createElement('div');
+        overlayGroup.className = 'overlay-property-group';
+        overlayGroup.innerHTML = `
+            <div class="property-item">
+                <label>Image Name</label>
+                <input type="text" id="overlayNameInput" class="compact-input" placeholder="Image overlay">
+            </div>
+            <div class="property-item">
+                <label class="checkbox-label"><input type="checkbox" id="overlayTintEnabled"><span>Enable Tint</span></label>
+            </div>
+            <div class="property-item">
+                <div class="property-label-row">
+                    <label>Tint Color</label>
+                    <span class="custom-color-picker-label">Image</span>
+                </div>
+                <label class="color-wheel-control compact-color-picker-shell" style="--selected-color:#ffffff;" aria-label="Overlay tint color">
+                    <span class="color-wheel-core" aria-hidden="true"></span>
+                    <input type="color" id="overlayTintColor" class="compact-color-picker" value="#ffffff">
+                </label>
+            </div>
+            <div class="property-item">
+                <label>Tint Mode</label>
+                <select id="overlayTintMode" class="compact-select">
+                    <option value="pixel">Pixel Shade</option>
+                    <option value="flat">Flat Color</option>
+                    <option value="vector">Vector</option>
+                </select>
+            </div>
+            <div class="property-item">
+                <label>Opacity</label>
+                <div class="slider-row">
+                    <input type="range" id="overlayOpacity" min="0" max="100" step="5">
+                    <span id="overlayOpacityVal" class="slider-val">100%</span>
+                </div>
+            </div>
+            <div class="property-item">
+                <label>Rotation</label>
+                <div class="slider-row">
+                    <input type="range" id="overlayRotation" min="-180" max="180" step="1">
+                    <span id="overlayRotationVal" class="slider-val">0 deg</span>
+                </div>
+            </div>
+        `;
+        propertyGrid.prepend(overlayGroup);
+
+        this.elements.overlayPropertyGroup = overlayGroup;
+        this.elements.overlayNameInput = document.getElementById('overlayNameInput');
+        this.elements.overlayTintEnabled = document.getElementById('overlayTintEnabled');
+        this.elements.overlayTintColor = document.getElementById('overlayTintColor');
+        this.elements.overlayTintMode = document.getElementById('overlayTintMode');
+        this.elements.overlayOpacity = document.getElementById('overlayOpacity');
+        this.elements.overlayOpacityVal = document.getElementById('overlayOpacityVal');
+        this.elements.overlayRotation = document.getElementById('overlayRotation');
+        this.elements.overlayRotationVal = document.getElementById('overlayRotationVal');
     }
 
     // Thin adapters so call sites (event wiring + markup) can remain terse and
@@ -156,14 +218,30 @@ class ZonePropertiesUI {
             if (!trigger) return;
 
             trigger.addEventListener('click', () => {
-                const isOpen = section.classList.contains('is-open');
-                this.setAccordionOpen(section, !isOpen);
+                this.toggleExclusiveAccordion(section);
             });
 
-            this.setAccordionOpen(section, section.classList.contains('is-open'));
+            this.setAccordionOpen(section, false);
         });
 
         this.syncAccordionSummaries();
+    }
+
+    toggleExclusiveAccordion(targetSection) {
+        if (!targetSection) return;
+
+        const sections = Array.from(this.elements.floatingControls.querySelectorAll('[data-accordion]'));
+        const keys = sections.map(section => section.dataset.accordion);
+        const openSection = sections.find(section => section.classList.contains('is-open'));
+        const states = InspectorLayoutService.getAccordionStates(
+            keys,
+            targetSection.dataset.accordion,
+            openSection?.dataset.accordion || null
+        );
+
+        sections.forEach(section => {
+            this.setAccordionOpen(section, !!states[section.dataset.accordion]);
+        });
     }
 
     setAccordionOpen(section, isOpen) {
@@ -295,6 +373,10 @@ class ZonePropertiesUI {
         this.shell.openInspector();
     }
 
+    getSelectedOverlay() {
+        return this.app.imageOverlayManager?.getSelectedOverlay?.() || null;
+    }
+
     /**
      * Show zone properties for a selected zone.
      * @param {Object} zone
@@ -305,6 +387,9 @@ class ZonePropertiesUI {
             this.hideFloatingControls();
             return;
         }
+
+        this.elements.floatingControls?.classList.remove('is-overlay-mode');
+        this.shell.setInspectorMode('zone');
 
         if (!isRefresh) {
             // Collapse all accordions on fresh zone selection
@@ -373,6 +458,39 @@ class ZonePropertiesUI {
         this.updateZoneDataReadout(zone);
 
         this.showFloatingControls(zone);
+    }
+
+    showOverlayProperties(overlay, isRefresh = false) {
+        if (!overlay) {
+            this.hideFloatingControls();
+            return;
+        }
+
+        this.elements.floatingControls?.classList.add('is-overlay-mode');
+        this.shell.setInspectorMode('overlay');
+
+        if (!isRefresh) {
+            this.setInspectorCollapsed(false);
+        }
+
+        const name = this.app.imageOverlayManager?.getOverlayDisplayName(overlay) || overlay.name || 'Image';
+        this.syncZoneTitles(name);
+        if (this.elements.overlayNameInput) this.elements.overlayNameInput.value = name;
+        if (this.elements.overlayTintEnabled) this.elements.overlayTintEnabled.checked = !!overlay.tintEnabled;
+        this.setColorInputValue('quickZoneColor', overlay.tintColor || '#ffffff', '#ffffff');
+        this.setColorInputValue('overlayTintColor', overlay.tintColor || '#ffffff', '#ffffff');
+        if (this.elements.overlayTintMode) this.elements.overlayTintMode.value = overlay.tintMode || (overlay.sourceType === 'svg' ? 'vector' : 'pixel');
+        if (this.elements.overlayOpacity) {
+            this.elements.overlayOpacity.value = Math.round((overlay.opacity ?? 1) * 100);
+            if (this.elements.overlayOpacityVal) this.elements.overlayOpacityVal.textContent = `${this.elements.overlayOpacity.value}%`;
+        }
+        if (this.elements.overlayRotation) {
+            this.elements.overlayRotation.value = Math.round(overlay.rotation || 0);
+            if (this.elements.overlayRotationVal) this.elements.overlayRotationVal.textContent = `${this.elements.overlayRotation.value} deg`;
+        }
+
+        this.updateZoneDataReadout(overlay);
+        this.showFloatingControls(overlay);
     }
 
     showFloatingControls(zone) {
@@ -501,6 +619,49 @@ class ZonePropertiesUI {
         this.showZoneProperties(updatedZone, true);
         this.app.zoneListUI.updateZoneList();
         return updatedZone;
+    }
+
+    updateSelectedOverlay(options = {}) {
+        const overlay = this.getSelectedOverlay();
+        if (!overlay) return null;
+
+        const live = !!options.live;
+        const updates = {
+            name: this.elements.overlayNameInput?.value?.trim() || overlay.name,
+            tintEnabled: !!this.elements.overlayTintEnabled?.checked,
+            tintColor: this.elements.overlayTintColor?.value || overlay.tintColor || '#ffffff',
+            tintMode: this.elements.overlayTintMode?.value || overlay.tintMode || 'pixel',
+            opacity: this.elements.overlayOpacity ? parseInt(this.elements.overlayOpacity.value, 10) / 100 : (overlay.opacity ?? 1),
+            rotation: this.elements.overlayRotation ? parseInt(this.elements.overlayRotation.value, 10) : (overlay.rotation || 0)
+        };
+
+        const updatedOverlay = this.app.imageOverlayManager.updateOverlay(overlay.id, updates, {
+            live,
+            persist: !live
+        });
+        if (!updatedOverlay) return null;
+
+        this.syncZoneTitles(this.app.imageOverlayManager.getOverlayDisplayName(updatedOverlay));
+        if (live) {
+            this.app.imageOverlayManager.saveToStorage();
+            this.updateZoneDataReadout(updatedOverlay);
+            this.app.zoneListUI?.syncOverlayTintControls?.(updatedOverlay);
+            return updatedOverlay;
+        }
+
+        this.showOverlayProperties(updatedOverlay, true);
+        this.app.zoneListUI.updateZoneList();
+        return updatedOverlay;
+    }
+
+    deleteSelectedOverlay() {
+        const overlay = this.getSelectedOverlay();
+        if (!overlay) return;
+        this.app.historyManager.saveHistory();
+        this.app.imageOverlayManager.deleteOverlay(overlay.id);
+        this.hideFloatingControls();
+        this.app.zoneListUI.updateZoneList();
+        this.app.updateUI();
     }
 
     /**

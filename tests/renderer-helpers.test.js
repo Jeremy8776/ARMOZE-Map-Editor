@@ -29,6 +29,8 @@ const ExportHandler = loadScriptExport('js/export-handler.js', 'ExportHandler', 
     UTIF: {},
     Utils
 });
+const LayerOrderService = loadScriptExport('js/services/layer-order-service.js', 'LayerOrderService');
+const InspectorLayoutService = loadScriptExport('js/services/inspector-layout-service.js', 'InspectorLayoutService');
 
 function toPlainJson(value) {
     return JSON.parse(JSON.stringify(value));
@@ -90,4 +92,170 @@ test('ExportHandler.transformZone inverts Y coordinates for polygons', () => {
         { x: 110, y: 480 },
         { x: 130, y: 460 }
     ]);
+});
+
+test('LayerOrderService treats legacy overlays as above legacy zones', () => {
+    const zones = [{ id: 'zone-a' }, { id: 'zone-b' }];
+    const overlays = [{ id: 'overlay-a' }];
+    const service = new LayerOrderService(
+        {
+            getZones: () => zones,
+            saveToStorage: () => {}
+        },
+        {
+            getOverlays: () => overlays,
+            saveToStorage: () => {}
+        },
+        () => {}
+    );
+
+    assert.deepEqual(toPlainJson(service.getLayers({ order: 'bottom-first' }).map(layer => layer.id)), [
+        'zone-a',
+        'zone-b',
+        'overlay-a'
+    ]);
+    assert.deepEqual(toPlainJson(service.getLayers({ order: 'top-first' }).map(layer => layer.id)), [
+        'overlay-a',
+        'zone-b',
+        'zone-a'
+    ]);
+});
+
+test('LayerOrderService moves layers across zones and overlays', () => {
+    const zones = [{ id: 'zone-a' }, { id: 'zone-b' }];
+    const overlays = [{ id: 'overlay-a' }];
+    let zonePersistCount = 0;
+    let overlayPersistCount = 0;
+    let renderCount = 0;
+    const service = new LayerOrderService(
+        {
+            getZones: () => zones,
+            saveToStorage: () => { zonePersistCount++; }
+        },
+        {
+            getOverlays: () => overlays,
+            saveToStorage: () => { overlayPersistCount++; }
+        },
+        () => { renderCount++; }
+    );
+
+    assert.equal(service.moveLayer('overlay', 'overlay-a', 'down'), true);
+
+    assert.deepEqual(toPlainJson(service.getLayers({ order: 'top-first' }).map(layer => `${layer.kind}:${layer.id}`)), [
+        'zone:zone-b',
+        'overlay:overlay-a',
+        'zone:zone-a'
+    ]);
+    assert.equal(zonePersistCount > 0, true);
+    assert.equal(overlayPersistCount > 0, true);
+    assert.equal(renderCount, 1);
+});
+
+test('LayerOrderService reorders a dragged layer to a visible top-first index', () => {
+    const zones = [{ id: 'zone-a' }, { id: 'zone-b' }];
+    const overlays = [{ id: 'overlay-a' }];
+    const service = new LayerOrderService(
+        {
+            getZones: () => zones,
+            saveToStorage: () => {}
+        },
+        {
+            getOverlays: () => overlays,
+            saveToStorage: () => {}
+        },
+        () => {}
+    );
+
+    assert.equal(service.moveLayerToTopIndex('zone', 'zone-a', 0), true);
+
+    assert.deepEqual(toPlainJson(service.getLayers({ order: 'top-first' }).map(layer => `${layer.kind}:${layer.id}`)), [
+        'zone:zone-a',
+        'overlay:overlay-a',
+        'zone:zone-b'
+    ]);
+});
+
+test('InspectorLayoutService maps pinned edges to adaptive panel layouts', () => {
+    assert.equal(InspectorLayoutService.getModeForEdge('bottom'), 'floating');
+    assert.equal(InspectorLayoutService.getModeForEdge('top'), 'floating');
+    assert.equal(InspectorLayoutService.getModeForEdge('left'), 'side-panel');
+    assert.equal(InspectorLayoutService.getModeForEdge('right'), 'side-panel');
+    assert.equal(InspectorLayoutService.getModeForEdge(null), 'floating');
+});
+
+test('InspectorLayoutService clamps panel sizes for static layout insets', () => {
+    assert.deepEqual(toPlainJson(InspectorLayoutService.getInsetForEdge('right', 420)), {
+        top: 0,
+        right: 420,
+        bottom: 0,
+        left: 0
+    });
+    assert.deepEqual(toPlainJson(InspectorLayoutService.getInsetForEdge('bottom', 420)), {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+    });
+    assert.equal(InspectorLayoutService.clampSize('bottom', 900), 392);
+    assert.equal(InspectorLayoutService.clampSize('left', 120), 280);
+});
+
+test('InspectorLayoutService only reserves inset for visible pinned inspectors', () => {
+    assert.equal(InspectorLayoutService.shouldReserveInset({ edge: 'bottom', hidden: false, collapsed: false }), false);
+    assert.equal(InspectorLayoutService.shouldReserveInset({ edge: 'bottom', hidden: true, collapsed: false }), false);
+    assert.equal(InspectorLayoutService.shouldReserveInset({ edge: 'right', hidden: false, collapsed: true }), false);
+    assert.equal(InspectorLayoutService.shouldReserveInset({ edge: 'left', hidden: false, collapsed: false }), true);
+    assert.equal(InspectorLayoutService.shouldReserveInset({ edge: null, hidden: false, collapsed: false }), false);
+});
+
+test('InspectorLayoutService only allows side pinning', () => {
+    assert.equal(InspectorLayoutService.normalizePinnedEdge('left'), 'left');
+    assert.equal(InspectorLayoutService.normalizePinnedEdge('right'), 'right');
+    assert.equal(InspectorLayoutService.normalizePinnedEdge('bottom'), null);
+    assert.equal(InspectorLayoutService.normalizePinnedEdge('top'), null);
+});
+
+test('InspectorLayoutService restores a compact floating rect when unpinning a side panel', () => {
+    const rect = InspectorLayoutService.getFloatingRestoreRect(
+        'right',
+        { left: 780, top: 72, width: 420, height: 828 },
+        { width: 1200, height: 900 }
+    );
+
+    assert.equal(rect.width, 392);
+    assert.equal(rect.height, 420);
+    assert.equal(rect.left < 780, true);
+    assert.equal(rect.top > 64, true);
+});
+
+test('InspectorLayoutService toggles accordions as a single-open stack', () => {
+    assert.deepEqual(toPlainJson(InspectorLayoutService.getAccordionStates(
+        ['border', 'pattern', 'label'],
+        'border',
+        null
+    )), {
+        border: true,
+        pattern: false,
+        label: false
+    });
+
+    assert.deepEqual(toPlainJson(InspectorLayoutService.getAccordionStates(
+        ['border', 'pattern', 'label'],
+        'pattern',
+        'border'
+    )), {
+        border: false,
+        pattern: true,
+        label: false
+    });
+
+    assert.deepEqual(toPlainJson(InspectorLayoutService.getAccordionStates(
+        ['border', 'pattern', 'label'],
+        'pattern',
+        'pattern'
+    )), {
+        border: false,
+        pattern: false,
+        label: false
+    });
 });

@@ -3,10 +3,11 @@
  * Handles selection, dragging zones, and resizing via handles
  */
 class SelectTool {
-    constructor(canvasCore, zoneManager, imageOverlayManager = null) {
+    constructor(canvasCore, zoneManager, imageOverlayManager = null, layerOrderService = null) {
         this.core = canvasCore;
         this.manager = zoneManager;
         this.imageOverlayManager = imageOverlayManager;
+        this.layerOrderService = layerOrderService;
 
         this.isDragging = false;
         this.isDraggingHandle = false;
@@ -82,7 +83,8 @@ class SelectTool {
         }
 
         // Check if clicking on a zone
-        const zone = this.manager.findZoneAtPoint(mapPos, this.core.zoom);
+        const topLayer = this.findTopLayerAtPoint(mapPos);
+        const zone = topLayer?.kind === 'zone' ? topLayer.item : null;
         if (zone) {
             this.imageOverlayManager?.selectOverlay(null, { render: false });
             // If clicking on already selected zone, start dragging
@@ -139,15 +141,15 @@ class SelectTool {
             this.core.requestRender();
         } else {
             // Handle hover and cursor updates
-            const hoveredOverlay = this.imageOverlayManager?.findOverlayAtPoint(mapPos);
-            if (hoveredOverlay) {
-                this.imageOverlayManager.setHoveredOverlay(hoveredOverlay.id);
+            const topLayer = this.findTopLayerAtPoint(mapPos);
+            if (topLayer?.kind === 'overlay') {
+                this.imageOverlayManager.setHoveredOverlay(topLayer.id);
                 if (this.manager.hoveredZoneId) {
                     this.manager.setHoveredZone(null);
                 }
             } else {
                 this.imageOverlayManager?.setHoveredOverlay(null);
-                const hoveredZone = this.manager.findZoneAtPoint(mapPos, this.core.zoom) || this.findZoneLabelAtPoint(mapPos);
+                const hoveredZone = topLayer?.kind === 'zone' ? topLayer.item : this.findZoneLabelAtPoint(mapPos);
                 if (hoveredZone && hoveredZone.id !== this.manager.hoveredZoneId) {
                     this.manager.setHoveredZone(hoveredZone.id);
                 } else if (!hoveredZone && this.manager.hoveredZoneId) {
@@ -383,6 +385,76 @@ class SelectTool {
         return this.labelHitTester.findZoneLabelAtPoint(this.manager.getZones(), point);
     }
 
+    shouldAllowOverlayPointerDown(mapPos, overlay) {
+        if (!overlay) return false;
+
+        if (
+            overlay.id === this.imageOverlayManager?.selectedOverlayId &&
+            (
+                this.imageOverlayManager.findRotationHandleAtPoint(mapPos, this.core.zoom) ||
+                this.imageOverlayManager.findHandleAtPoint(mapPos, this.core.zoom) !== -1
+            )
+        ) {
+            return true;
+        }
+
+        const topLayer = this.findTopLayerAtPoint(mapPos);
+        return !topLayer || (topLayer.kind === 'overlay' && topLayer.id === overlay.id);
+    }
+
+    findTopLayerAtPoint(point) {
+        if (!this.layerOrderService) {
+            const overlay = this.imageOverlayManager?.findOverlayAtPoint(point);
+            if (overlay) return { kind: 'overlay', id: overlay.id, item: overlay };
+
+            const zone = this.manager.findZoneAtPoint(point, this.core.zoom);
+            return zone ? { kind: 'zone', id: zone.id, item: zone } : null;
+        }
+
+        const layers = this.layerOrderService.getLayers({ order: 'top-first' });
+        for (const layer of layers) {
+            if (layer.kind === 'overlay') {
+                const overlay = layer.item;
+                if (overlay.visible === false) continue;
+                const localPoint = this.imageOverlayManager?.toOverlayLocalPoint(point, overlay);
+                if (localPoint && Utils.pointInRect(localPoint, overlay)) {
+                    return layer;
+                }
+                continue;
+            }
+
+            if (this.isZoneAtPoint(layer.item, point)) {
+                return layer;
+            }
+        }
+
+        return null;
+    }
+
+    isZoneAtPoint(zone, point) {
+        if (!zone?.visible) return false;
+
+        if (zone.shape === 'circle') {
+            return Utils.pointInCircle(point, { x: zone.cx, y: zone.cy }, zone.radius);
+        }
+        if (zone.shape === 'rectangle') {
+            return Utils.pointInRect(point, zone);
+        }
+        if (zone.shape === 'line') {
+            const threshold = 10 / this.core.zoom;
+            return this.manager.distanceToLine(
+                point,
+                { x: zone.x1, y: zone.y1 },
+                { x: zone.x2, y: zone.y2 }
+            ) <= threshold;
+        }
+        if (zone.points) {
+            return Utils.pointInPolygon(point, zone.points);
+        }
+
+        return false;
+    }
+
     syncLineGeometry(zone) {
         if (zone?.shape === 'line' && zone.points?.length >= 2) {
             zone.x1 = zone.points[0].x;
@@ -425,9 +497,9 @@ class SelectTool {
             }
         }
 
-        const overlay = this.imageOverlayManager?.findOverlayAtPoint(mapPos);
-        if (overlay) {
-            container.style.cursor = overlay.id === this.imageOverlayManager.selectedOverlayId ? 'move' : 'pointer';
+        const topLayer = this.findTopLayerAtPoint(mapPos);
+        if (topLayer?.kind === 'overlay') {
+            container.style.cursor = topLayer.id === this.imageOverlayManager.selectedOverlayId ? 'move' : 'pointer';
             return;
         }
 
@@ -457,7 +529,7 @@ class SelectTool {
         }
 
         // Zone
-        const zone = this.manager.findZoneAtPoint(mapPos, this.core.zoom);
+        const zone = topLayer?.kind === 'zone' ? topLayer.item : null;
         if (zone) {
             container.style.cursor = zone.id === this.manager.selectedZoneId ? 'move' : 'pointer';
         } else {

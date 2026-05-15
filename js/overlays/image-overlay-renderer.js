@@ -97,7 +97,7 @@ class ImageOverlayRenderer {
     drawImageOverlays(ctx = this.core.ctx, options = {}) {
         if (!this.imageOverlayManager) return;
 
-        const overlays = this.imageOverlayManager.getOverlays();
+        const overlays = options.overlays || this.imageOverlayManager.getOverlays();
         if (!overlays.length) return;
         const showEditorState = options.showEditorState !== false;
 

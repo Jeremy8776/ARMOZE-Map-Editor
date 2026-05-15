@@ -35,6 +35,10 @@ class ZoneListUI {
     }
 
     getLayers() {
+        if (this.app.layerOrderService) {
+            return this.app.layerOrderService.getLayers({ order: 'top-first' });
+        }
+
         const zones = this.app.zoneManager.getZones().map(zone => ({
             kind: 'zone',
             id: zone.id,
@@ -68,16 +72,16 @@ class ZoneListUI {
             return;
         }
 
-        this.elements.zoneList.innerHTML = layers.map(layer => this.renderLayerItem(layer)).join('');
+        this.elements.zoneList.innerHTML = layers.map((layer, index) => this.renderLayerItem(layer, index)).join('');
 
         this.attachEventListeners();
 
         if (window.lucide) {
-            lucide.createIcons({ icons: this.elements.zoneList.querySelectorAll('[data-lucide]') });
+            lucide.createIcons();
         }
     }
 
-    renderLayerItem(layer) {
+    renderLayerItem(layer, index = 0) {
         const { kind, id, item } = layer;
         const isSelected = this.isLayerSelected(kind, id);
         const iconMarkup = this.getLayerTypeIconMarkup(layer);
@@ -89,7 +93,7 @@ class ZoneListUI {
             : (this.app.imageOverlayManager?.getOverlayDisplayName(item) || 'overlay');
 
         return `
-            <div class="zone-item ${isSelected ? 'selected' : ''}" data-layer-id="${id}" data-layer-kind="${kind}">
+            <div class="zone-item ${isSelected ? 'selected' : ''}" data-layer-id="${id}" data-layer-kind="${kind}" data-layer-index="${index}" draggable="true">
                 <div class="zone-shape-icon" style="color: ${accentColor}">
                     ${iconMarkup}
                 </div>
@@ -100,15 +104,6 @@ class ZoneListUI {
                     </div>
                 </div>
                 <div class="zone-item-actions">
-                    ${kind === 'overlay' ? `
-                        <button class="zone-action-btn overlay-tint-toggle ${item.tintEnabled ? 'is-active' : ''}" data-layer-id="${id}" title="${item.tintEnabled ? 'Disable Tint' : 'Enable Tint'}">
-                            <i data-lucide="paint-bucket"></i>
-                        </button>
-                        <label class="overlay-tint-chip" title="Tint Color">
-                            <span class="overlay-tint-chip__swatch" style="--overlay-tint:${item.tintColor || '#ffffff'};"></span>
-                            <input type="color" class="overlay-tint-input" data-layer-id="${id}" value="${item.tintColor || '#ffffff'}">
-                        </label>
-                    ` : ''}
                     <button class="zone-action-btn zone-action-expand" data-layer-id="${id}" data-layer-kind="${kind}" title="${expandTitle}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                     </button>
@@ -124,6 +119,8 @@ class ZoneListUI {
     }
 
     attachEventListeners() {
+        this.setupLayerDragAndDrop();
+
         this.elements.zoneList.querySelectorAll('.zone-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 const layerId = item.dataset.layerId;
@@ -131,8 +128,7 @@ class ZoneListUI {
 
                 if (
                     e.target.closest('.zone-visibility') ||
-                    e.target.closest('.zone-action-btn') ||
-                    e.target.closest('.overlay-tint-chip')
+                    e.target.closest('.zone-action-btn')
                 ) {
                     return;
                 }
@@ -157,7 +153,6 @@ class ZoneListUI {
                     }
                 } else {
                     this.app.imageOverlayManager?.selectOverlay(layerId);
-                    this.app.zoneManager.selectZone(null);
                 }
             });
 
@@ -184,54 +179,7 @@ class ZoneListUI {
                     }
                 } else {
                     this.app.imageOverlayManager?.selectOverlay(layerId);
-                    this.app.zoneManager.selectZone(null);
                 }
-            });
-        });
-
-        this.elements.zoneList.querySelectorAll('.overlay-tint-toggle').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const overlay = this.app.imageOverlayManager?.getOverlay(btn.dataset.layerId);
-                if (!overlay) return;
-                if (this.app.historyManager) this.app.historyManager.saveHistory();
-                const nextOverlay = this.app.imageOverlayManager.updateOverlay(overlay.id, {
-                    tintEnabled: !overlay.tintEnabled
-                });
-                this.syncOverlayTintControls(nextOverlay);
-            });
-        });
-
-        this.elements.zoneList.querySelectorAll('.overlay-tint-chip').forEach(chip => {
-            chip.addEventListener('pointerdown', (e) => e.stopPropagation());
-            chip.addEventListener('click', (e) => e.stopPropagation());
-        });
-
-        this.elements.zoneList.querySelectorAll('.overlay-tint-input').forEach(input => {
-            input.addEventListener('pointerdown', (e) => {
-                e.stopPropagation();
-                if (this.app.historyManager) this.app.historyManager.saveHistory();
-            });
-            input.addEventListener('click', (e) => e.stopPropagation());
-            input.addEventListener('input', (e) => {
-                e.stopPropagation();
-                const overlay = this.app.imageOverlayManager?.getOverlay(input.dataset.layerId);
-                if (!overlay) return;
-                const nextOverlay = this.app.imageOverlayManager.updateOverlay(overlay.id, {
-                    tintEnabled: true,
-                    tintColor: input.value
-                }, { live: true, persist: false });
-                this.syncOverlayTintControls(nextOverlay);
-            });
-            input.addEventListener('change', (e) => {
-                e.stopPropagation();
-                const overlay = this.app.imageOverlayManager?.getOverlay(input.dataset.layerId);
-                if (!overlay) return;
-                const nextOverlay = this.app.imageOverlayManager.updateOverlay(overlay.id, {
-                    tintEnabled: true,
-                    tintColor: input.value
-                });
-                this.syncOverlayTintControls(nextOverlay);
             });
         });
 
@@ -275,6 +223,68 @@ class ZoneListUI {
                 }
 
                 this.updateZoneList();
+            });
+        });
+    }
+
+    setupLayerDragAndDrop() {
+        const items = Array.from(this.elements.zoneList.querySelectorAll('.zone-item[draggable]'));
+        let draggedLayer = null;
+
+        const clearDragClasses = () => {
+            items.forEach(item => {
+                item.classList.remove('is-dragging', 'is-drag-over');
+            });
+        };
+
+        items.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                if (e.target.closest('.zone-item-actions')) {
+                    e.preventDefault();
+                    return;
+                }
+
+                draggedLayer = {
+                    id: item.dataset.layerId,
+                    kind: item.dataset.layerKind
+                };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', `${draggedLayer.kind}:${draggedLayer.id}`);
+                item.classList.add('is-dragging');
+            });
+
+            item.addEventListener('dragend', () => {
+                draggedLayer = null;
+                clearDragClasses();
+            });
+
+            item.addEventListener('dragover', (e) => {
+                if (!draggedLayer) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                items.forEach(candidate => candidate.classList.remove('is-drag-over'));
+                item.classList.add('is-drag-over');
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (!draggedLayer) return;
+
+                const targetIndex = parseInt(item.dataset.layerIndex, 10);
+                if (!Number.isFinite(targetIndex)) return;
+
+                if (this.app.historyManager) this.app.historyManager.saveHistory();
+                const moved = this.app.layerOrderService?.moveLayerToTopIndex(
+                    draggedLayer.kind,
+                    draggedLayer.id,
+                    targetIndex
+                );
+                draggedLayer = null;
+                clearDragClasses();
+
+                if (!moved) return;
+                this.updateZoneList();
+                if (this.app.updateUI) this.app.updateUI();
             });
         });
     }
@@ -390,22 +400,6 @@ class ZoneListUI {
 
         const row = this.elements.zoneList.querySelector(`.zone-item[data-layer-kind="overlay"][data-layer-id="${overlay.id}"]`);
         if (!row) return;
-
-        const toggle = row.querySelector('.overlay-tint-toggle');
-        if (toggle) {
-            toggle.classList.toggle('is-active', !!overlay.tintEnabled);
-            toggle.title = overlay.tintEnabled ? 'Disable Tint' : 'Enable Tint';
-        }
-
-        const chip = row.querySelector('.overlay-tint-chip__swatch');
-        if (chip) {
-            chip.style.setProperty('--overlay-tint', overlay.tintColor || '#ffffff');
-        }
-
-        const input = row.querySelector('.overlay-tint-input');
-        if (input && input.value !== (overlay.tintColor || '#ffffff')) {
-            input.value = overlay.tintColor || '#ffffff';
-        }
 
         const meta = row.querySelector('.profile-tag');
         if (meta) {

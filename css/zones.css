@@ -162,6 +162,20 @@ body.is-resizing-panels {
     margin-bottom: 8px;
 }
 
+.zone-item[draggable="true"] {
+    cursor: grab;
+}
+
+.zone-item.is-dragging {
+    opacity: 0.46;
+    transform: scale(0.98);
+}
+
+.zone-item.is-drag-over {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-accent-rgb), 0.35);
+}
+
 .zone-item:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.2);
@@ -244,9 +258,25 @@ body.is-resizing-panels {
     opacity: 1;
 }
 
+.zone-item.selected .zone-action-btn,
+.zone-action-btn:focus-visible {
+    opacity: 1;
+}
+
 .zone-action-btn:hover {
     color: white;
     background: rgba(255, 255, 255, 0.08);
+}
+
+.zone-action-btn:disabled {
+    opacity: 0.18;
+    cursor: default;
+    color: rgba(255, 255, 255, 0.18);
+}
+
+.zone-action-btn:disabled:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.18);
 }
 
 .zone-action-delete:hover {
@@ -257,54 +287,6 @@ body.is-resizing-panels {
 .zone-action-btn svg {
     width: 14px;
     height: 14px;
-}
-
-.overlay-tint-toggle.is-active {
-    opacity: 1;
-    color: var(--color-accent);
-    background: rgba(var(--color-accent-rgb), 0.12);
-}
-
-.overlay-tint-chip {
-    position: relative;
-    width: 18px;
-    height: 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.04);
-    opacity: 0;
-    transition: opacity 0.15s, transform 0.15s, border-color 0.15s;
-    cursor: pointer;
-}
-
-.zone-item:hover .overlay-tint-chip,
-.zone-item.selected .overlay-tint-chip {
-    opacity: 1;
-}
-
-.overlay-tint-chip:hover {
-    transform: scale(1.05);
-    border-color: rgba(255, 255, 255, 0.28);
-}
-
-.overlay-tint-chip__swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--overlay-tint, #00ff88);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
-    pointer-events: none;
-}
-
-.overlay-tint-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
 }
 
 .zone-visibility {

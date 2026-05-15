@@ -8,6 +8,21 @@
     gap: 20px;
 }
 
+.overlay-property-group {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.zone-inspector-panel.is-overlay-mode .overlay-property-group {
+    display: flex;
+}
+
+.zone-inspector-panel.is-overlay-mode .zone-inspector-intro,
+.zone-inspector-panel.is-overlay-mode .property-grid > :not(.overlay-property-group) {
+    display: none;
+}
+
 .property-item {
     display: flex;
     flex-direction: column;

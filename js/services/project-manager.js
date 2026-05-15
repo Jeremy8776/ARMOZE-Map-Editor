@@ -57,7 +57,8 @@ class ProjectManager {
             src: typeof overlay.src === 'string' ? overlay.src : '',
             svgMarkupOriginal: typeof overlay.svgMarkupOriginal === 'string' ? overlay.svgMarkupOriginal : '',
             tintColor: typeof overlay.tintColor === 'string' ? overlay.tintColor : '#ffffff',
-            tintMode: overlay.tintMode === 'vector' ? 'vector' : 'pixel'
+            tintMode: ['vector', 'flat', 'pixel'].includes(overlay.tintMode) ? overlay.tintMode : 'pixel',
+            layerOrder: Number.isFinite(overlay.layerOrder) ? overlay.layerOrder : undefined
         };
     }
 
@@ -121,6 +122,7 @@ class ProjectManager {
 
             this.app.zoneManager.zones = normalizedProject.zones;
             this.app.imageOverlayManager.setOverlays(normalizedProject.overlays, { persist: true, keepSelection: false });
+            this.app.layerOrderService?.ensureLayerOrders({ persist: true });
             this.app.zoneManager.saveToStorage();
             this.app.zoneManager.selectZone(null);
             this.app.imageOverlayManager.selectOverlay(null, { render: false });

@@ -84,7 +84,7 @@ class ZoneColorManager {
      */
     syncInputPreview(input) {
         if (!input) return;
-        const shell = input.closest('.color-wheel-control');
+        const shell = input.closest('.color-wheel-control, .zone-quick-chip__color');
         if (shell) shell.style.setProperty('--selected-color', input.value || '#ffffff');
     }
 

@@ -66,9 +66,11 @@ class ZoneEditorApp {
         this.zoneManager = new ZoneManager(() => this.requestRender());
         this.imageOverlayManager = new ImageOverlayManager(() => this.requestRender());
         this.imageOverlayManager.hydrateCore(this.core);
-        this.toolManager = new ToolManager(this.core, this.zoneManager, this.imageOverlayManager);
+        this.layerOrderService = new LayerOrderService(this.zoneManager, this.imageOverlayManager, () => this.requestRender());
+        this.layerOrderService.ensureLayerOrders({ persist: true });
+        this.toolManager = new ToolManager(this.core, this.zoneManager, this.imageOverlayManager, this.layerOrderService);
         this.eventHandler = new EventHandler(this.core, this.toolManager, this.zoneManager, this.imageOverlayManager);
-        this.renderer = new ZoneRenderer(this.core, this.zoneManager, this.imageOverlayManager);
+        this.renderer = new ZoneRenderer(this.core, this.zoneManager, this.imageOverlayManager, this.layerOrderService);
     }
 
     initServices() {
@@ -78,6 +80,7 @@ class ZoneEditorApp {
                 this.zoneManager.zones = state?.zones || [];
                 this.zoneManager.selectedZoneId = null;
                 this.imageOverlayManager.setOverlays(state?.overlays || [], { persist: true, keepSelection: false });
+                this.layerOrderService.ensureLayerOrders({ persist: true });
                 this.imageOverlayManager.selectOverlay(null, { render: false });
                 this.core.requestRender();
                 this.zoneListUI.updateZoneList();
@@ -158,6 +161,7 @@ class ZoneEditorApp {
         this.setupEventListeners();
         this.setupCallbacks();
         this.fileHandler.setupDragAndDrop(this.elements.canvasContainer, this.elements.uploadPrompt);
+        this.zoneListUI.updateZoneList();
         this.updateUI();
 
         // Check for map parameter in URL
@@ -203,6 +207,7 @@ class ZoneEditorApp {
     }
 
     getEditorState() {
+        this.layerOrderService.ensureLayerOrders({ persist: true });
         return {
             zones: this.zoneManager.getZones(),
             overlays: this.imageOverlayManager.serializeOverlays()
@@ -212,6 +217,7 @@ class ZoneEditorApp {
     setupCallbacks() {
         this.core.onRender = () => this.render();
         this.zoneManager.onZoneCreated = (zone) => {
+            this.layerOrderService.placeLayerOnTop('zone', zone.id, { render: false });
             this.historyManager.saveHistory();
             this.zoneListUI.updateZoneList();
             this.toolbarUI.setActiveTool('select');
@@ -242,12 +248,19 @@ class ZoneEditorApp {
         };
 
         this.imageOverlayManager.onOverlayCreated = () => {
+            const overlay = this.imageOverlayManager.getSelectedOverlay();
+            if (overlay) {
+                this.layerOrderService.placeLayerOnTop('overlay', overlay.id, { render: false });
+            }
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
         this.imageOverlayManager.onOverlaySelected = (overlay) => {
             if (overlay) {
                 this.zoneManager.selectZone(null);
+                this.zonePropertiesUI.showOverlayProperties(overlay);
+            } else if (!this.zoneManager.selectedZoneId) {
+                this.zonePropertiesUI.hideFloatingControls();
             }
             this.zoneListUI.updateZoneListSelection();
         };
@@ -274,7 +287,8 @@ class ZoneEditorApp {
             e.preventDefault();
             const pos = this.core.getMousePos(e);
             const mapPos = this.core.screenToMap(pos.x, pos.y);
-            const zone = this.zoneManager.findZoneAtPoint(mapPos, this.core.zoom);
+            const topLayer = this.toolManager.tools.select?.findTopLayerAtPoint(mapPos);
+            const zone = topLayer?.kind === 'zone' ? topLayer.item : null;
             if (zone) this.zoneManager.selectZone(zone.id);
             this.contextMenu.showForCanvas(e, zone);
         });
@@ -296,8 +310,7 @@ class ZoneEditorApp {
 
     render() {
         if (this.core.renderBase()) {
-            this.renderer.drawZones();
-            this.renderer.drawImageOverlays();
+            this.renderer.drawLayers();
             this.renderer.drawSelection();
             const toolState = this.toolManager.getCurrentDrawState();
             this.renderer.drawSnapPreview(toolState.snapPreview);
@@ -400,6 +413,32 @@ class ZoneEditorApp {
         delete newZoneData.id;
         const newZone = this.zoneManager.createZone(zone.shape, newZoneData);
         this.zoneManager.selectZone(newZone.id);
+        this.updateUI();
+    }
+
+    duplicateSelectedOverlay() {
+        const overlay = this.imageOverlayManager.getSelectedOverlay();
+        if (!overlay) return;
+
+        this.historyManager.saveHistory();
+        const clone = {
+            ...this.imageOverlayManager.serializeOverlay(overlay),
+            id: Utils.generateId('overlay'),
+            name: `${this.imageOverlayManager.getOverlayDisplayName(overlay)} (Copy)`,
+            sourceName: overlay.sourceName,
+            x: (overlay.x || 0) + 20,
+            y: (overlay.y || 0) + 20,
+            image: overlay.image || null
+        };
+        delete clone.layerOrder;
+
+        const normalizedClone = this.imageOverlayManager.normalizeOverlay(clone);
+        this.imageOverlayManager.overlays.push(normalizedClone);
+        this.layerOrderService.placeLayerOnTop('overlay', normalizedClone.id, { render: false });
+        this.imageOverlayManager.selectOverlay(normalizedClone.id, { render: false });
+        this.imageOverlayManager.saveToStorage();
+        this.zoneListUI.updateZoneList();
+        this.requestRender();
         this.updateUI();
     }
 }
