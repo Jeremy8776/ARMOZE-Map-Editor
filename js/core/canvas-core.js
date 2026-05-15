@@ -74,6 +74,17 @@ class CanvasCore {
         this.requestRender();
     }
 
+    clearMap() {
+        this.mapImage = null;
+        this.mapWidth = 0;
+        this.mapHeight = 0;
+        this.zoom = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.canvas.classList.remove('visible');
+        this.requestRender();
+    }
+
     /**
      * Fit map to container view
      */

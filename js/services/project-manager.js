@@ -82,6 +82,7 @@ class ProjectManager {
 
         const json = JSON.stringify(projectData, null, 2);
         Utils.downloadFile(json, 'map_project.json', 'application/json');
+        this.app.tabManager?.markActiveTabClean();
     }
 
     /**

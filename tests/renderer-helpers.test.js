@@ -31,6 +31,13 @@ const ExportHandler = loadScriptExport('js/export-handler.js', 'ExportHandler', 
 });
 const LayerOrderService = loadScriptExport('js/services/layer-order-service.js', 'LayerOrderService');
 const InspectorLayoutService = loadScriptExport('js/services/inspector-layout-service.js', 'InspectorLayoutService');
+const TabManager = loadScriptExport('js/ui/tab-manager.js', 'TabManager', { window: {} });
+const FileHandler = loadScriptExport('js/services/file-handler.js', 'FileHandler');
+const MapBrowserUI = loadScriptExport('js/ui/map-browser-ui.js', 'MapBrowserUI', { window: {}, btoa: (value) => Buffer.from(value).toString('base64') });
+const CanvasCore = loadScriptExport('js/core/canvas-core.js', 'CanvasCore', {
+    window: { addEventListener: () => {}, requestAnimationFrame: (callback) => callback() },
+    Constants: { SNAP_GRID_SIZE: 100 }
+});
 
 function toPlainJson(value) {
     return JSON.parse(JSON.stringify(value));
@@ -258,4 +265,108 @@ test('InspectorLayoutService toggles accordions as a single-open stack', () => {
         pattern: false,
         label: false
     });
+});
+
+test('TabManager renders dirty tab titles with a save marker', () => {
+    assert.equal(TabManager.getTabTitleText({ name: 'ArlandRasterize', dirty: false }), 'ArlandRasterize');
+    assert.equal(TabManager.getTabTitleText({ name: 'ArlandRasterize', dirty: true }), 'ArlandRasterize *');
+});
+
+test('TabManager tab controls use inline svg icons without lucide hydration', () => {
+    const closeIcon = TabManager.getTabIconSvg('close');
+    const plusIcon = TabManager.getTabIconSvg('plus');
+
+    assert.equal(closeIcon.includes('<svg'), true);
+    assert.equal(plusIcon.includes('<svg'), true);
+    assert.equal(closeIcon.includes('data-lucide'), false);
+    assert.equal(plusIcon.includes('data-lucide'), false);
+});
+
+test('TabManager tab action buttons use css-drawn control icons', () => {
+    const closeIcon = TabManager.getTabControlIconMarkup('close');
+    const plusIcon = TabManager.getTabControlIconMarkup('plus');
+
+    assert.equal(closeIcon.includes('tab-control-icon-close'), true);
+    assert.equal(plusIcon.includes('tab-control-icon-plus'), true);
+    assert.equal(closeIcon.includes('<svg'), false);
+    assert.equal(plusIcon.includes('data-lucide'), false);
+});
+
+test('FileHandler asks to persist uploaded and converted map files', () => {
+    assert.equal(FileHandler.shouldOfferMapPersistence({ name: 'custom-map.png' }, { source: 'upload' }), true);
+    assert.equal(FileHandler.shouldOfferMapPersistence({ name: 'terrain.edds' }, { source: 'conversion' }), true);
+    assert.equal(FileHandler.shouldOfferMapPersistence({ name: 'Arland.png' }, { source: 'library' }), false);
+});
+
+test('FileHandler stores converted texture maps as png library assets', () => {
+    assert.equal(FileHandler.getPersistentMapFileName('world_texture.edds', { converted: true }), 'world_texture.png');
+    assert.equal(FileHandler.getPersistentMapFileName('world_texture.dds', { converted: true }), 'world_texture.png');
+    assert.equal(FileHandler.getPersistentMapFileName('uploaded-map.jpeg'), 'uploaded-map.jpeg');
+});
+
+test('FileHandler detects stale main-process save handlers and upload fallback eligibility', () => {
+    assert.equal(FileHandler.isMissingIpcHandlerError(new Error("Error invoking remote method 'save-map-asset-data-url': Error: No handler registered for 'save-map-asset-data-url'")), true);
+    assert.equal(FileHandler.canUsePathImportFallback({ path: 'C:\\Maps\\custom.png' }, { source: 'upload' }), true);
+    assert.equal(FileHandler.canUsePathImportFallback({ path: 'C:\\Maps\\terrain.dds' }, { source: 'conversion', converted: true }), false);
+    assert.equal(FileHandler.canUsePathImportFallback({ name: 'custom.png' }, { source: 'upload' }), false);
+});
+
+test('FileHandler treats drops on the upload prompt as new maps, not overlays', () => {
+    assert.equal(FileHandler.shouldLoadDroppedFileAsMap({ extension: 'png', hasMap: true, uploadPromptVisible: true }), true);
+    assert.equal(FileHandler.shouldLoadDroppedFileAsMap({ extension: 'png', hasMap: true, uploadPromptVisible: false }), false);
+    assert.equal(FileHandler.shouldLoadDroppedFileAsMap({ extension: 'dds', hasMap: true, uploadPromptVisible: false }), true);
+    assert.equal(FileHandler.shouldLoadDroppedFileAsMap({ extension: 'png', hasMap: false, uploadPromptVisible: false }), true);
+});
+
+test('MapBrowserUI appends saved custom maps after catalog maps', () => {
+    const extras = MapBrowserUI.getCustomInstalledAssets(
+        [{ file: 'official.png' }],
+        [
+            { file: 'custom.png', name: 'Custom' },
+            { file: 'official.png', name: 'Official' }
+        ]
+    );
+
+    assert.deepEqual(toPlainJson(extras), [{ file: 'custom.png', name: 'Custom' }]);
+});
+
+test('MapBrowserUI only allows permanent delete for user-saved custom maps', () => {
+    assert.equal(MapBrowserUI.canDeleteCustomAsset({ file: 'uploaded.png', source: 'user' }), true);
+    assert.equal(MapBrowserUI.canDeleteCustomAsset({ file: 'bundled-extra.png', source: 'bundled' }), false);
+    assert.equal(MapBrowserUI.canDeleteCustomAsset({ file: 'unknown.png' }), false);
+});
+
+test('MapBrowserUI uses permanent delete copy for uploaded maps', () => {
+    const message = MapBrowserUI.getDeleteConfirmationMessage({ name: 'RUS (4)', file: 'RUS (4).png' }, { permanent: true });
+    assert.equal(message.includes('Permanently delete RUS (4)'), true);
+    assert.equal(message.includes('future use'), true);
+});
+
+test('CanvasCore clearMap resets loaded-map state after the last tab closes', () => {
+    let renderCount = 0;
+    const canvas = {
+        width: 0,
+        height: 0,
+        classList: { add: () => {}, remove: () => {} },
+        getContext: () => ({ clearRect: () => {} })
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+    core.onRender = () => { renderCount++; };
+    core.mapImage = { width: 1024, height: 1024 };
+    core.mapWidth = 1024;
+    core.mapHeight = 1024;
+    core.zoom = 0.5;
+    core.panX = 20;
+    core.panY = 30;
+
+    core.clearMap();
+
+    assert.equal(core.mapImage, null);
+    assert.equal(core.mapWidth, 0);
+    assert.equal(core.mapHeight, 0);
+    assert.equal(core.zoom, 1);
+    assert.equal(core.panX, 0);
+    assert.equal(core.panY, 0);
+    assert.equal(renderCount > 0, true);
 });

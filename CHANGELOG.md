@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.33] - 2026-05-15
+
+### Added
+- **Layer stack interactions**: layers now behave more like a Photoshop stack, including drag reordering across zones and image overlays.
+- **Map library persistence**: uploaded and converted maps can be saved for future use, appended to the map library, and permanently deleted when user-saved.
+
+### Fixed
+- **Inspector layout**: side-pinned inspectors release layout space when hidden, restore to a compact floating size, and no longer support bottom snapping.
+- **Tab controls**: close and new-tab buttons render independently of Lucide hydration and dirty tabs show an unsaved marker.
+- **App metadata**: synchronized displayed app versions and corrected the app version link to the active GitHub repository.
+
 ## [1.6.1] - 2026-04-27
 
 ### Fixed

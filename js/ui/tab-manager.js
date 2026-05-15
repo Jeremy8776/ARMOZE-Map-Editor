@@ -45,6 +45,25 @@ class TabManager {
         return this.tabs[this.activeTabIndex];
     }
 
+    static getTabTitleText(tab) {
+        const name = tab?.name || 'Untitled';
+        return tab?.dirty ? `${name} *` : name;
+    }
+
+    static getTabIconSvg(icon) {
+        const paths = {
+            map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+            close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+            plus: '<path d="M5 12h14"/><path d="M12 5v14"/>'
+        };
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[icon] || ''}</svg>`;
+    }
+
+    static getTabControlIconMarkup(icon) {
+        const safeIcon = icon === 'plus' ? 'plus' : 'close';
+        return `<span class="tab-control-icon tab-control-icon-${safeIcon}" aria-hidden="true"></span>`;
+    }
+
     /**
      * Create a new tab with the given map image
      * @param {string} name - Tab name (usually filename)
@@ -60,7 +79,8 @@ class TabManager {
             overlays: overlays,
             history: [],
             historyIndex: -1,
-            view: null
+            view: null,
+            dirty: false
         };
 
         this.tabs.push(newTab);
@@ -116,6 +136,17 @@ class TabManager {
             panX: this.app.core.panX,
             panY: this.app.core.panY
         };
+    }
+
+    markActiveTabDirty(dirty = true) {
+        const tab = this.getActiveTab();
+        if (!tab || tab.dirty === dirty) return;
+        tab.dirty = dirty;
+        this.renderTabs();
+    }
+
+    markActiveTabClean() {
+        this.markActiveTabDirty(false);
     }
 
     /**
@@ -174,21 +205,17 @@ class TabManager {
             <div class="tab ${i === this.activeTabIndex ? 'active' : ''}"
                  data-tab-index="${i}"
                  draggable="true">
-                <i data-lucide="map" class="tab-icon"></i>
-                <span class="tab-title" title="${tab.name}">${this.escapeHtml(tab.name)}</span>
+                <span class="tab-icon">${TabManager.getTabIconSvg('map')}</span>
+                <span class="tab-title" title="${this.escapeHtml(TabManager.getTabTitleText(tab))}">${this.escapeHtml(TabManager.getTabTitleText(tab))}</span>
                 <button type="button" class="tab-close" data-close-index="${i}" title="Close Tab" aria-label="Close ${this.escapeHtml(tab.name)}">
-                    <i data-lucide="x" style="width:12px; height:12px;"></i>
+                    ${TabManager.getTabControlIconMarkup('close')}
                 </button>
             </div>
         `).join('') + `
             <button type="button" class="tab-new" id="tabNewBtn" title="New Tab" aria-label="New Tab">
-                <i data-lucide="plus"></i>
+                ${TabManager.getTabControlIconMarkup('plus')}
             </button>
         `;
-
-        if (window.lucide) {
-            lucide.createIcons({ icons: this.tabBarElement.querySelectorAll('[data-lucide]') });
-        }
 
         // Attach event listeners
         this.tabBarElement.querySelectorAll('.tab').forEach((tabEl, i) => {

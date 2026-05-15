@@ -23,5 +23,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     startUpdateDownload: () => ipcRenderer.invoke('start-update-download'),
     quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
-    importMapAsset: (sourcePath, friendlyName) => ipcRenderer.invoke('import-map-asset', sourcePath, friendlyName)
+    importMapAsset: (sourcePath, friendlyName) => ipcRenderer.invoke('import-map-asset', sourcePath, friendlyName),
+    saveMapAssetDataUrl: (payload) => ipcRenderer.invoke('save-map-asset-data-url', payload)
 });

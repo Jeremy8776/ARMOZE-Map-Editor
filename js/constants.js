@@ -96,7 +96,7 @@ const Constants = {
 
     // ==================== APP INFO ====================
     APP_VERSION: 'v1.6.33 - MODULAR',
-    GITHUB_URL: 'https://github.com/Jeremy8776/ARMOZE-Map-Overlay-Zone-Editor'
+    GITHUB_URL: 'https://github.com/Jeremy8776/ARMOZE-Map-Editor'
 };
 
 /**

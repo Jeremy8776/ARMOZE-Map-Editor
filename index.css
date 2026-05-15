@@ -151,6 +151,45 @@ html, body {
     cursor: pointer;
 }
 
+.tab-control-icon {
+    position: relative;
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    color: currentColor;
+    pointer-events: none;
+}
+
+.tab-control-icon::before,
+.tab-control-icon::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transform-origin: center;
+}
+
+.tab-control-icon-close::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.tab-control-icon-close::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.tab-control-icon-plus::before {
+    transform: translate(-50%, -50%);
+}
+
+.tab-control-icon-plus::after {
+    transform: translate(-50%, -50%) rotate(90deg);
+}
+
 .tab:hover .tab-close {
     opacity: 0.78;
 }
@@ -190,8 +229,16 @@ html, body {
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
 }
 
+.tab-new .tab-control-icon {
+    color: var(--color-text-secondary);
+}
+
 .tab-new:hover {
     background: rgba(14, 18, 24, 0.76);
     color: var(--color-text-primary);
     border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tab-new:hover .tab-control-icon {
+    color: var(--color-text-primary);
 }

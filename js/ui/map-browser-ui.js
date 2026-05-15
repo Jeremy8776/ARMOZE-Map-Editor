@@ -34,6 +34,23 @@ class MapBrowserUI {
         await this.refresh();
     }
 
+    static getCustomInstalledAssets(catalogMaps = [], installedAssets = []) {
+        const catalogFiles = new Set(catalogMaps.map(map => map.file));
+        return installedAssets.filter(item => !catalogFiles.has(item.file));
+    }
+
+    static canDeleteCustomAsset(asset) {
+        return asset?.source === 'user';
+    }
+
+    static getDeleteConfirmationMessage(entry, options = {}) {
+        const name = entry?.name || entry?.file || 'this map';
+        if (options.permanent) {
+            return `Permanently delete ${name} from your map library? This removes it from future use.`;
+        }
+        return `Remove ${name} from this PC? You can re-install it any time from the catalog.`;
+    }
+
     async refresh() {
         try {
             const [catalog, installed] = await Promise.all([
@@ -55,8 +72,6 @@ class MapBrowserUI {
         this.container.innerHTML = '';
         this.cardsById.clear();
 
-        const catalogFiles = new Set(this.catalog.maps.map(m => m.file));
-
         // 1. Render catalog entries (official maps).
         for (const entry of this.catalog.maps) {
             const card = this.buildCatalogCard(entry);
@@ -66,7 +81,7 @@ class MapBrowserUI {
 
         // 2. Render any installed files that AREN'T in the catalog
         //    (user imports / extractor outputs).
-        const extras = (this.installedAssets || []).filter(item => !catalogFiles.has(item.file));
+        const extras = MapBrowserUI.getCustomInstalledAssets(this.catalog.maps, this.installedAssets || []);
         for (const item of extras) {
             const card = this.buildExtraCard(item);
             this.container.appendChild(card);
@@ -194,6 +209,18 @@ class MapBrowserUI {
         nameSpan.textContent = asset.name || asset.file;
         infoRow.appendChild(nameSpan);
 
+        if (MapBrowserUI.canDeleteCustomAsset(asset)) {
+            const actions = document.createElement('div');
+            actions.className = 'map-actions';
+            const btnDelete = this.makeIconButton('trash-2', 'Permanently delete uploaded map');
+            btnDelete.onclick = (e) => {
+                e.stopPropagation();
+                this.handleDelete(asset, { permanent: true });
+            };
+            actions.appendChild(btnDelete);
+            infoRow.appendChild(actions);
+        }
+
         item.append(thumb, infoRow);
         item.addEventListener('click', () => {
             if (this.app.fileHandler) this.app.fileHandler.loadLocalMapImage(asset.file);
@@ -229,19 +256,29 @@ class MapBrowserUI {
         }
     }
 
-    async handleDelete(entry) {
+    async handleDelete(entry, options = {}) {
+        if (!window.electronAPI?.deleteCatalogMap) {
+            this.app?.notificationService?.showAlert('Deleting saved maps requires the desktop build.', { title: 'Unavailable' });
+            return;
+        }
+
         const confirmed = await (this.app?.notificationService?.showConfirm?.(
-            `Remove ${entry.name} from this PC? You can re-install it any time from the catalog.`,
-            { title: 'Remove map', confirmLabel: 'Remove', tone: 'danger' }
-        ) ?? Promise.resolve(window.confirm(`Remove ${entry.name}?`)));
+            MapBrowserUI.getDeleteConfirmationMessage(entry, options),
+            {
+                title: options.permanent ? 'Delete uploaded map' : 'Remove map',
+                confirmLabel: options.permanent ? 'Delete Permanently' : 'Remove',
+                tone: 'danger'
+            }
+        ) ?? Promise.resolve(window.confirm(MapBrowserUI.getDeleteConfirmationMessage(entry, options))));
 
         if (!confirmed) return;
 
         try {
-            await window.electronAPI?.deleteCatalogMap?.(entry.file);
+            await window.electronAPI.deleteCatalogMap(entry.file);
             this.installedFiles.delete(entry.file);
             await this.refresh();
-            this.app?.notificationService?.showToast(`${entry.name} removed.`, 'success');
+            const name = entry.name || entry.file;
+            this.app?.notificationService?.showToast(`${name} ${options.permanent ? 'deleted' : 'removed'}.`, 'success');
         } catch (err) {
             this.app?.notificationService?.showAlert(err?.message || 'Delete failed.', { title: 'Delete Failed', tone: 'danger' });
         }

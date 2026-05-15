@@ -219,6 +219,7 @@ class ZoneEditorApp {
         this.zoneManager.onZoneCreated = (zone) => {
             this.layerOrderService.placeLayerOnTop('zone', zone.id, { render: false });
             this.historyManager.saveHistory();
+            this.tabManager.markActiveTabDirty();
             this.zoneListUI.updateZoneList();
             this.toolbarUI.setActiveTool('select');
             this.toolManager.setTool('select');
@@ -235,6 +236,7 @@ class ZoneEditorApp {
 
         this.zoneManager.onZoneUpdated = (zone, options = {}) => {
             this.zonePropertiesUI?.updateZoneDataReadout(zone);
+            this.tabManager.markActiveTabDirty();
 
             if (options.live) {
                 return;
@@ -243,6 +245,7 @@ class ZoneEditorApp {
             this.zoneListUI.updateZoneList();
         };
         this.zoneManager.onZoneDeleted = () => {
+            this.tabManager.markActiveTabDirty();
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
@@ -252,6 +255,7 @@ class ZoneEditorApp {
             if (overlay) {
                 this.layerOrderService.placeLayerOnTop('overlay', overlay.id, { render: false });
             }
+            this.tabManager.markActiveTabDirty();
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
@@ -265,6 +269,7 @@ class ZoneEditorApp {
             this.zoneListUI.updateZoneListSelection();
         };
         this.imageOverlayManager.onOverlayUpdated = (overlay, options = {}) => {
+            this.tabManager.markActiveTabDirty();
             if (options.live) {
                 this.zoneListUI.syncOverlayTintControls?.(overlay);
             } else {
@@ -275,12 +280,16 @@ class ZoneEditorApp {
             }
         };
         this.imageOverlayManager.onOverlayDeleted = () => {
+            this.tabManager.markActiveTabDirty();
             this.zoneListUI.updateZoneList();
             this.updateUI();
         };
 
         if (this.toolManager.tools.select) {
-            this.toolManager.tools.select.onDragComplete = () => this.historyManager.saveHistory();
+            this.toolManager.tools.select.onDragComplete = () => {
+                this.historyManager.saveHistory();
+                this.tabManager.markActiveTabDirty();
+            };
         }
 
         this.elements.canvas.addEventListener('contextmenu', (e) => {
@@ -367,9 +376,22 @@ class ZoneEditorApp {
     showUploadScreen(keepTabs = false) {
         if (!keepTabs) this.elements.tabBar.innerHTML = '';
         this.elements.uploadPrompt.style.display = 'flex';
-        this.elements.canvas.classList.remove('visible');
         this.elements.mapInfo.textContent = "No map loaded";
-        this.imageOverlayManager.selectOverlay(null, { render: false });
+        if (!keepTabs) {
+            this.core.clearMap();
+            this.zoneManager.zones = [];
+            this.zoneManager.selectedZoneId = null;
+            this.zoneManager.hoveredZoneId = null;
+            this.zoneManager.saveToStorage?.();
+            this.imageOverlayManager.setOverlays([], { persist: true, keepSelection: false });
+            this.layerOrderService.ensureLayerOrders({ persist: true });
+            this.historyManager.clear();
+        } else {
+            this.elements.canvas.classList.remove('visible');
+            this.imageOverlayManager.selectOverlay(null, { render: false });
+        }
+        this.zonePropertiesUI.hideFloatingControls();
+        this.zoneListUI.updateZoneList();
         this.updateUI();
     }
 

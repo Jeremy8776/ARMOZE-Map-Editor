@@ -58,6 +58,14 @@ let activeExtractorChild = null;
 
 const EXTRACTOR_ACTIONS = new Set(['Search', 'BulkAll', 'BulkTextures', 'BulkExtension']);
 const EXTRACTOR_FORMATS = new Set(['png', 'tif', 'tga', 'dds', 'raw']);
+const MAP_ASSET_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.dds', '.svg']);
+const MAP_ASSET_MIME_EXTENSIONS = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/tiff': '.tif',
+    'image/svg+xml': '.svg'
+};
 
 function getGitHubRepositoryPath() {
     const repository = packageMetadata.repository;
@@ -140,6 +148,58 @@ function normalizeOptionalString(value, maxLength = 4096) {
     }
 
     return trimmed;
+}
+
+function sanitizeMapAssetFileName(fileName, fallbackExtension = '.png') {
+    const rawName = path.basename(normalizeOptionalString(fileName, 260) || 'Imported Map');
+    const currentExtension = path.extname(rawName).toLowerCase();
+    const safeFallbackExtension = MAP_ASSET_EXTENSIONS.has(fallbackExtension) ? fallbackExtension : '.png';
+    const extension = MAP_ASSET_EXTENSIONS.has(currentExtension) ? currentExtension : safeFallbackExtension;
+    const safeName = path.basename(rawName, currentExtension)
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim() || 'Imported Map';
+    return `${safeName}${extension}`;
+}
+
+async function getAvailableMapAssetPath(mapsDir, preferredFileName) {
+    const parsed = path.parse(preferredFileName);
+    let candidateName = preferredFileName;
+    let candidatePath = path.join(mapsDir, candidateName);
+    let suffix = 2;
+
+    while (await fs.stat(candidatePath).then(() => true).catch(() => false)) {
+        candidateName = `${parsed.name} ${suffix}${parsed.ext}`;
+        candidatePath = path.join(mapsDir, candidateName);
+        suffix++;
+    }
+
+    return { candidateName, candidatePath };
+}
+
+function mapAssetFriendlyName(fileName) {
+    return path.basename(fileName, path.extname(fileName))
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function parseImageDataUrl(dataUrl) {
+    const normalized = normalizeOptionalString(dataUrl, 80 * 1024 * 1024);
+    const match = normalized.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=\r\n]+)$/);
+    if (!match) {
+        throw new Error('Expected a base64 image data URL.');
+    }
+
+    const mimeType = match[1].toLowerCase();
+    const fallbackExtension = MAP_ASSET_MIME_EXTENSIONS[mimeType];
+    if (!fallbackExtension) {
+        throw new Error(`Unsupported map image type: ${mimeType}`);
+    }
+
+    return {
+        buffer: Buffer.from(match[2].replace(/\s/g, ''), 'base64'),
+        fallbackExtension
+    };
 }
 
 async function validateExtractorDirectory(candidatePath, label, { mustExist = true } = {}) {
@@ -326,7 +386,7 @@ async function readMapsFromDir(dir) {
         return entries
             .filter(entry => entry.isFile())
             .map(entry => entry.name)
-            .filter(name => /\.(png|jpe?g|webp|tif|tiff|dds)$/i.test(name));
+            .filter(name => /\.(png|jpe?g|webp|tif|tiff|dds|svg)$/i.test(name));
     } catch {
         return [];
     }
@@ -513,25 +573,47 @@ ipcMain.handle('import-map-asset', async (event, sourcePath, preferredName) => {
             }
         }
 
-        const fileName = path.basename(targetFile);
-        const destPath = path.join(mapsDir, fileName);
+        const sourceExtension = path.extname(targetFile).toLowerCase();
+        const requestedName = preferredName
+            ? `${preferredName.replace(/\.[^.]+$/, '')}${sourceExtension}`
+            : path.basename(targetFile);
+        const fileName = sanitizeMapAssetFileName(requestedName, sourceExtension || '.png');
+        const { candidateName, candidatePath } = await getAvailableMapAssetPath(mapsDir, fileName);
 
         // Copy the physical file. The map list (renderer-side) is now
         // built by scanning the user-data Maps directory at runtime —
         // no maps.js manifest to update.
-        await fs.copyFile(targetFile, destPath);
+        await fs.copyFile(targetFile, candidatePath);
 
         // Generate a friendly name (e.g. "my_map_tile.png" -> "My Map Tile")
-        let friendlyName = path.basename(fileName, path.extname(fileName))
-            .replace(/[_-]/g, ' ')
-            .replace(/\b\w/g, c => c.toUpperCase());
+        let friendlyName = mapAssetFriendlyName(candidateName);
         if (preferredName && preferredName.trim()) {
             friendlyName = preferredName.trim().replace(/\s+/g, ' ');
         }
 
-        return { success: true, friendlyName, fileName };
+        return { success: true, friendlyName, fileName: candidateName };
     } catch (err) {
         console.error('Import Error:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('save-map-asset-data-url', async (event, payload) => {
+    try {
+        const mapsDir = await ensureUserMapsDir();
+        const { buffer, fallbackExtension } = parseImageDataUrl(payload?.dataUrl);
+        const fileName = sanitizeMapAssetFileName(payload?.preferredName, fallbackExtension);
+        const { candidateName, candidatePath } = await getAvailableMapAssetPath(mapsDir, fileName);
+
+        await fs.writeFile(candidatePath, buffer);
+
+        return {
+            success: true,
+            friendlyName: mapAssetFriendlyName(candidateName),
+            fileName: candidateName
+        };
+    } catch (err) {
+        console.error('Save Map Asset Error:', err);
         return { success: false, error: err.message };
     }
 });

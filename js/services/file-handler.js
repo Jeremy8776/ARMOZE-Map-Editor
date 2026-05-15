@@ -7,6 +7,46 @@ class FileHandler {
         this.app = app;
     }
 
+    static shouldOfferMapPersistence(file, options = {}) {
+        if (!file?.name) return false;
+        return options.source === 'upload' || options.source === 'conversion';
+    }
+
+    static getPersistentMapFileName(fileName, options = {}) {
+        const rawName = String(fileName || 'Imported Map').split(/[\\/]/).pop() || 'Imported Map';
+        const baseName = rawName.replace(/\.[^.]+$/, '') || 'Imported Map';
+        const extension = options.converted
+            ? 'png'
+            : (rawName.match(/\.([^.]+)$/)?.[1] || 'png').toLowerCase();
+        const safeBaseName = baseName
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim() || 'Imported Map';
+        return `${safeBaseName}.${extension}`;
+    }
+
+    static readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('Could not read map file.'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    static isMissingIpcHandlerError(error) {
+        return String(error?.message || error).includes('No handler registered');
+    }
+
+    static canUsePathImportFallback(file, options = {}) {
+        return options.source === 'upload' && !options.converted && typeof file?.path === 'string' && file.path.length > 0;
+    }
+
+    static shouldLoadDroppedFileAsMap({ extension, hasMap, uploadPromptVisible } = {}) {
+        const ext = String(extension || '').toLowerCase();
+        return uploadPromptVisible || !hasMap || ext === 'edds' || ext === 'dds';
+    }
+
     buildBundledAssetUrl(filename) {
         return new URL(`Maps/${encodeURIComponent(filename)}`, window.location.href).toString();
     }
@@ -65,13 +105,16 @@ class FileHandler {
 
         const imageData = Utils.ddsToImageData(ddsInfo);
         ctx.putImageData(imageData, 0, 0);
+        const dataUrl = tempCanvas.toDataURL('image/png');
 
         // Convert to image
         const img = new Image();
         img.onload = () => {
             this.app.onMapLoaded(img, file.name);
+            this.persistMapAssetForFutureUse(file, dataUrl, { source: 'conversion', converted: true })
+                .catch(error => this.handleMapPersistenceError(error));
         };
-        img.src = tempCanvas.toDataURL();
+        img.src = dataUrl;
     }
 
     /**
@@ -81,6 +124,62 @@ class FileHandler {
     async loadImageFile(file) {
         const img = await Utils.loadImage(file);
         this.app.onMapLoaded(img, file.name);
+        const dataUrl = await FileHandler.readFileAsDataUrl(file);
+        await this.persistMapAssetForFutureUse(file, dataUrl, { source: 'upload' })
+            .catch(error => this.handleMapPersistenceError(error));
+    }
+
+    handleMapPersistenceError(error) {
+        console.error('Error saving map asset:', error);
+        this.app.notificationService?.showAlert?.(error.message || 'Could not save map for future use.', {
+            title: 'Save Failed',
+            tone: 'danger'
+        });
+    }
+
+    async persistMapAssetForFutureUse(file, dataUrl, options = {}) {
+        if (!FileHandler.shouldOfferMapPersistence(file, options)) return null;
+        if (!dataUrl || !window.electronAPI?.saveMapAssetDataUrl) return null;
+
+        const fileName = FileHandler.getPersistentMapFileName(file.name, options);
+        const confirmed = await (this.app.notificationService?.showConfirm?.(
+            `Save "${fileName}" to your map library for future use?`,
+            { title: 'Save Map', confirmLabel: 'Save Map', cancelLabel: 'Not Now' }
+        ) ?? Promise.resolve(window.confirm(`Save "${fileName}" to your map library for future use?`)));
+
+        if (!confirmed) return null;
+
+        const result = await this.saveMapAsset(file, dataUrl, fileName, options);
+        if (!result?.success) {
+            throw new Error(result?.error || 'Could not save map asset.');
+        }
+
+        if (this.app.mapBrowserUI?.refresh) {
+            await this.app.mapBrowserUI.refresh();
+        }
+        this.app.notificationService?.showToast?.(`${result.friendlyName || result.fileName} saved to map library.`, 'success');
+        return result;
+    }
+
+    async saveMapAsset(file, dataUrl, fileName, options = {}) {
+        try {
+            return await window.electronAPI.saveMapAssetDataUrl({ dataUrl, preferredName: fileName });
+        } catch (error) {
+            if (
+                FileHandler.isMissingIpcHandlerError(error) &&
+                FileHandler.canUsePathImportFallback(file, options) &&
+                window.electronAPI?.importMapAsset
+            ) {
+                const friendlyName = fileName.replace(/\.[^.]+$/, '');
+                return window.electronAPI.importMapAsset(file.path, friendlyName);
+            }
+
+            if (FileHandler.isMissingIpcHandlerError(error)) {
+                throw new Error('Saving converted maps needs the desktop app to be restarted so the new save handler is registered.');
+            }
+
+            throw error;
+        }
     }
 
     async importOverlayImage(file, placement = null) {
@@ -183,14 +282,14 @@ class FileHandler {
             if (files.length > 0) {
                 const file = files[0];
                 const ext = file.name.toLowerCase().split('.').pop();
-                const isMapTexture = ext === 'edds' || ext === 'dds';
                 const hasMap = !!this.app.core?.mapImage;
+                const uploadPromptVisible = window.getComputedStyle(prompt).display !== 'none';
                 const placement = { x: e.clientX, y: e.clientY };
 
-                if (hasMap && !isMapTexture) {
-                    this.importOverlayImage(file, placement);
-                } else {
+                if (FileHandler.shouldLoadDroppedFileAsMap({ extension: ext, hasMap, uploadPromptVisible })) {
                     this.loadMapFile(file);
+                } else {
+                    this.importOverlayImage(file, placement);
                 }
             }
         });
