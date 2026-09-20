@@ -74,6 +74,30 @@ const UITemplates = {
                             </div>
                         </div>
 
+                        <section class="accordion-section coordinate-accordion" data-accordion="coordinates" id="coordinateAccordion" hidden>
+                            <button
+                                type="button"
+                                class="accordion-trigger"
+                                data-accordion-trigger
+                                aria-expanded="false"
+                                aria-controls="coordinateAccordionPanel">
+                                <span class="accordion-trigger-copy">
+                                    <span class="accordion-title">Exact Coordinates</span>
+                                    <span class="accordion-summary" id="coordinateSummary">Workbench X/Z</span>
+                                </span>
+                                <span class="accordion-chevron" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                </span>
+                            </button>
+                            <div id="coordinateAccordionPanel" class="accordion-panel" data-accordion-panel>
+                                <form id="coordinateEditorForm" class="coordinate-editor-form">
+                                    <p class="coordinate-editor-help">Workbench coords row is X (east), Y (elevation), Z (north). Ignore the Y value; enter X and Z here.</p>
+                                    <div id="coordinateEditorFields"></div>
+                                    <button type="submit" class="coordinate-apply-button"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-8-4.5-8-11.5C4 6 7 3 12 3s8 3 8 6.5C20 16.5 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Pin to Coordinates</button>
+                                </form>
+                            </div>
+                        </section>
+
                         <section class="accordion-section" data-accordion="border">
                             <button
                                 type="button"
@@ -320,18 +344,16 @@ const UITemplates = {
                     </div>
 
                     <div class="export-settings-glass">
-                        <h4>Coordinate Foundation</h4>
+                        <h4>Enfusion Workbench Coordinates</h4>
                         <div class="setting-row">
-                            <label>Origin Offset (X, Y)</label>
-                            <div class="offset-inputs"><input type="number" id="originX" value="0" step="100"><input type="number" id="originY" value="0" step="100"></div>
+                            <label>World Origin (X, Z)</label>
+                            <div class="offset-inputs"><input type="number" id="originX" value="0" step="100"><input type="number" id="originZ" value="0" step="100"></div>
                         </div>
                         <div class="setting-row">
-                            <label>Map Scale (m / px)</label>
-                            <input type="number" id="mapScale" value="1.0" step="0.0001" style="flex:1">
+                            <label>Map Scale (metres / pixel)</label>
+                            <input type="number" id="mapScale" value="1.0" min="0.0001" step="0.0001" style="flex:1">
                         </div>
-                        <div class="setting-row">
-                            <label class="checkbox-label"><input type="checkbox" id="invertY" checked><span>Invert Y Axis (Tactical standard)</span></label>
-                        </div>
+                        <p class="modal-hint">Uses Workbench's ground plane: X increases right/east, Z increases up/north, and Y is elevation.</p>
                         <div class="setting-row">
                             <label>Image Format</label>
                             <select id="imageFormat" style="flex:1">
@@ -358,23 +380,28 @@ const UITemplates = {
                     <button class="modal-close" id="btnCloseCalibration">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p class="modal-hint">Align map pixels with world coordinates by picking two reference points.</p>
-                    
-                    <div class="cal-step" id="calStep1">
-                        <div class="cal-step-header"><span>Step 1: Reference Point Alpha</span><button class="btn-icon-auto" id="btnPickPoint1">Pick Point</button></div>
-                        <div class="cal-coords">Map Pixels: <span id="pt1Params">-</span></div>
-                        <div class="setting-row"><label>World Coords (X, Y)</label><div class="offset-inputs"><input type="number" id="pt1WorldX" placeholder="X"><input type="number" id="pt1WorldY" placeholder="Y"></div></div>
+                    <p class="modal-hint">The map grid, snapping, cursor readout, and exact coordinates all use this calibration live. Saved per map size and restored automatically.</p>
+
+                    <div class="cal-step cal-step-quick">
+                        <div class="cal-step-header"><span>Terrain World Size</span></div>
+                        <p class="modal-hint">For a full-terrain image, enter the terrain's world width and depth in metres (shown in Workbench's status bar). Assumes the world origin is the image's bottom-left corner.</p>
+                        <div class="setting-row"><label>World Size (W × D metres)</label><div class="offset-inputs"><input type="number" id="worldSizeWidth" placeholder="12800"><input type="number" id="worldSizeDepth" placeholder="12800"></div></div>
+                        <button class="btn-icon-auto" id="btnApplyWorldSize">Apply World Size</button>
                     </div>
 
-                    <div class="cal-step" id="calStep2">
-                        <div class="cal-step-header"><span>Step 2: Reference Point Bravo</span><button class="btn-icon-auto" id="btnPickPoint2">Pick Point</button></div>
-                        <div class="cal-coords">Map Pixels: <span id="pt2Params">-</span></div>
-                        <div class="setting-row"><label>World Coords (X, Y)</label><div class="offset-inputs"><input type="number" id="pt2WorldX" placeholder="X"><input type="number" id="pt2WorldY" placeholder="Y"></div></div>
+                    <div class="cal-step cal-step-quick">
+                        <div class="cal-step-header"><span>Grid Colours</span></div>
+                        <p class="modal-hint">Colour of the 1 km and 100 m grid lines drawn over the map.</p>
+                        <div class="grid-color-row">
+                            <label class="grid-color-item"><input type="color" id="gridMajorColor" value="#ffe66d"><span>1 km lines</span></label>
+                            <label class="grid-color-item"><input type="color" id="gridMinorColor" value="#ffe66d"><span>100 m lines</span></label>
+                            <label class="grid-color-item"><input type="color" id="gridLabelColor" value="#ffe66d"><span>Grid label</span></label>
+                        </div>
+                        <button class="btn-icon-auto" id="btnResetGridColors">Reset</button>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-reset" id="btnCancelCalibration">Cancel</button>
-                    <button class="btn btn-primary" id="btnApplyCalibration" disabled>Apply Calibration</button>
+                    <button class="btn btn-reset" id="btnCancelCalibration">Close</button>
                 </div>
             </div>
         </div>

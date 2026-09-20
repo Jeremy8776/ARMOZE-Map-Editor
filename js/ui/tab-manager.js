@@ -77,6 +77,7 @@ class TabManager {
             image: image,
             zones: zones,
             overlays: overlays,
+            coordinateSystem: { scale: 1, originX: 0, originZ: 0 },
             history: [],
             historyIndex: -1,
             view: null,
@@ -129,6 +130,7 @@ class TabManager {
 
         tab.zones = this.app.zoneManager.getZones();
         tab.overlays = this.app.imageOverlayManager.serializeOverlays();
+        tab.coordinateSystem = this.app.coordinateSystem.getSettings();
         tab.history = [...this.app.historyManager.getHistory()];
         tab.historyIndex = this.app.historyManager.getHistoryIndex();
         tab.view = {
@@ -166,6 +168,12 @@ class TabManager {
 
         // 1. Load Map Image
         this.app.core.loadMap(tab.image);
+        this.app.coordinateSystem.setSettings(tab.coordinateSystem || { scale: 1, originX: 0, originZ: 0 });
+        // Re-apply any calibration saved for this map's dimensions unless the
+        // tab carries its own explicit calibration.
+        if (!tab.coordinateSystem || tab.coordinateSystem.scale === 1) {
+            this.app.calibrationService?.restoreSavedCalibration();
+        }
         this.app.elements.uploadPrompt.style.display = 'none';
         this.app.elements.canvas.classList.add('visible');
 
@@ -189,6 +197,7 @@ class TabManager {
 
         // 5. Update UI
         this.app.elements.mapInfo.textContent = `${tab.name} (${tab.image.width} x ${tab.image.height})`;
+        this.app.refreshWorldInfo?.();
         this.app.zoneListUI.updateZoneList();
         this.renderTabs();
         this.app.core.requestRender();

@@ -49,6 +49,27 @@
 .modal-header h2 {
     font-size: 18px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-header h2 svg,
+.modal-header h2 .lucide {
+    width: 20px;
+    height: 20px;
+    color: var(--color-accent);
+}
+
+.modal-hint {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin: 0 0 var(--spacing-md);
+}
+
+.calibration-modal {
+    max-width: 520px;
 }
 
 .modal-close {
@@ -183,6 +204,115 @@
 
 .offset-inputs input {
     flex: 1;
+}
+
+/* Quick world-size setup block in the calibration modal */
+.cal-step-quick {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.cal-step-quick .btn-icon-auto {
+    align-self: flex-start;
+}
+
+/* Grid colour picker row */
+.grid-color-row {
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.grid-color-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.grid-color-item input[type="color"] {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.grid-color-item input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 3px;
+}
+
+.grid-color-item input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+}
+
+.cal-step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.cal-step-header span {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--color-text-secondary);
+}
+
+.btn-icon-auto {
+    min-height: 30px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--color-accent-rgb), 0.32);
+    background: rgba(var(--color-accent-rgb), 0.16);
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.btn-icon-auto:hover {
+    background: rgba(var(--color-accent-rgb), 0.24);
+    border-color: rgba(var(--color-accent-rgb), 0.5);
+}
+
+.cal-separator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.cal-separator::before,
+.cal-separator::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
 }
 
 /* Checkbox styling */

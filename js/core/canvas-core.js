@@ -166,6 +166,15 @@ class CanvasCore {
     snapToGrid(point) {
         if (!this.snapEnabled) return point;
 
+        if (this.coordinateSystem) {
+            const world = this.coordinateSystem.mapToWorld(point);
+            const gridSize = this.getVisibleGridSize();
+            return this.coordinateSystem.worldToMap({
+                x: Math.round(world.x / gridSize) * gridSize,
+                z: Math.round(world.z / gridSize) * gridSize
+            });
+        }
+
         return {
             x: Math.round(point.x / this.gridSize) * this.gridSize,
             y: Math.round(point.y / this.gridSize) * this.gridSize
@@ -211,37 +220,147 @@ class CanvasCore {
         return false;
     }
 
+    getVisibleGridSize() {
+        if (!this.coordinateSystem) return this.gridSize;
+        const minorScreenSize = this.coordinateSystem.worldLengthToMap(this.gridSize) * this.zoom;
+        const minimumMinorSpacing = window.Constants?.GRID_MINOR_MIN_SCREEN_PX || 18;
+        return minorScreenSize >= minimumMinorSpacing
+            ? this.gridSize
+            : (window.Constants?.GRID_MAJOR_SIZE || 1000);
+    }
+
+    getGridColors() {
+        const hexToRgba = (hex, alpha) => {
+            const value = hex.replace('#', '');
+            const full = value.length === 3
+                ? value.split('').map(c => c + c).join('')
+                : value.padEnd(8, 'f').slice(0, 8);
+            const r = parseInt(full.slice(0, 2), 16);
+            const g = parseInt(full.slice(2, 4), 16);
+            const b = parseInt(full.slice(4, 6), 16);
+            const a = value.length === 8 ? parseInt(full.slice(6, 8), 16) / 255 : alpha;
+            return `rgba(${r}, ${g}, ${b}, ${a})`;
+        };
+        return {
+            major: this.gridMajorColor ? hexToRgba(this.gridMajorColor, 0.5) : 'rgba(255, 230, 109, 0.42)',
+            minor: this.gridMinorColor ? hexToRgba(this.gridMinorColor, 0.28) : 'rgba(255, 230, 109, 0.18)',
+            label: this.gridLabelColor ? hexToRgba(this.gridLabelColor, 0.9) : 'rgba(255, 230, 109, 0.9)'
+        };
+    }
+
+    setGridColors(colors = {}) {
+        const isHexColor = value => /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value);
+        const updated = {};
+        if (isHexColor(colors.major)) updated.gridMajorColor = colors.major;
+        if (isHexColor(colors.minor)) updated.gridMinorColor = colors.minor;
+        if (isHexColor(colors.label)) updated.gridLabelColor = colors.label;
+        Object.assign(this, updated);
+        try {
+            localStorage.setItem('mapOverlay_grid_colors', JSON.stringify({
+                major: this.gridMajorColor,
+                minor: this.gridMinorColor,
+                label: this.gridLabelColor
+            }));
+        } catch (error) {
+            // Grid colour persistence is optional.
+        }
+        this.requestRender();
+        return this.getGridColors();
+    }
+
+    loadGridColors() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('mapOverlay_grid_colors') || 'null');
+            if (saved) {
+                if (saved.major) this.gridMajorColor = saved.major;
+                if (saved.minor) this.gridMinorColor = saved.minor;
+                if (saved.label) this.gridLabelColor = saved.label;
+            }
+        } catch (error) {
+            // Ignore malformed saved colours.
+        }
+    }
+
     drawGrid() {
         const ctx = this.ctx;
-        const mapGridSize = this.gridSize;
+        const visibleGridSize = this.getVisibleGridSize();
+        const mapGridSize = this.coordinateSystem
+            ? this.coordinateSystem.worldLengthToMap(visibleGridSize)
+            : visibleGridSize;
         const screenGridSize = mapGridSize * this.zoom;
 
-        if (screenGridSize < 12) return;
+        if (screenGridSize < 8) return;
 
-        const startMapX = Math.floor((-this.panX / this.zoom) / mapGridSize) * mapGridSize;
-        const endMapX = Math.ceil(((this.canvas.width - this.panX) / this.zoom) / mapGridSize) * mapGridSize;
-        const startMapY = Math.floor((-this.panY / this.zoom) / mapGridSize) * mapGridSize;
-        const endMapY = Math.ceil(((this.canvas.height - this.panY) / this.zoom) / mapGridSize) * mapGridSize;
+        const colors = this.getGridColors();
+        const startMap = this.screenToMap(0, 0);
+        const endMap = this.screenToMap(this.canvas.width, this.canvas.height);
+        const startWorld = this.coordinateSystem?.mapToWorld(startMap);
+        const endWorld = this.coordinateSystem?.mapToWorld(endMap);
 
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 230, 109, 0.22)';
-        ctx.lineWidth = 1;
         ctx.setLineDash([]);
-        ctx.beginPath();
 
-        for (let mapX = startMapX; mapX <= endMapX; mapX += mapGridSize) {
-            const screenX = this.mapToScreen(mapX, 0).x;
-            ctx.moveTo(screenX, 0);
-            ctx.lineTo(screenX, this.canvas.height);
+        if (this.coordinateSystem) {
+            const majorSize = window.Constants?.GRID_MAJOR_SIZE || 1000;
+            const minX = Math.min(startWorld.x, endWorld.x);
+            const maxX = Math.max(startWorld.x, endWorld.x);
+            const minZ = Math.min(startWorld.z, endWorld.z);
+            const maxZ = Math.max(startWorld.z, endWorld.z);
+            const drawLine = (worldValue, vertical) => {
+                const isMajor = Math.abs(worldValue / majorSize - Math.round(worldValue / majorSize)) < 0.000001;
+                ctx.beginPath();
+                ctx.strokeStyle = isMajor ? colors.major : colors.minor;
+                ctx.lineWidth = isMajor ? 1.5 : 1;
+                if (vertical) {
+                    const mapX = this.coordinateSystem.worldToMap({ x: worldValue, z: 0 }).x;
+                    const screenX = this.mapToScreen(mapX, 0).x;
+                    ctx.moveTo(screenX, 0);
+                    ctx.lineTo(screenX, this.canvas.height);
+                } else {
+                    const mapY = this.coordinateSystem.worldToMap({ x: 0, z: worldValue }).y;
+                    const screenY = this.mapToScreen(0, mapY).y;
+                    ctx.moveTo(0, screenY);
+                    ctx.lineTo(this.canvas.width, screenY);
+                }
+                ctx.stroke();
+            };
+
+            for (let worldX = Math.floor(minX / visibleGridSize) * visibleGridSize; worldX <= maxX; worldX += visibleGridSize) {
+                drawLine(worldX, true);
+            }
+            for (let worldZ = Math.floor(minZ / visibleGridSize) * visibleGridSize; worldZ <= maxZ; worldZ += visibleGridSize) {
+                drawLine(worldZ, false);
+            }
+
+            const label = visibleGridSize === majorSize ? 'GRID 1 km' : 'GRID 100 m';
+            ctx.font = '600 11px monospace';
+            const labelWidth = ctx.measureText(label).width + 14;
+            ctx.fillStyle = 'rgba(10, 14, 20, 0.78)';
+            ctx.fillRect(10, this.canvas.height - 30, labelWidth, 20);
+            ctx.fillStyle = colors.label;
+            ctx.fillText(label, 17, this.canvas.height - 16);
+        } else {
+            const startMapX = Math.floor(startMap.x / mapGridSize) * mapGridSize;
+            const endMapX = Math.ceil(endMap.x / mapGridSize) * mapGridSize;
+            const startMapY = Math.floor(startMap.y / mapGridSize) * mapGridSize;
+            const endMapY = Math.ceil(endMap.y / mapGridSize) * mapGridSize;
+
+            ctx.beginPath();
+            ctx.strokeStyle = colors.minor;
+            ctx.lineWidth = 1;
+            for (let mapX = startMapX; mapX <= endMapX; mapX += mapGridSize) {
+                const screenX = this.mapToScreen(mapX, 0).x;
+                ctx.moveTo(screenX, 0);
+                ctx.lineTo(screenX, this.canvas.height);
+            }
+            for (let mapY = startMapY; mapY <= endMapY; mapY += mapGridSize) {
+                const screenY = this.mapToScreen(0, mapY).y;
+                ctx.moveTo(0, screenY);
+                ctx.lineTo(this.canvas.width, screenY);
+            }
+            ctx.stroke();
         }
 
-        for (let mapY = startMapY; mapY <= endMapY; mapY += mapGridSize) {
-            const screenY = this.mapToScreen(0, mapY).y;
-            ctx.moveTo(0, screenY);
-            ctx.lineTo(this.canvas.width, screenY);
-        }
-
-        ctx.stroke();
         ctx.restore();
     }
 

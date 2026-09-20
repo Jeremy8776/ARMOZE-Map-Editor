@@ -24,6 +24,19 @@ class ScriptGenerator {
             if (zone.shape === 'circle') {
                 script += `            zone.Center = Vector(${zone.cx.toFixed(2)}, 0, ${zone.cy.toFixed(2)});\n`;
                 script += `            zone.Radius = ${zone.radius.toFixed(2)};\n`;
+            } else if (zone.shape === 'rectangle') {
+                const corners = [
+                    { x: zone.x, y: zone.y },
+                    { x: zone.x + zone.width, y: zone.y },
+                    { x: zone.x + zone.width, y: zone.y + zone.height },
+                    { x: zone.x, y: zone.y + zone.height }
+                ];
+                corners.forEach(point => {
+                    script += `            zone.Points.Insert(Vector(${point.x.toFixed(2)}, 0, ${point.y.toFixed(2)}));\n`;
+                });
+            } else if (zone.shape === 'line') {
+                script += `            zone.Points.Insert(Vector(${zone.x1.toFixed(2)}, 0, ${zone.y1.toFixed(2)}));\n`;
+                script += `            zone.Points.Insert(Vector(${zone.x2.toFixed(2)}, 0, ${zone.y2.toFixed(2)}));\n`;
             } else if (zone.points) {
                 zone.points.forEach(p => {
                     script += `            zone.Points.Insert(Vector(${p.x.toFixed(2)}, 0, ${p.y.toFixed(2)}));\n`;

@@ -2,12 +2,13 @@
  * Export Handler - Orchestrates various export formats
  */
 class ExportHandler {
-    constructor(core, zoneManager, renderer, imageOverlayManager = null, notificationService = null) {
+    constructor(core, zoneManager, renderer, imageOverlayManager = null, notificationService = null, coordinateSystem = null) {
         this.core = core;
         this.zoneManager = zoneManager;
         this.renderer = renderer;
         this.imageOverlayManager = imageOverlayManager;
         this.notificationService = notificationService;
+        this.coordinateSystem = coordinateSystem;
     }
 
     export(format, settings = {}) {
@@ -23,10 +24,10 @@ class ExportHandler {
             return;
         }
 
-        const scale = settings.mapScale || 1;
-        const oX = settings.originX || 0;
-        const oY = settings.originY || 0;
-        const transformedZones = zones.map(z => this.transformZone(z, scale, oX, oY, settings.invertY));
+        if (settings.coordinateSystem) {
+            this.coordinateSystem?.setSettings(settings.coordinateSystem, { notify: false });
+        }
+        const transformedZones = zones.map(zone => this.transformZone(zone));
 
         switch (format) {
             case 'enfusion': this.exportEnfusion(transformedZones); break;
@@ -38,25 +39,11 @@ class ExportHandler {
         }
     }
 
-    transformZone(zone, scale, oX, oY, invY = false) {
-        const t = { ...zone };
-        const trY = (y) => invY ? oY - (y * scale) : (y * scale) + oY;
-
-        if (t.cx !== undefined) {
-            t.cx = (t.cx * scale) + oX;
-            t.cy = trY(t.cy);
-            t.radius *= scale;
-        } else if (t.x !== undefined) {
-            t.x = (t.x * scale) + oX;
-            t.y = trY(t.y);
-            t.width *= scale;
-            t.height *= scale;
+    transformZone(zone) {
+        if (!this.coordinateSystem) {
+            return { ...zone };
         }
-
-        if (t.points) {
-            t.points = t.points.map(p => ({ x: (p.x * scale) + oX, y: trY(p.y) }));
-        }
-        return t;
+        return this.coordinateSystem.transformZone(zone);
     }
 
     exportEnfusion(zones) {

@@ -29,6 +29,10 @@ const ExportHandler = loadScriptExport('js/export-handler.js', 'ExportHandler', 
     UTIF: {},
     Utils
 });
+const ScriptGenerator = loadScriptExport('js/services/script-generator.js', 'ScriptGenerator');
+const CalibrationService = loadScriptExport('js/services/calibration-service.js', 'CalibrationService', {
+    document: { getElementById: () => null }
+});
 const LayerOrderService = loadScriptExport('js/services/layer-order-service.js', 'LayerOrderService');
 const InspectorLayoutService = loadScriptExport('js/services/inspector-layout-service.js', 'InspectorLayoutService');
 const TabManager = loadScriptExport('js/ui/tab-manager.js', 'TabManager', { window: {} });
@@ -39,6 +43,7 @@ const CanvasCore = loadScriptExport('js/core/canvas-core.js', 'CanvasCore', {
     Constants: { SNAP_GRID_SIZE: 100 }
 });
 const LucideIconUtils = loadScriptExport('js/ui/lucide-icon-utils.js', 'LucideIconUtils');
+const ZoneCoordinateEditor = loadScriptExport('js/ui/zone-coordinate-editor.js', 'ZoneCoordinateEditor');
 
 function toPlainJson(value) {
     return JSON.parse(JSON.stringify(value));
@@ -64,42 +69,313 @@ test('Utils.getFourCCString decodes little-endian DDS identifiers', () => {
     assert.equal(Utils.getFourCCString(fourCC), 'DXT1');
 });
 
-test('ExportHandler.transformZone scales and offsets rectangles', () => {
-    const handler = new ExportHandler(null, null, null, null, null);
-    const transformed = handler.transformZone(
-        { x: 10, y: 20, width: 30, height: 40, shape: 'rectangle' },
-        2,
-        5,
-        7,
-        false
+test('Utils.formatCoord preserves signed Workbench precision', () => {
+    assert.equal(Utils.formatCoord(123.456), '123.46');
+    assert.equal(Utils.formatCoord(-5.2), '-5.20');
+});
+
+test('CoordinateSystemService matches Enfusion X/Z coordinates', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 1000 });
+
+    assert.deepEqual(toPlainJson(service.mapToWorld({ x: 0, y: 0 })), { x: 0, z: 1000 });
+    assert.deepEqual(toPlainJson(service.mapToWorld({ x: 250, y: 1000 })), { x: 250, z: 0 });
+
+    service.setSettings({ scale: 2, originX: 100, originZ: -50 });
+    assert.deepEqual(toPlainJson(service.mapToWorld({ x: 10, y: 20 })), { x: 120, z: 1910 });
+    assert.deepEqual(toPlainJson(service.worldToMap({ x: 120, z: 1910 })), { x: 10, y: 20 });
+});
+
+test('ZoneCoordinateEditor pins a circle to exact Workbench X/Z and radius', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 4096 });
+
+    const updates = ZoneCoordinateEditor.getMapUpdates('circle', {
+        centerX: 1191.721,
+        centerZ: 212.598,
+        radius: 1000
+    }, service);
+
+    assert.deepEqual(toPlainJson(updates), {
+        cx: 1191.721,
+        cy: 3883.402,
+        radius: 1000
+    });
+    const world = service.transformZone({ shape: 'circle', ...updates });
+    assert.equal(world.cx, 1191.721);
+    assert.equal(world.cy, 212.59799999999996);
+    assert.equal(world.radius, 1000);
+});
+
+test('ZoneCoordinateEditor converts exact rectangle and line coordinates into map geometry', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 2048 });
+    service.setSettings({ scale: 2, originX: 100, originZ: -50 });
+
+    assert.deepEqual(toPlainJson(ZoneCoordinateEditor.getMapUpdates('rectangle', {
+        minX: 300,
+        minZ: 450,
+        width: 1000,
+        depth: 500
+    }, service)), {
+        x: 100,
+        y: 1548,
+        width: 500,
+        height: 250
+    });
+
+    assert.deepEqual(toPlainJson(ZoneCoordinateEditor.getMapUpdates('line', {
+        startX: 300,
+        startZ: 450,
+        endX: 500,
+        endZ: 650
+    }, service)), {
+        x1: 100,
+        y1: 1798,
+        x2: 200,
+        y2: 1698
+    });
+});
+
+test('CalibrationService world-size quick setup derives metres per pixel from terrain dimensions', () => {
+    // 6016 x 6016 px image of a 12800 x 12800 m terrain.
+    assert.deepEqual(
+        toPlainJson(CalibrationService.getWorldSizeSettings(6016, 6016, 12800, 12800)),
+        { scale: 12800 / 6016, originX: 0, originZ: 0 }
     );
 
-    assert.deepEqual(
-        toPlainJson(transformed),
-        { x: 25, y: 47, width: 60, height: 80, shape: 'rectangle' }
+    // A Workbench corner at (1191.721, 1448.443) must land on the image.
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 6016 });
+    service.setSettings(CalibrationService.getWorldSizeSettings(6016, 6016, 12800, 12800));
+    const mapPoint = service.worldToMap({ x: 1191.721, z: 1448.443 });
+    assert.equal(mapPoint.x > 0 && mapPoint.x < 6016, true);
+    assert.equal(mapPoint.y > 0 && mapPoint.y < 6016, true);
+
+    // Aspect-ratio mismatch is rejected instead of silently skewing the map.
+    assert.throws(
+        () => CalibrationService.getWorldSizeSettings(6016, 6016, 12800, 6400),
+        /aspect ratio/
     );
 });
 
-test('ExportHandler.transformZone inverts Y coordinates for polygons', () => {
-    const handler = new ExportHandler(null, null, null, null, null);
-    const transformed = handler.transformZone(
-        {
-            shape: 'polygon',
-            points: [
-                { x: 1, y: 2 },
-                { x: 3, y: 4 }
-            ]
+test('CalibrationService saves and restores calibration per map size', () => {
+    const store = {};
+    const fakeApp = {
+        core: { mapWidth: 6016, mapHeight: 6016 },
+        coordinateSystem: {
+            settings: null,
+            setSettings(settings) { this.settings = { ...settings }; return { ...settings }; }
         },
-        10,
-        100,
-        500,
-        true
+        notificationService: { showToast: () => {}, showAlert: () => {} },
+        tabManager: { markActiveTabDirty: () => {} },
+        hideExportModal: () => {},
+        showExportModal: () => {}
+    };
+    const elements = {
+        worldSizeWidth: { value: '12800' },
+        worldSizeDepth: { value: '12800' },
+        btnApplyWorldSize: { addEventListener: () => {} },
+        btnOpen: { addEventListener: () => {} },
+        btnClose: { addEventListener: () => {} },
+        btnCancel: { addEventListener: () => {} },
+        modal: { classList: { add: () => {}, remove: () => {} } }
+    };
+    const service = new CalibrationService(fakeApp);
+    service.init(elements);
+    // Swap in a localStorage-like store.
+    service.getStorage = () => store;
+    service.getStorageKey = () => 'mapOverlay_map_calibration';
+
+    service.applyWorldSize();
+
+    assert.deepEqual(
+        toPlainJson(store['6016x6016']),
+        { scale: 12800 / 6016, originX: 0, originZ: 0 }
+    );
+    assert.equal(service.getSavedCalibration().scale, 12800 / 6016);
+    assert.equal(service.restoreSavedCalibration(), true);
+    assert.equal(fakeApp.coordinateSystem.settings.scale, 12800 / 6016);
+});
+
+test('CanvasCore stores and restores user grid colours', () => {
+    const canvas = {
+        getContext: () => ({}),
+        classList: { add: () => {}, remove: () => {} }
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+
+    // Defaults match the original yellow grid.
+    assert.equal(core.getGridColors().major, 'rgba(255, 230, 109, 0.42)');
+    assert.equal(core.getGridColors().minor, 'rgba(255, 230, 109, 0.18)');
+
+    // Custom hex colours convert to translucent rgba for line drawing.
+    core.setGridColors({ major: '#00ff88', minor: '#0066ff', label: '#ffffff' });
+    assert.equal(core.getGridColors().major, 'rgba(0, 255, 136, 0.5)');
+    assert.equal(core.getGridColors().minor, 'rgba(0, 102, 255, 0.28)');
+    assert.equal(core.getGridColors().label, 'rgba(255, 255, 255, 0.9)');
+
+    // Invalid values are ignored rather than corrupting the grid.
+    core.setGridColors({ major: 'not-a-color' });
+    assert.equal(core.getGridColors().major, 'rgba(0, 255, 136, 0.5)');
+});
+
+test('CoordinateSystemService transforms rectangle bounds from canvas top-left to Enfusion minimum X/Z', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 100 });
+    service.setSettings({ scale: 2, originX: 5, originZ: 7 });
+
+    assert.deepEqual(
+        toPlainJson(service.transformZone({ x: 10, y: 20, width: 30, height: 40, shape: 'rectangle' })),
+        { x: 25, y: 87, width: 60, height: 80, shape: 'rectangle' }
+    );
+});
+
+test('CoordinateSystemService transforms polygon and line points into Enfusion X/Z', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 50 });
+    service.setSettings({ scale: 10, originX: 100, originZ: 500 });
+
+    const polygon = service.transformZone({
+        shape: 'polygon',
+        points: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 }
+        ]
+    });
+    assert.deepEqual(toPlainJson(polygon.points), [
+        { x: 110, y: 980 },
+        { x: 130, y: 960 }
+    ]);
+
+    const line = service.transformZone({ shape: 'line', x1: 2, y1: 5, x2: 4, y2: 10 });
+    assert.deepEqual(toPlainJson(line), {
+        shape: 'line',
+        x1: 120,
+        y1: 950,
+        x2: 140,
+        y2: 900
+    });
+});
+
+test('CoordinateSystemService calibrates a north-up Enfusion map from two references', () => {
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    const service = new CoordinateSystemService({ mapHeight: 1000 });
+
+    const settings = service.calibrate(
+        { x: 100, y: 900 },
+        { x: 1200, z: 2200 },
+        { x: 600, y: 400 },
+        { x: 2200, z: 3200 }
     );
 
-    assert.deepEqual(toPlainJson(transformed.points), [
-        { x: 110, y: 480 },
-        { x: 130, y: 460 }
-    ]);
+    assert.deepEqual(toPlainJson(settings), { scale: 2, originX: 1000, originZ: 2000 });
+});
+
+test('ExportHandler delegates all zone geometry to the Enfusion coordinate system', () => {
+    const zones = [{ id: 'zone-a', shape: 'circle', cx: 10, cy: 20, radius: 5 }];
+    const transformed = [{ id: 'zone-a', shape: 'circle', cx: 110, cy: 980, radius: 50 }];
+    const calls = [];
+    const handler = new ExportHandler(
+        null,
+        { getZones: () => zones },
+        null,
+        null,
+        null,
+        { transformZone: zone => { calls.push(zone); return transformed[0]; } }
+    );
+    handler.exportJSON = exported => calls.push(exported);
+
+    handler.export('json');
+
+    assert.equal(calls[0], zones[0]);
+    assert.deepEqual(toPlainJson(calls[1]), transformed);
+});
+
+test('ScriptGenerator emits exact Enfusion X/Z corners for rectangles', () => {
+    const script = ScriptGenerator.generateEnfusionManager([
+        {
+            name: 'Exact Box',
+            profileId: 'custom',
+            shape: 'rectangle',
+            color: '#00ff88',
+            opacity: 0.4,
+            x: 100,
+            y: 200,
+            width: 30,
+            height: 40
+        }
+    ], value => value, () => 0, value => value);
+
+    assert.match(script, /Vector\(100\.00, 0, 200\.00\)/);
+    assert.match(script, /Vector\(130\.00, 0, 200\.00\)/);
+    assert.match(script, /Vector\(130\.00, 0, 240\.00\)/);
+    assert.match(script, /Vector\(100\.00, 0, 240\.00\)/);
+});
+
+test('CanvasCore switches between 1 km and 100 m Reforger grid levels by zoom', () => {
+    const canvas = {
+        getContext: () => ({}),
+        classList: { add: () => {}, remove: () => {} }
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    core.mapHeight = 1000;
+    core.coordinateSystem = new CoordinateSystemService(core);
+    core.coordinateSystem.setSettings({ scale: 1, originX: 0, originZ: 0 });
+
+    core.zoom = 0.05;
+    assert.equal(core.getVisibleGridSize(), 1000);
+    core.snapEnabled = true;
+    assert.deepEqual(toPlainJson(core.snapToGrid({ x: 440, y: 560 })), { x: 0, y: 1000 });
+
+    core.zoom = 0.2;
+    assert.equal(core.getVisibleGridSize(), 100);
+});
+
+test('CanvasCore snaps map points on the Enfusion world grid', () => {
+    const canvas = {
+        getContext: () => ({}),
+        classList: { add: () => {}, remove: () => {} }
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    core.mapHeight = 100;
+    core.coordinateSystem = new CoordinateSystemService(core);
+    core.coordinateSystem.setSettings({ scale: 2, originX: 5, originZ: 7 });
+    core.snapEnabled = true;
+
+    assert.deepEqual(toPlainJson(core.snapToGrid({ x: 48, y: 57 })), { x: 47.5, y: 53.5 });
 });
 
 test('LayerOrderService treats legacy overlays as above legacy zones', () => {

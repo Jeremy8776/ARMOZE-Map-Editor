@@ -498,6 +498,119 @@ select optgroup {
 }
 
 
+.coordinate-accordion[hidden] {
+    display: none;
+}
+
+.coordinate-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.coordinate-editor-help {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.coordinate-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.coordinate-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.coordinate-field span,
+.coordinate-point-row > span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+}
+
+.coordinate-field input,
+.coordinate-point-row input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.24);
+    color: rgba(255, 255, 255, 0.94);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.coordinate-field input:focus,
+.coordinate-point-row input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.09);
+}
+
+.coordinate-point-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.coordinate-point-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+}
+
+/* Pin button follows the inspector's compact control language:
+   32px height, 10px radius, accent-tinted like the quick-chip primary action. */
+.coordinate-apply-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--color-accent-rgb), 0.32);
+    background: rgba(var(--color-accent-rgb), 0.16);
+    color: var(--color-accent);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.coordinate-apply-button:hover {
+    background: rgba(var(--color-accent-rgb), 0.24);
+    border-color: rgba(var(--color-accent-rgb), 0.5);
+    color: var(--color-accent);
+}
+
+.coordinate-apply-button:active {
+    background: rgba(var(--color-accent-rgb), 0.1);
+}
+
+.coordinate-apply-button svg,
+.coordinate-apply-button .lucide {
+    width: 14px;
+    height: 14px;
+}
+
 /* Info Glass */
 .coords-info-glass {
     background: rgba(0, 0, 0, 0.3);

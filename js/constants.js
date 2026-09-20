@@ -7,8 +7,14 @@ const Constants = {
     /** Grid size in pixels for canvas background */
     CANVAS_GRID_SIZE: 50,
 
-    /** Snap grid size in map units */
+    /** Snap grid size in Enfusion world metres */
     SNAP_GRID_SIZE: 100,
+
+    /** Reforger major map grid spacing in metres */
+    GRID_MAJOR_SIZE: 1000,
+
+    /** Minimum on-screen spacing before showing 100 m grid lines */
+    GRID_MINOR_MIN_SCREEN_PX: 18,
 
     /** Rotation snap increment in degrees when snap mode is enabled */
     SNAP_ROTATION_STEP: 15,

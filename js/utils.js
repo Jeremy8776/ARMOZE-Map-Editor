@@ -216,7 +216,7 @@ const Utils = {
      * Format coordinates for display
      */
     formatCoord(value) {
-        return Math.round(value).toString().padStart(4, '0');
+        return Number(value).toFixed(2);
     },
 
     /**

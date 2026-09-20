@@ -14,6 +14,7 @@ class ZonePropertiesUI {
             this.app.zoneListUI?.updateZoneList();
         }, 140);
         this.shell = new ZoneInspectorShell(this);
+        this.coordinateEditor = new ZoneCoordinateEditor(this);
     }
 
     /**
@@ -98,6 +99,7 @@ class ZonePropertiesUI {
 
         this.createOverlayInspectorControls();
         this.shell.initPanelInteractions();
+        this.coordinateEditor.init();
         this.setupAccordionInteractions();
         this.quickColors = ['#00ff88', '#ff4757', '#0066ff', '#f1c40f', '#9b59b6', '#ffffff'];
 
@@ -453,6 +455,7 @@ class ZonePropertiesUI {
         this.updateIntegratedLabelControls(zone);
         this.updateLabelOptionsVisibility();
         this.updateLabelPositionInfo(zone);
+        this.coordinateEditor.render(zone);
         this.syncAccordionSummaries();
 
         this.updateZoneDataReadout(zone);
@@ -468,6 +471,7 @@ class ZonePropertiesUI {
 
         this.elements.floatingControls?.classList.add('is-overlay-mode');
         this.shell.setInspectorMode('overlay');
+        this.coordinateEditor.render(null);
 
         if (!isRefresh) {
             this.setInspectorCollapsed(false);

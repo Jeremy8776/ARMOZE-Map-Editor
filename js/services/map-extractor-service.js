@@ -8,7 +8,7 @@ class MapExtractorService {
         this.config = {
             scanDir: '',
             outputDir: '',
-            toolsDir: 'tools',
+            toolsDir: '',
             gameDir: ''
         };
     }
@@ -26,7 +26,15 @@ class MapExtractorService {
         if (savedOut) this.config.outputDir = savedOut;
 
         const savedTools = localStorage.getItem('extractor_toolsDir');
-        if (savedTools) this.config.toolsDir = savedTools;
+        // Legacy relative values like 'tools' break the main-process
+        // validation; the bundled tools dir is the default anyway.
+        const isAbsolute = /^[A-Za-z]:[\\/]/.test(savedTools || '') || (savedTools || '').startsWith('\\\\');
+        if (savedTools && isAbsolute) {
+            this.config.toolsDir = savedTools;
+        } else {
+            this.config.toolsDir = '';
+            localStorage.removeItem('extractor_toolsDir');
+        }
     }
 
     saveConfig(config) {

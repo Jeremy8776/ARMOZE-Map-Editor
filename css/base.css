@@ -155,13 +155,9 @@ body.is-zone-dragging * {
 
 /* Interactive Elements Polish */
 button, .btn, .tool-btn, .tab, .zone-item {
-    transition: all 0.2s var(--ease-out-expo) !important;
+    transition: background 0.2s var(--ease-out-expo), border-color 0.2s var(--ease-out-expo), color 0.2s var(--ease-out-expo), box-shadow 0.2s var(--ease-out-expo);
 }
 
-.btn:hover, .tool-btn:hover, .zone-item:hover {
-    transform: translateY(-1px) scale(1.02);
-}
-
-.btn:active, .tool-btn:active, .zone-item:active {
-    transform: translateY(0) scale(0.98);
+.btn:active, .zone-item:active {
+    transform: translateY(0) scale(0.99);
 }

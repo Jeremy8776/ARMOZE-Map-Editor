@@ -61,14 +61,15 @@
             <div class="header-brand">
                 <div class="logo"><img src="logo-icon.svg" alt="ARMOZE" /></div>
                 <h1>ARMOZE</h1>
-                <a href="#" class="version" id="appVersionLink" target="_blank">v1.6.34 - MODULAR</a>
+                <a href="#" class="version" id="appVersionLink" target="_blank">v1.6.34</a>
             </div>
             <div class="header-info">
                 <div class="coords-display" id="coordsDisplay">
                     <span class="coord-label">X:</span><span id="coordX">0000</span>
-                    <span class="coord-label">Y:</span><span id="coordY">0000</span>
+                    <span class="coord-label">Z:</span><span id="coordY">0000</span>
                 </div>
                 <div class="map-info" id="mapInfo">No map loaded</div>
+                <div class="world-info" id="worldInfo" hidden></div>
             </div>
             <div class="header-actions">
                 <button class="btn btn-secondary" id="btnUndo" title="Undo (Ctrl+Z)" disabled><i data-lucide="undo-2"></i></button>
@@ -107,6 +108,7 @@
                 <div class="tool-divider"></div>
                 <div class="tool-group">
                     <button class="tool-btn" id="btnAddOverlayImage" title="Add Branding Image"><i data-lucide="image-plus"></i></button>
+                    <button class="tool-btn" id="btnOpenCalibrationToolbar" title="Calibrate Map Coordinates"><i data-lucide="locate-fixed"></i></button>
                     <button class="tool-btn" id="btnOpenExtractor" title="Texture Extractor (Ctrl+Shift+T)"><i data-lucide="package-search"></i></button>
                     <button class="tool-btn" id="btnShowHelp" title="Hotkeys & Help (?)"><i data-lucide="help-circle"></i></button>
                 </div>
@@ -191,6 +193,7 @@
     <script src="js/services/history-manager.js"></script>
     <script src="js/services/layer-order-service.js"></script>
     <script src="js/services/inspector-layout-service.js"></script>
+    <script src="js/services/coordinate-system-service.js"></script>
     <script src="js/services/project-manager.js"></script>
     <script src="js/services/calibration-service.js"></script>
     <script src="js/services/file-handler.js"></script>
@@ -206,6 +209,7 @@
     <script src="js/ui/zone-color-manager.js"></script>
     <script src="js/ui/zone-profile-manager.js"></script>
     <script src="js/ui/zone-properties-bindings.js"></script>
+    <script src="js/ui/zone-coordinate-editor.js"></script>
     <script src="js/ui/zone-inspector-shell.js"></script>
     <script src="js/ui/zone-properties-ui.js"></script>
     <script src="js/ui/toolbar-ui.js"></script>

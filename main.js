@@ -251,9 +251,16 @@ function buildExtractorSpawnOptions(options = {}) {
     }
 
     const bundledToolsDir = path.join(__dirname, 'tools');
-    const toolsDir = configuredToolsDir
-        ? path.resolve(__dirname, configuredToolsDir)
-        : bundledToolsDir;
+    let toolsDir = bundledToolsDir;
+    if (configuredToolsDir) {
+        // Absolute path must exist; relative paths resolve against the app
+        // directory so legacy 'tools' style values keep working.
+        if (path.isAbsolute(configuredToolsDir)) {
+            toolsDir = path.normalize(configuredToolsDir);
+        } else {
+            toolsDir = path.resolve(__dirname, configuredToolsDir);
+        }
+    }
     const scriptPath = path.join(bundledToolsDir, 'ExtractTexture.ps1');
 
     const args = [
@@ -293,7 +300,6 @@ ipcMain.handle('execute-extractor', async (event, options) => {
         Promise.all([
             validateExtractorDirectory(options?.scanDir, 'Scan directory'),
             validateExtractorDirectory(options?.gameDir, 'Game directory'),
-            validateExtractorDirectory(options?.toolsDir, 'Tools directory'),
             validateExtractorDirectory(options?.outputDir, 'Output directory', { mustExist: false })
         ]).then(() => {
         if (activeExtractorChild) {

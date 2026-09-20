@@ -1,17 +1,42 @@
 /**
  * Calibration Service Module
- * Handles map calibration for coordinate transformation
+ * Handles map calibration for coordinate transformation.
+ * Calibration is derived from the terrain world size and persisted per map
+ * dimensions so the same map never needs re-calibrating.
  */
 class CalibrationService {
     constructor(app) {
         this.app = app;
         this.elements = null;
-        this.state = {
-            active: false,
-            pickingStep: 0, // 1 or 2
-            p1: null, // {x, y} map coords
-            p2: null
-        };
+        this.storageKey = 'mapOverlay_map_calibration';
+    }
+
+    /**
+     * Quick setup for full-terrain images: derive metres-per-pixel from the
+     * terrain world size, with the world origin at the image bottom-left.
+     */
+    static getWorldSizeSettings(mapWidth, mapHeight, worldWidth, worldDepth) {
+        const width = Number(mapWidth);
+        const height = Number(mapHeight);
+        const worldW = Number(worldWidth);
+        const worldD = Number(worldDepth);
+        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+            throw new Error('Load a map before applying world size.');
+        }
+        if (!Number.isFinite(worldW) || worldW <= 0 || !Number.isFinite(worldD) || worldD <= 0) {
+            throw new Error('Enter the terrain width and depth in metres.');
+        }
+        const scaleX = worldW / width;
+        const scaleZ = worldD / height;
+        const average = (scaleX + scaleZ) / 2;
+        if (Math.abs(scaleX - scaleZ) / average > 0.02) {
+            throw new Error('World size does not match the image aspect ratio.');
+        }
+        return { scale: scaleX, originX: 0, originZ: 0 };
+    }
+
+    static getCalibrationKey(mapWidth, mapHeight) {
+        return `${Number(mapWidth)}x${Number(mapHeight)}`;
     }
 
     /**
@@ -25,22 +50,12 @@ class CalibrationService {
             btnOpen: refs.btnOpenCalibration || document.getElementById('btnOpenCalibration'),
             btnClose: refs.btnCloseCalibration || document.getElementById('btnCloseCalibration'),
             btnCancel: refs.btnCancelCalibration || document.getElementById('btnCancelCalibration'),
-            btnApply: refs.btnApplyCalibration || document.getElementById('btnApplyCalibration'),
-            step1: refs.calStep1 || document.getElementById('calStep1'),
-            step2: refs.calStep2 || document.getElementById('calStep2'),
-            btnPick1: refs.btnPickPoint1 || document.getElementById('btnPickPoint1'),
-            btnPick2: refs.btnPickPoint2 || document.getElementById('btnPickPoint2'),
-            pt1Params: refs.pt1Params || document.getElementById('pt1Params'),
-            pt2Params: refs.pt2Params || document.getElementById('pt2Params'),
-            inputs: {
-                p1x: refs.pt1WorldX || document.getElementById('pt1WorldX'),
-                p1y: refs.pt1WorldY || document.getElementById('pt1WorldY'),
-                p2x: refs.pt2WorldX || document.getElementById('pt2WorldX'),
-                p2y: refs.pt2WorldY || document.getElementById('pt2WorldY')
-            }
+            worldSizeWidth: refs.worldSizeWidth || document.getElementById('worldSizeWidth'),
+            worldSizeDepth: refs.worldSizeDepth || document.getElementById('worldSizeDepth'),
+            btnApplyWorldSize: refs.btnApplyWorldSize || document.getElementById('btnApplyWorldSize')
         };
 
-        if (!this.elements.modal || !this.elements.btnOpen || !this.elements.btnApply) {
+        if (!this.elements.modal || !this.elements.btnApplyWorldSize) {
             console.warn('CalibrationService init skipped: calibration DOM is incomplete.');
             return;
         }
@@ -52,20 +67,40 @@ class CalibrationService {
      * Setup event listeners for calibration
      */
     setupEventListeners() {
-        this.elements.btnOpen.addEventListener('click', () => {
+        this.elements.btnOpen?.addEventListener('click', () => {
             this.app.hideExportModal();
+            this.openedFromExport = true;
+            this.showModal();
+        });
+
+        const btnOpenToolbar = document.getElementById('btnOpenCalibrationToolbar');
+        btnOpenToolbar?.addEventListener('click', () => {
+            if (!this.app.core.mapImage) {
+                this.app.notificationService?.showToast('Load a map before calibrating.', 'error');
+                return;
+            }
             this.showModal();
         });
 
         this.elements.btnClose.addEventListener('click', () => this.hideModal());
         this.elements.btnCancel.addEventListener('click', () => this.hideModal());
-        this.elements.btnPick1.addEventListener('click', () => this.startPicking(1));
-        this.elements.btnPick2.addEventListener('click', () => this.startPicking(2));
-        this.elements.btnApply.addEventListener('click', () => this.applyCalibration());
+        this.elements.btnApplyWorldSize.addEventListener('click', () => this.applyWorldSize());
 
-        // Input validation to enable Apply button
-        Object.values(this.elements.inputs).forEach(input => {
-            input.addEventListener('input', () => this.checkReady());
+        this.elements.gridMajorColor = document.getElementById('gridMajorColor');
+        this.elements.gridMinorColor = document.getElementById('gridMinorColor');
+        this.elements.gridLabelColor = document.getElementById('gridLabelColor');
+        this.elements.btnResetGridColors = document.getElementById('btnResetGridColors');
+
+        ['gridMajorColor', 'gridMinorColor', 'gridLabelColor'].forEach(key => {
+            this.elements[key]?.addEventListener('input', () => this.applyGridColors());
+        });
+        this.elements.btnResetGridColors?.addEventListener('click', () => {
+            localStorage.removeItem('mapOverlay_grid_colors');
+            this.app.core.gridMajorColor = null;
+            this.app.core.gridMinorColor = null;
+            this.app.core.gridLabelColor = null;
+            this.syncGridColorInputs();
+            this.app.core.requestRender();
         });
     }
 
@@ -74,7 +109,8 @@ class CalibrationService {
      */
     showModal() {
         this.elements.modal.classList.add('visible');
-        this.resetUI();
+        this.restoreWorldSizeInputs();
+        this.syncGridColorInputs();
     }
 
     /**
@@ -82,145 +118,114 @@ class CalibrationService {
      */
     hideModal() {
         this.elements.modal.classList.remove('visible');
-        this.state.active = false;
-        this.state.pickingStep = 0;
-        document.body.style.cursor = 'default';
-        this.app.showExportModal(); // Return to export modal
-    }
-
-    /**
-     * Reset the calibration UI state
-     */
-    resetUI() {
-        this.state.p1 = null;
-        this.state.p2 = null;
-        this.elements.pt1Params.textContent = '-';
-        this.elements.pt2Params.textContent = '-';
-        this.elements.inputs.p1x.value = '';
-        this.elements.inputs.p1y.value = '';
-        this.elements.inputs.p2x.value = '';
-        this.elements.inputs.p2y.value = '';
-        this.checkReady();
-    }
-
-    /**
-     * Start picking a point on the map
-     * @param {number} step - Which point to pick (1 or 2)
-     */
-    startPicking(step) {
-        this.elements.modal.classList.remove('visible');
-        this.state.active = true;
-        this.state.pickingStep = step;
-        document.body.style.cursor = 'crosshair';
-
-        // Add one-time click listener
-        const pickHandler = (e) => {
-            if (!this.state.active) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Get coords from CanvasCore
-            const rect = this.app.core.canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left - this.app.core.panX) / this.app.core.zoom;
-            const y = (e.clientY - rect.top - this.app.core.panY) / this.app.core.zoom;
-
-            this.handlePickResult(x, y);
-
-            // Cleanup
-            this.app.core.canvas.removeEventListener('click', pickHandler);
-            document.body.style.cursor = 'default';
-        };
-
-        this.app.core.canvas.addEventListener('click', pickHandler, { once: true });
-    }
-
-    /**
-     * Handle the result of picking a point
-     * @param {number} x - X coordinate in map pixels
-     * @param {number} y - Y coordinate in map pixels
-     */
-    handlePickResult(x, y) {
-        const step = this.state.pickingStep;
-
-        if (step === 1) {
-            this.state.p1 = { x, y };
-            this.elements.pt1Params.textContent = `${Math.round(x)}, ${Math.round(y)}`;
-        } else if (step === 2) {
-            this.state.p2 = { x, y };
-            this.elements.pt2Params.textContent = `${Math.round(x)}, ${Math.round(y)}`;
+        // Only return to the export modal when calibration was opened from it.
+        if (this.openedFromExport) {
+            this.openedFromExport = false;
+            this.app.showExportModal();
         }
-
-        this.state.active = false;
-        this.state.pickingStep = 0;
-        this.elements.modal.classList.add('visible');
-        this.checkReady();
     }
 
     /**
-     * Check if calibration is ready to apply
+     * Pre-fill the world-size inputs from the saved calibration for this map.
      */
-    checkReady() {
-        const p1Ready = this.state.p1 && this.elements.inputs.p1x.value && this.elements.inputs.p1y.value;
-        const p2Ready = this.state.p2 && this.elements.inputs.p2x.value && this.elements.inputs.p2y.value;
-        this.elements.btnApply.disabled = !(p1Ready && p2Ready);
+    restoreWorldSizeInputs() {
+        const saved = this.getSavedCalibration();
+        if (!saved) return;
+        const width = saved.scale * this.app.core.mapWidth;
+        const depth = saved.scale * this.app.core.mapHeight;
+        if (Number.isFinite(width) && width > 0) {
+            this.elements.worldSizeWidth.value = Math.round(width * 1000) / 1000;
+        }
+        if (Number.isFinite(depth) && depth > 0) {
+            this.elements.worldSizeDepth.value = Math.round(depth * 1000) / 1000;
+        }
+    }
+
+    getStorage() {
+        try {
+            return JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+        } catch (error) {
+            return {};
+        }
+    }
+
+    getSavedCalibration() {
+        const { mapWidth, mapHeight } = this.app.core;
+        if (!mapWidth || !mapHeight) return null;
+        return this.getStorage()[CalibrationService.getCalibrationKey(mapWidth, mapHeight)] || null;
+    }
+
+    saveCalibration(settings) {
+        const { mapWidth, mapHeight } = this.app.core;
+        if (!mapWidth || !mapHeight) return;
+        const storage = this.getStorage();
+        storage[CalibrationService.getCalibrationKey(mapWidth, mapHeight)] = settings;
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(storage));
+        } catch (error) {
+            console.warn('Failed to save map calibration.', error);
+        }
     }
 
     /**
-     * Apply the calibration and calculate scale/origin
+     * Restore a saved calibration for the current map dimensions, if any.
+     * @returns {boolean} true when a saved calibration was applied
      */
-    applyCalibration() {
-        const mapP1 = this.state.p1;
-        const mapP2 = this.state.p2;
+    restoreSavedCalibration() {
+        const saved = this.getSavedCalibration();
+        if (!saved || !Number.isFinite(saved.scale) || saved.scale <= 0) return false;
+        this.app.coordinateSystem.setSettings(saved, { notify: false });
+        return true;
+    }
 
-        const worldP1 = {
-            x: parseFloat(this.elements.inputs.p1x.value),
-            y: parseFloat(this.elements.inputs.p1y.value)
+    applyGridColors() {
+        this.app.core.setGridColors({
+            major: this.elements.gridMajorColor?.value,
+            minor: this.elements.gridMinorColor?.value,
+            label: this.elements.gridLabelColor?.value
+        });
+    }
+
+    syncGridColorInputs() {
+        const toHex = value => {
+            if (!value) return '#ffe66d';
+            if (value.startsWith('#')) return value.slice(0, 7);
+            const match = value.match(/rgba?\(([^)]+)\)/);
+            if (!match) return '#ffe66d';
+            const [r, g, b] = match[1].split(',').map(Number);
+            const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+            return `#${hex}`;
         };
-        const worldP2 = {
-            x: parseFloat(this.elements.inputs.p2x.value),
-            y: parseFloat(this.elements.inputs.p2y.value)
-        };
+        if (this.elements.gridMajorColor) this.elements.gridMajorColor.value = toHex(this.app.core.gridMajorColor || 'rgba(255, 230, 109, 1)');
+        if (this.elements.gridMinorColor) this.elements.gridMinorColor.value = toHex(this.app.core.gridMinorColor || 'rgba(255, 230, 109, 1)');
+        if (this.elements.gridLabelColor) this.elements.gridLabelColor.value = toHex(this.app.core.gridLabelColor || 'rgba(255, 230, 109, 1)');
+    }
 
-        // Distance in Map Pixels
-        const distMap = Utils.distance(mapP1, mapP2);
-
-        // Distance in World Units
-        const distWorld = Utils.distance(worldP1, worldP2);
-
-        if (distMap < 1 || distWorld < 0.1) {
-            this.app.notificationService?.showAlert('Points are too close together to calibrate accurately.', { title: 'Calibration Error', tone: 'danger' });
-            return;
+    /**
+     * Apply terrain world size as the map calibration and persist it.
+     */
+    applyWorldSize() {
+        try {
+            const settings = CalibrationService.getWorldSizeSettings(
+                this.app.core.mapWidth,
+                this.app.core.mapHeight,
+                this.elements.worldSizeWidth.value,
+                this.elements.worldSizeDepth.value
+            );
+            this.app.coordinateSystem.setSettings(settings);
+            this.saveCalibration(settings);
+            this.app.tabManager?.markActiveTabDirty();
+            this.app.notificationService?.showToast(
+                `Calibrated: ${settings.scale.toFixed(3)} m per pixel. Saved for this map size.`,
+                'success'
+            );
+            this.hideModal();
+        } catch (err) {
+            this.app.notificationService?.showAlert(err.message, {
+                title: 'Calibration Error',
+                tone: 'danger'
+            });
         }
-
-        // Scale = World Units per Pixel
-        const scale = distWorld / distMap;
-
-        // Origin Calculation
-        const invertY = this.app.elements.invertY.checked;
-
-        const originX1 = worldP1.x - (mapP1.x * scale);
-        const originX2 = worldP2.x - (mapP2.x * scale);
-
-        let originY1, originY2;
-
-        if (invertY) {
-            originY1 = worldP1.y + (mapP1.y * scale);
-            originY2 = worldP2.y + (mapP2.y * scale);
-        } else {
-            originY1 = worldP1.y - (mapP1.y * scale);
-            originY2 = worldP2.y - (mapP2.y * scale);
-        }
-
-        const originX = (originX1 + originX2) / 2;
-        const originY = (originY1 + originY2) / 2;
-
-        // Apply to Export Modal Inputs
-        this.app.elements.mapScale.value = scale.toFixed(4);
-        this.app.elements.originX.value = originX.toFixed(2);
-        this.app.elements.originY.value = originY.toFixed(2);
-
-        this.hideModal();
     }
 }
 

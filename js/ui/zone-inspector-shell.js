@@ -554,29 +554,30 @@ class ZoneInspectorShell {
             const rotation = zone.rotation ?? 0;
             return `Position: (${x.toFixed(1)}, ${y.toFixed(1)})<br>Size: ${width.toFixed(1)} x ${height.toFixed(1)}<br>Rotation: ${rotation.toFixed(1)} deg`;
         }
+        zone = this.ui.app.coordinateSystem?.transformZone(zone) || zone;
         if (zone.shape === 'circle') {
             const cx = zone.cx ?? 0;
-            const cy = zone.cy ?? 0;
+            const cz = zone.cy ?? 0;
             const radius = zone.radius ?? 0;
-            return `Center: (${cx.toFixed(1)}, ${cy.toFixed(1)})<br>Radius: ${radius.toFixed(1)}`;
+            return `Center X/Z: (${cx.toFixed(1)}, ${cz.toFixed(1)}) m<br>Radius: ${radius.toFixed(1)} m`;
         }
         if (zone.shape === 'rectangle') {
             const x = zone.x ?? 0;
-            const y = zone.y ?? 0;
+            const z = zone.y ?? 0;
             const width = zone.width ?? 0;
-            const height = zone.height ?? 0;
-            return `Position: (${x.toFixed(1)}, ${y.toFixed(1)})<br>Size: ${width.toFixed(1)} x ${height.toFixed(1)}`;
+            const depth = zone.height ?? 0;
+            return `Minimum X/Z: (${x.toFixed(1)}, ${z.toFixed(1)}) m<br>Size X/Z: ${width.toFixed(1)} x ${depth.toFixed(1)} m`;
         }
         if (zone.shape === 'line') {
             const x1 = zone.x1 ?? 0;
-            const y1 = zone.y1 ?? 0;
+            const z1 = zone.y1 ?? 0;
             const x2 = zone.x2 ?? 0;
-            const y2 = zone.y2 ?? 0;
-            return `Start: (${x1.toFixed(1)}, ${y1.toFixed(1)})<br>End: (${x2.toFixed(1)}, ${y2.toFixed(1)})`;
+            const z2 = zone.y2 ?? 0;
+            return `Start X/Z: (${x1.toFixed(1)}, ${z1.toFixed(1)}) m<br>End X/Z: (${x2.toFixed(1)}, ${z2.toFixed(1)}) m`;
         }
         if (zone.points?.length) {
             return zone.points.map((point, index) =>
-                `P${index + 1}: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`
+                `P${index + 1} X/Z: (${point.x.toFixed(1)}, ${point.y.toFixed(1)}) m`
             ).join('<br>');
         }
         return '';

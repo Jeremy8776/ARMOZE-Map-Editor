@@ -24,7 +24,13 @@ class ProjectManager {
                 .map(overlay => this.normalizeOverlay(overlay))
             : [];
 
-        return { zones, overlays };
+        return {
+            zones,
+            overlays,
+            coordinateSystem: projectData?.coordinateSystem && typeof projectData.coordinateSystem === 'object'
+                ? projectData.coordinateSystem
+                : null
+        };
     }
 
     normalizeZone(zone) {
@@ -77,7 +83,8 @@ class ProjectManager {
             version: "1.3.2",
             created: new Date().toISOString(),
             zones: zones,
-            overlays: overlays
+            overlays: overlays,
+            coordinateSystem: this.app.coordinateSystem.getSettings()
         };
 
         const json = JSON.stringify(projectData, null, 2);
@@ -122,6 +129,9 @@ class ProjectManager {
             }
 
             this.app.zoneManager.zones = normalizedProject.zones;
+            if (normalizedProject.coordinateSystem) {
+                this.app.coordinateSystem.setSettings(normalizedProject.coordinateSystem);
+            }
             this.app.imageOverlayManager.setOverlays(normalizedProject.overlays, { persist: true, keepSelection: false });
             this.app.layerOrderService?.ensureLayerOrders({ persist: true });
             this.app.zoneManager.saveToStorage();

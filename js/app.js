@@ -28,6 +28,7 @@ class ZoneEditorApp {
             coordX: document.getElementById('coordX'),
             coordY: document.getElementById('coordY'),
             mapInfo: document.getElementById('mapInfo'),
+            worldInfo: document.getElementById('worldInfo'),
             zoomIndicator: document.getElementById('zoomIndicator'),
             btnUndo: document.getElementById('btnUndo'),
             btnRedo: document.getElementById('btnRedo'),
@@ -51,18 +52,18 @@ class ZoneEditorApp {
             btnConfirmExport: document.getElementById('btnConfirmExport'),
             mapScale: document.getElementById('mapScale'),
             originX: document.getElementById('originX'),
-            originY: document.getElementById('originY'),
+            originZ: document.getElementById('originZ'),
             textureSuffix: document.getElementById('textureSuffix'),
             resizePow2: document.getElementById('resizePow2'),
             baseName: document.getElementById('baseName'),
             btnToggleSnap: document.getElementById('btnToggleSnap'),
-            invertY: document.getElementById('invertY'),
             toolbar: document.querySelector('.toolbar')
         };
     }
 
     initCore() {
         this.core = new CanvasCore(this.elements.canvas, this.elements.canvasContainer);
+        this.core.loadGridColors();
         this.zoneManager = new ZoneManager(() => this.requestRender());
         this.imageOverlayManager = new ImageOverlayManager(() => this.requestRender());
         this.imageOverlayManager.hydrateCore(this.core);
@@ -91,9 +92,11 @@ class ZoneEditorApp {
 
         // NotificationService is constructed before services that may emit dialogs.
         this.notificationService = new NotificationService(this);
+        this.coordinateSystem = new CoordinateSystemService(this.core, () => this.refreshCoordinateUI());
+        this.core.coordinateSystem = this.coordinateSystem;
         this.projectManager = new ProjectManager(this);
         this.fileHandler = new FileHandler(this);
-        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager, this.notificationService);
+        this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager, this.notificationService, this.coordinateSystem);
         this.calibrationService = new CalibrationService(this);
         this.extractorService = new MapExtractorService(this);
         this.hotkeyManager = new HotkeyManager(this);
@@ -137,17 +140,9 @@ class ZoneEditorApp {
             btnOpenCalibration: document.getElementById('btnOpenCalibration'),
             btnCloseCalibration: document.getElementById('btnCloseCalibration'),
             btnCancelCalibration: document.getElementById('btnCancelCalibration'),
-            btnApplyCalibration: document.getElementById('btnApplyCalibration'),
-            calStep1: document.getElementById('calStep1'),
-            calStep2: document.getElementById('calStep2'),
-            btnPickPoint1: document.getElementById('btnPickPoint1'),
-            btnPickPoint2: document.getElementById('btnPickPoint2'),
-            pt1Params: document.getElementById('pt1Params'),
-            pt2Params: document.getElementById('pt2Params'),
-            pt1WorldX: document.getElementById('pt1WorldX'),
-            pt1WorldY: document.getElementById('pt1WorldY'),
-            pt2WorldX: document.getElementById('pt2WorldX'),
-            pt2WorldY: document.getElementById('pt2WorldY')
+            worldSizeWidth: document.getElementById('worldSizeWidth'),
+            worldSizeDepth: document.getElementById('worldSizeDepth'),
+            btnApplyWorldSize: document.getElementById('btnApplyWorldSize')
         });
         this.extractorService.init();
         this.extractorUI.init();
@@ -303,8 +298,9 @@ class ZoneEditorApp {
         });
 
         this.core.onCoordsChanged = (x, y) => {
-            this.elements.coordX.textContent = Utils.formatCoord(x);
-            this.elements.coordY.textContent = Utils.formatCoord(y);
+            const world = this.coordinateSystem.mapToWorld({ x, y });
+            this.elements.coordX.textContent = Utils.formatCoord(world.x);
+            this.elements.coordY.textContent = Utils.formatCoord(world.z);
         };
 
         this.core.onZoomChanged = (zoomPercent) => {
@@ -367,6 +363,9 @@ class ZoneEditorApp {
         this.elements.btnCloseExport.addEventListener('click', () => this.hideExportModal());
         this.elements.btnCancelExport.addEventListener('click', () => this.hideExportModal());
         this.elements.btnConfirmExport.addEventListener('click', () => this.handleExport());
+        [this.elements.mapScale, this.elements.originX, this.elements.originZ].forEach(input => {
+            input?.addEventListener('change', () => this.applyCoordinateInputs());
+        });
 
         this.elements.exportModal.addEventListener('click', (e) => {
             if (e.target === this.elements.exportModal) this.hideExportModal();
@@ -377,6 +376,7 @@ class ZoneEditorApp {
         if (!keepTabs) this.elements.tabBar.innerHTML = '';
         this.elements.uploadPrompt.style.display = 'flex';
         this.elements.mapInfo.textContent = "No map loaded";
+        this.refreshWorldInfo?.();
         if (!keepTabs) {
             this.core.clearMap();
             this.zoneManager.zones = [];
@@ -400,16 +400,57 @@ class ZoneEditorApp {
         window.location.href = docsUrl;
     }
 
-    showExportModal() { this.elements.exportModal.classList.add('visible'); }
+    showExportModal() {
+        this.refreshCoordinateUI();
+        this.elements.exportModal.classList.add('visible');
+    }
     hideExportModal() { this.elements.exportModal.classList.remove('visible'); }
 
+    refreshCoordinateUI() {
+        const settings = this.coordinateSystem.getSettings();
+        this.elements.mapScale.value = settings.scale;
+        this.elements.originX.value = settings.originX;
+        this.elements.originZ.value = settings.originZ;
+        this.refreshWorldInfo();
+        const zone = this.zoneManager.getSelectedZone();
+        if (zone) this.zonePropertiesUI?.updateZoneDataReadout(zone);
+        this.core.requestRender();
+    }
+
+    refreshWorldInfo() {
+        const el = this.elements.worldInfo;
+        if (!el) return;
+        const { mapWidth, mapHeight } = this.core;
+        const { scale } = this.coordinateSystem.getSettings();
+        const isCalibrated = this.core.mapImage && Number.isFinite(scale) && scale > 0 && scale !== 1;
+        el.hidden = !isCalibrated;
+        if (!isCalibrated) return;
+        const worldWidth = mapWidth * scale;
+        const worldDepth = mapHeight * scale;
+        el.textContent = `World: ${Math.round(worldWidth)} × ${Math.round(worldDepth)} m`;
+        el.title = `${scale.toFixed(4)} metres per pixel`;
+    }
+
+    applyCoordinateInputs() {
+        try {
+            this.coordinateSystem.setSettings({
+                scale: parseFloat(this.elements.mapScale.value),
+                originX: parseFloat(this.elements.originX.value),
+                originZ: parseFloat(this.elements.originZ.value)
+            });
+            return true;
+        } catch (err) {
+            this.notificationService?.showAlert(err.message, { title: 'Coordinate Error', tone: 'danger' });
+            this.refreshCoordinateUI();
+            return false;
+        }
+    }
+
     handleExport() {
+        if (!this.applyCoordinateInputs()) return;
         const format = document.querySelector('input[name="exportFormat"]:checked').value;
         const settings = {
-            mapScale: parseFloat(this.elements.mapScale.value) || 1,
-            originX: parseFloat(this.elements.originX.value) || 0,
-            originY: parseFloat(this.elements.originY.value) || 0,
-            invertY: this.elements.invertY.checked,
+            coordinateSystem: this.coordinateSystem.getSettings(),
             textureSuffix: this.elements.textureSuffix?.value || Constants.DEFAULT_TEXTURE_SUFFIX,
             resizeToPow2: this.elements.resizePow2?.checked ?? true,
             baseName: this.elements.baseName?.value || Constants.DEFAULT_EXPORT_FILENAME,
