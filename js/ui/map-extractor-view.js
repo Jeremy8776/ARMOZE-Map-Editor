@@ -5,6 +5,7 @@
 class MapExtractorView {
     static buildModalMarkup() {
         return `
+            ${this.buildTermsModalMarkup()}
             <div class="modal-overlay" id="extractorModal">
                 <div class="modal extractor-modal">
                     <div class="modal-header">
@@ -19,6 +20,54 @@ class MapExtractorView {
                         ${this.buildSearchSection()}
                         ${this.buildProgressSection()}
                         ${this.buildResultSection()}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    static buildTermsModalMarkup() {
+        return `
+            <div class="modal-overlay" id="extractorTermsModal" role="dialog" aria-modal="true" aria-labelledby="extractorTermsTitle">
+                <div class="modal extractor-terms-modal">
+                    <div class="modal-header">
+                        <h2 id="extractorTermsTitle"><i data-lucide="shield-alert"></i> Extractor Terms of Use</h2>
+                        <button class="modal-close" id="btnCloseExtractorTerms" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="modal-body extractor-terms-body">
+                        <div class="extractor-terms-warning">
+                            <strong>Use this feature only with files you are legally permitted to access and use.</strong>
+                            <p>This extractor can read files from third-party software installed on your device. It does not grant you ownership of, or rights to, any extracted content.</p>
+                            <p>Some software licences prohibit extraction or reverse engineering entirely. This acknowledgement does not override those restrictions or create permission.</p>
+                        </div>
+
+                        <p class="extractor-terms-intro">
+                            Before continuing, you agree to comply with every applicable licence agreement, terms of service, copyright rule, and law.
+                        </p>
+
+                        <ul class="extractor-terms-list">
+                            <li>You are solely responsible for confirming that you may access, extract, modify, retain, use, or share each file and for everything you do with the feature or its output.</li>
+                            <li>You must not bypass security or access controls, extract content without permission, or redistribute or commercially exploit content unless expressly authorised.</li>
+                            <li>ARMOZE is independent and is not affiliated with, endorsed by, or acting for any engine developer, game publisher, platform, or rights holder.</li>
+                            <li><strong>No warranty:</strong> this feature is provided as-is and as available, with all faults and without warranties or guarantees of availability, accuracy, compatibility, fitness for purpose, title, or non-infringement.</li>
+                            <li><strong>No indemnity from ARMOZE:</strong> ARMOZE does not indemnify, defend, reimburse, or compensate you for claims, investigations, losses, penalties, costs, or legal fees arising from your use of the feature.</li>
+                            <li><strong>Your indemnity:</strong> to the maximum extent permitted by law, you agree to indemnify and hold harmless ARMOZE and its maintainers and contributors from third-party claims, losses, penalties, costs, and reasonable legal fees arising directly from your unlawful or unauthorised use, your distribution of extracted content, your infringement of third-party rights, or your breach of these terms.</li>
+                            <li><strong>Liability limit:</strong> to the maximum extent permitted by law, ARMOZE and its maintainers and contributors are not liable for indirect, incidental, special, consequential, or punitive loss, loss of data, profits, opportunity, goodwill, or reputation, or claims resulting from your use, inability to use, or misuse of the feature.</li>
+                        </ul>
+
+                        <p class="extractor-terms-legal-limit">
+                            Nothing in these terms excludes or limits liability that cannot lawfully be excluded or limited.
+                        </p>
+
+                        <label class="extractor-terms-check" for="extractorTermsAccepted">
+                            <input type="checkbox" id="extractorTermsAccepted">
+                            <span>I have read and accept these Extractor Terms. I understand that ARMOZE grants no rights to third-party content, provides no warranty or indemnity, and that I am responsible for my use and the resulting claims.</span>
+                        </label>
+                        <p class="extractor-terms-required" id="extractorTermsRequired">Tick the acknowledgement above to continue.</p>
+                    </div>
+                    <div class="modal-footer extractor-terms-actions">
+                        <button class="btn btn-secondary" id="btnCancelExtractorTerms">Cancel</button>
+                        <button class="btn btn-primary" id="btnAcceptExtractorTerms" disabled>I Understand and Accept</button>
                     </div>
                 </div>
             </div>
@@ -123,6 +172,7 @@ class MapExtractorView {
                 </div>
                 <div class="result-actions">
                     <button class="btn btn-primary" id="btnImportMap" style="display:none;"><i data-lucide="download"></i> Import as Map</button>
+                    <button class="btn btn-secondary" id="btnOpenExtractorLogs" style="display:none;"><i data-lucide="file-text"></i> Open Logs</button>
                 </div>
             </div>
         `;

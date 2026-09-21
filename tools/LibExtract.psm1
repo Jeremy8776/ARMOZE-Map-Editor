@@ -209,28 +209,44 @@ function Invoke-BulkExtractCore {
         [bool]$ConvertEdds,
         [string]$EddsFormat
     )
-    
+
     $totalProcessed = 0
+    $totalFailed = 0
     foreach ($pak in $PakFiles) {
         Write-Host "Extracting: $($pak.Name)..." -ForegroundColor Cyan
         Expand-FullPak -Pak $pak -TempDir $TempDir -PakInspectorPath $PakInspectorPath
         $files = if ($ExtensionFilter) { Get-ChildItem $TempDir -Recurse -Filter "*$ExtensionFilter" } else { Get-ChildItem $TempDir -Recurse -File }
-        
+
         $current = 0
         foreach ($file in $files) {
             $current++; $pct = [math]::Round(($current / $files.Count) * 100)
             Write-Host "`r  Processing: $current/$($files.Count) ($pct%)" -NoNewline -ForegroundColor DarkGray
-            
+
             if ($file.Extension.ToLower() -eq ".edds" -and $ConvertEdds) {
                 $img = Convert-EddsToImage -EddsFilePath $file.FullName -Edds2ImagePath $Edds2ImagePath -PreferredFormat $EddsFormat
                 if ($img) { Save-ToOutput -SourcePath $img -DesiredName ([System.IO.Path]::GetFileNameWithoutExtension($file.Name)) -OutputDir $OutputDir | Out-Null; $totalProcessed++ }
+                else { $totalFailed++ }
             } else {
                 Save-ToOutput -SourcePath $file.FullName -DesiredName ([System.IO.Path]::GetFileNameWithoutExtension($file.Name)) -OutputDir $OutputDir | Out-Null; $totalProcessed++
             }
         }
         Write-Host ""
     }
+
+    # Empty results must not report success: the caller (and the app UI)
+    # treats a 0 exit as "Done".
+    if ($totalProcessed -eq 0) {
+        Write-Host "No files matched" -NoNewline
+        if ($ExtensionFilter) { Write-Host " filter '$ExtensionFilter'" -NoNewline }
+        Write-Host " in any PAK." -ForegroundColor Red
+        return 2
+    }
+    if ($totalFailed -gt 0) {
+        Write-Host "Done with errors: processed $totalProcessed, failed $totalFailed." -ForegroundColor Yellow
+        return 3
+    }
     Write-Host "Done! Processed: $totalProcessed" -ForegroundColor Green
+    return 0
 }
 
 Export-ModuleMember -Function Expand-PakFile, Expand-FullPak, Get-EddsFormatChoice, Convert-EddsToImage, Save-ToOutput, Invoke-ExtractedFileProcess, Invoke-SearchMode, Invoke-BulkExtractCore

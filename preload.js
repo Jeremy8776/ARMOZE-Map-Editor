@@ -1,5 +1,33 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Forward renderer-side failures to the main-process log file so
+// crashes are diagnosable without DevTools.
+window.addEventListener('error', (event) => {
+    ipcRenderer.send('renderer-log', {
+        level: 'error',
+        message: event.message,
+        error: {
+            name: event.error?.name,
+            message: event.error?.message,
+            stack: event.error?.stack,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno
+        }
+    });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    ipcRenderer.send('renderer-log', {
+        level: 'error',
+        message: `Unhandled promise rejection: ${reason?.message || reason}`,
+        error: reason instanceof Error
+            ? { name: reason.name, message: reason.message, stack: reason.stack }
+            : String(reason)
+    });
+});
+
 contextBridge.exposeInMainWorld('electronAPI', {
     executeExtractor: (options) => ipcRenderer.invoke('execute-extractor', options),
     onCommandOutput: (callback) => ipcRenderer.on('command-output', (event, data) => callback(data)),
@@ -24,5 +52,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     importMapAsset: (sourcePath, friendlyName) => ipcRenderer.invoke('import-map-asset', sourcePath, friendlyName),
-    saveMapAssetDataUrl: (payload) => ipcRenderer.invoke('save-map-asset-data-url', payload)
+    saveMapAssetDataUrl: (payload) => ipcRenderer.invoke('save-map-asset-data-url', payload),
+    openLogsFolder: () => ipcRenderer.invoke('open-logs-folder')
 });

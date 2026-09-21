@@ -4,6 +4,34 @@ const fs = require('fs/promises');
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const packageMetadata = require('./package.json');
+const { getBundledToolsDir } = require('./extractor-runtime');
+const { createAppLogger, installConsoleCapture } = require('./app-logger');
+
+// Persistent diagnostics: main-process lifecycle, renderer errors
+// forwarded over IPC, and extractor runs. Logs live in userData/logs.
+const logger = createAppLogger({
+    logDir: path.join(app.getPath('userData'), 'logs')
+});
+installConsoleCapture(logger);
+
+process.on('uncaughtException', (error) => {
+    logger.error('main', 'Uncaught exception', error);
+});
+process.on('unhandledRejection', (reason) => {
+    logger.error('main', 'Unhandled rejection', reason instanceof Error ? reason : String(reason));
+});
+
+// Renderer diagnostics (window.onerror / unhandledrejection via preload)
+ipcMain.on('renderer-log', (event, payload) => {
+    const level = ['debug', 'info', 'warn', 'error'].includes(payload?.level) ? payload.level : 'info';
+    const error = payload?.error;
+    logger[level]('renderer', payload?.message || '(no message)', error);
+});
+
+// Lets users attach the log file to a bug report
+ipcMain.handle('open-logs-folder', () => {
+    shell.openPath(logger.getDirectory());
+});
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -42,6 +70,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
     app.setAppUserModelId('com.armoze.editor');
+    logger.info('main', 'Application starting', { version: packageMetadata.version, electron: process.versions.electron });
     createWindow();
 
     app.on('activate', function () {
@@ -250,7 +279,11 @@ function buildExtractorSpawnOptions(options = {}) {
         throw new Error('A filter extension is required.');
     }
 
-    const bundledToolsDir = path.join(__dirname, 'tools');
+    const bundledToolsDir = getBundledToolsDir({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        appDir: __dirname
+    });
     let toolsDir = bundledToolsDir;
     if (configuredToolsDir) {
         // Absolute path must exist; relative paths resolve against the app
@@ -296,6 +329,15 @@ function buildExtractorSpawnOptions(options = {}) {
 
 // IPC handler for the bundled extractor workflow
 ipcMain.handle('execute-extractor', async (event, options) => {
+    logger.info('extractor', 'Extraction requested', {
+        action: options?.action,
+        format: options?.format,
+        searchTerm: options?.searchTerm,
+        filterExtension: options?.filterExtension,
+        scanDir: options?.scanDir,
+        outputDir: options?.outputDir,
+        gameDir: options?.gameDir
+    });
     return new Promise((resolve, reject) => {
         Promise.all([
             validateExtractorDirectory(options?.scanDir, 'Scan directory'),
@@ -303,16 +345,21 @@ ipcMain.handle('execute-extractor', async (event, options) => {
             validateExtractorDirectory(options?.outputDir, 'Output directory', { mustExist: false })
         ]).then(() => {
         if (activeExtractorChild) {
-            try { activeExtractorChild.kill(); } catch (e) { }
+            try { activeExtractorChild.kill(); } catch (e) {
+                logger.warn('extractor', 'Failed to terminate previous extractor process', e);
+            }
         }
 
         let spawnOptions;
         try {
             spawnOptions = buildExtractorSpawnOptions(options);
         } catch (err) {
+            logger.error('extractor', 'Rejected extractor options', err);
             reject(err);
             return;
         }
+
+        logger.debug('extractor', 'Spawning extractor process', { command: spawnOptions.command });
 
         const child = spawn(spawnOptions.command, spawnOptions.args, {
             windowsHide: true,
@@ -338,14 +385,26 @@ ipcMain.handle('execute-extractor', async (event, options) => {
         child.on('close', (code) => {
             activeExtractorChild = null;
             if (code === 0) {
+                logger.info('extractor', 'Extractor process exited', { code, stdoutBytes: stdout.length, stderrBytes: stderr.length });
+                if (stderr) {
+                    logger.debug('extractor', 'Extractor succeeded with stderr output', { stderr: stderr.slice(-4000) });
+                }
                 resolve({ stdout, stderr });
             } else {
+                logger.error('extractor', 'Extractor process failed', {
+                    code,
+                    hexCode: code !== null ? `0x${(code >>> 0).toString(16)}` : null,
+                    command: spawnOptions.command,
+                    stderr: stderr.slice(-4000),
+                    stdoutTail: stdout.slice(-2000)
+                });
                 reject(new Error(`Exit code ${code}`));
             }
         });
 
         child.on('error', (err) => {
             activeExtractorChild = null;
+            logger.error('extractor', 'Extractor process error', err);
             reject(err);
         });
         }).catch(reject);

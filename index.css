@@ -10,6 +10,7 @@
 @import url('css/zones.css');
 @import url('css/modal.css');
 @import url('css/extractor.css');
+@import url('css/extractor-terms.css');
 
 html, body {
     height: 100%;

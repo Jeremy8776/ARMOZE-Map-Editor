@@ -4,10 +4,37 @@
  * Manages state transitions between search, progress, and result views.
  */
 class MapExtractorUI {
+    static getTermsVersion() {
+        return '2026-09-21-v2';
+    }
+
+    static getTermsStorageKey() {
+        return 'extractor_terms_acknowledgement';
+    }
+
+    static hasAcceptedTerms(storage = localStorage) {
+        try {
+            return storage.getItem(this.getTermsStorageKey()) === this.getTermsVersion();
+        } catch (err) {
+            return false;
+        }
+    }
+
+    static recordTermsAcceptance(storage = localStorage) {
+        try {
+            storage.setItem(this.getTermsStorageKey(), this.getTermsVersion());
+            return true;
+        } catch (err) {
+            return false;
+        }
+    }
+
     constructor(app) {
         this.app = app;
         this.service = app.extractorService;
         this.modal = null;
+        this.termsModal = null;
+        this.termsAcceptedForSession = false;
         this.pendingSelections = [];
         this.lastExtractedFile = null;
         this.selectedFormat = 'png';
@@ -55,11 +82,13 @@ class MapExtractorUI {
     createModal() {
         document.body.insertAdjacentHTML('beforeend', MapExtractorView.buildModalMarkup());
         this.modal = document.getElementById('extractorModal');
+        this.termsModal = document.getElementById('extractorTermsModal');
 
         // Populate saved config values
         this.populateConfigFields();
 
         this.refreshIcons(this.modal);
+        this.refreshIcons(this.termsModal);
     }
 
     populateConfigFields() {
@@ -98,6 +127,25 @@ class MapExtractorUI {
         document.getElementById('btnBackFromProgress')?.addEventListener('click', () => this.resetUI());
         document.getElementById('btnCloseExtractor')?.addEventListener('click', () => this.hide());
         document.getElementById('btnImportMap')?.addEventListener('click', () => this.handleImport());
+
+        // Feature-specific terms gate
+        const termsCheckbox = document.getElementById('extractorTermsAccepted');
+        const acceptTermsButton = document.getElementById('btnAcceptExtractorTerms');
+        termsCheckbox?.addEventListener('change', () => {
+            acceptTermsButton.disabled = !termsCheckbox.checked;
+            document.getElementById('extractorTermsRequired')?.classList.toggle('acknowledged', termsCheckbox.checked);
+        });
+        acceptTermsButton?.addEventListener('click', () => this.acceptTerms());
+        document.getElementById('btnCancelExtractorTerms')?.addEventListener('click', () => this.hideTermsGate());
+        document.getElementById('btnCloseExtractorTerms')?.addEventListener('click', () => this.hideTermsGate());
+
+        let isTermsBackdropClick = false;
+        this.termsModal?.addEventListener('mousedown', (e) => {
+            isTermsBackdropClick = (e.target === this.termsModal);
+        });
+        this.termsModal?.addEventListener('click', (e) => {
+            if (isTermsBackdropClick && e.target === this.termsModal) this.hideTermsGate();
+        });
 
         // Enter key on search input triggers extraction
         document.getElementById('extractorSearchTerm')?.addEventListener('keydown', (e) => {
@@ -161,10 +209,51 @@ class MapExtractorUI {
     // =============================================
 
     show() {
+        if (!this.termsAcceptedForSession && !MapExtractorUI.hasAcceptedTerms()) {
+            this.showTermsGate();
+            return;
+        }
+
+        this.openExtractor();
+    }
+
+    openExtractor() {
         this.resetUI();
         this.modal.classList.add('visible');
         // Slight delay for entrance animation to complete before focusing
         setTimeout(() => document.getElementById('extractorSearchTerm')?.focus(), 150);
+    }
+
+    showTermsGate() {
+        const checkbox = document.getElementById('extractorTermsAccepted');
+        const acceptButton = document.getElementById('btnAcceptExtractorTerms');
+        const requiredCopy = document.getElementById('extractorTermsRequired');
+        const termsBody = this.termsModal?.querySelector('.extractor-terms-body');
+        const closeButton = document.getElementById('btnCloseExtractorTerms');
+
+        if (checkbox) checkbox.checked = false;
+        if (acceptButton) acceptButton.disabled = true;
+        requiredCopy?.classList.remove('acknowledged');
+        if (termsBody) termsBody.scrollTop = 0;
+        this.termsModal?.classList.add('visible');
+        setTimeout(() => {
+            if (termsBody) termsBody.scrollTop = 0;
+            closeButton?.focus({ preventScroll: true });
+        }, 150);
+    }
+
+    hideTermsGate() {
+        this.termsModal?.classList.remove('visible');
+    }
+
+    acceptTerms() {
+        const checkbox = document.getElementById('extractorTermsAccepted');
+        if (!checkbox?.checked) return;
+
+        this.termsAcceptedForSession = true;
+        MapExtractorUI.recordTermsAcceptance();
+        this.hideTermsGate();
+        this.openExtractor();
     }
 
     hide() {
@@ -348,6 +437,22 @@ class MapExtractorUI {
                 `<strong>Error:</strong> ${err.message}`;
             document.getElementById('btnImportMap').style.display = 'none';
             this.removeOpenFolderButton();
+            this.showLogsButton();
+        }
+    }
+
+    showLogsButton() {
+        const logsButton = document.getElementById('btnOpenExtractorLogs');
+        if (!logsButton) return;
+
+        if (window.electronAPI?.openLogsFolder) {
+            logsButton.style.display = 'flex';
+            if (!logsButton.dataset.bound) {
+                logsButton.addEventListener('click', () => {
+                    window.electronAPI.openLogsFolder();
+                });
+                logsButton.dataset.bound = '1';
+            }
         }
     }
 

@@ -67,17 +67,39 @@ if ($interactiveMode) {
     # Automated Mode
     $autoFmt = if ($Format) { $Format } else { "png" }
     if ($Action -eq "Search") {
-        $foundPak = foreach($p in $pakFiles){ if((& $pakInspector inspect $p.FullName 2>&1) -match [regex]::Escape($ResourcePath)){ $p; break } }
+        # PakInspector colourizes its listing with ANSI escapes; strip them
+        # before matching so exact paths resolve instead of silently failing.
+        # ([char]27 form works on both Windows PowerShell 5.1 and PowerShell 7.)
+        $ansiPattern = "$([char]27)\[[0-9;]*[mK]"
+        $pakListings = foreach ($p in $pakFiles) {
+            [pscustomobject]@{ Pak = $p; Listing = ((& $pakInspector inspect $p.FullName 2>&1) -join "`n") -replace $ansiPattern, "" }
+        }
+        $foundPak = foreach ($entry in $pakListings) {
+            if ($entry.Listing -match [regex]::Escape($ResourcePath)) { $entry.Pak; break }
+        }
         if (-not $foundPak) {
             Write-Host "No PAK entry matched '$ResourcePath'." -ForegroundColor Red
-            return
+            exit 2
         }
         $extracted = Expand-PakFile -Pak $foundPak -InternalPath $ResourcePath.Replace("\","/") -TempDir $tempDir -PakInspectorPath $pakInspector
-        if ($extracted) { Invoke-ExtractedFileProcess -FilePath $extracted[0].FullName -OutputDir $OutputDir -Edds2ImagePath $edds2image -EddsFormat $autoFmt | Out-Null }
+        if (-not $extracted -or $extracted.Count -eq 0) {
+            Write-Host "Extraction produced no output for '$ResourcePath'." -ForegroundColor Red
+            exit 3
+        }
+        $outputFile = Invoke-ExtractedFileProcess -FilePath $extracted[0].FullName -OutputDir $OutputDir -Edds2ImagePath $edds2image -EddsFormat $autoFmt
+        if (-not $outputFile) {
+            Write-Host "Failed to convert or save '$ResourcePath'." -ForegroundColor Red
+            exit 4
+        }
+        Write-Host "SUCCESS! -> $outputFile"
     } else {
         $ext = switch($Action){ "BulkTextures" {".edds"}; "BulkExtension" {$FilterExtension} default {$null} }
         $conv = ($Action -match "BulkAll|BulkTextures") -or ($ext -eq ".edds")
-        Invoke-BulkExtractCore -PakFiles $pakFiles -TempDir $tempDir -OutputDir $OutputDir -PakInspectorPath $pakInspector -Edds2ImagePath $edds2image -ExtensionFilter $ext -ConvertEdds $conv -EddsFormat $autoFmt
+        $bulkResult = Invoke-BulkExtractCore -PakFiles $pakFiles -TempDir $tempDir -OutputDir $OutputDir -PakInspectorPath $pakInspector -Edds2ImagePath $edds2image -ExtensionFilter $ext -ConvertEdds $conv -EddsFormat $autoFmt
+        if ($bulkResult -and $bulkResult -ne 0) {
+            if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
+            exit $bulkResult
+        }
     }
     if ($OpenFolder -eq "1") { Invoke-Item $OutputDir }
 }
