@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.35] - 2026-09-21
+
+### Added
+- **Enfusion coordinates**: added Workbench-style X/Z ground-plane coordinates throughout the editor.
+- **Map calibration and grid controls**: terrain dimensions now establish metres-per-pixel scaling, with persistent grid settings and labelled 100 m / 1 km grid lines.
+- **Exact coordinate editing**: selected zones can be positioned using world coordinates from the layer data panel.
+
+### Changed
+- **Coordinate-aware export and projects**: exports apply the saved coordinate system, and map calibration is restored with project and tab state.
+
 ## [1.6.34] - 2026-05-15
 
 ### Fixed
