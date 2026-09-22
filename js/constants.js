@@ -101,7 +101,7 @@ const Constants = {
     EXPORT_LINE_WIDTH_THICK: 4,
 
     // ==================== APP INFO ====================
-    APP_VERSION: 'v1.6.35 - MODULAR',
+    APP_VERSION: 'v1.6.38',
     GITHUB_URL: 'https://github.com/Jeremy8776/ARMOZE-Map-Editor'
 };
 

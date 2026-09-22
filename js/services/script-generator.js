@@ -15,11 +15,12 @@ class ScriptGenerator {
         script += this.getEnfusionHeader();
 
         for (const zone of zones) {
-            const typeEnum = getEnfusionType(zone.profileId);
+            const typeName = getEnfusionType(zone.profileId);
             const colorInt = hexToInt(zone.color);
+            const opacity = Number.isFinite(zone.opacity) ? zone.opacity : 1;
 
             script += `        // ${zone.name}\n        {\n`;
-            script += `            ZoneDefinition zone = new ZoneDefinition("${escapeString(zone.name)}", ${typeEnum}, "${zone.shape}");\n`;
+            script += `            ZoneDefinition zone = new ZoneDefinition("${escapeString(zone.name)}", ${typeName}, "${zone.shape}");\n`;
 
             if (zone.shape === 'circle') {
                 script += `            zone.Center = Vector(${zone.cx.toFixed(2)}, 0, ${zone.cy.toFixed(2)});\n`;
@@ -43,7 +44,7 @@ class ScriptGenerator {
                 });
             }
 
-            script += `            zone.Color = ${colorInt};\n            zone.Opacity = ${zone.opacity.toFixed(2)};\n`;
+            script += `            zone.Color = ${colorInt};\n            zone.Opacity = ${opacity.toFixed(2)};\n`;
             script += `            m_Zones.Insert(zone);\n        }\n\n`;
         }
 
@@ -52,14 +53,19 @@ class ScriptGenerator {
     }
 
     static getEnfusionHeader() {
-        return `enum EZoneType { SAFE, RESTRICTED, PVP, SPAWN, OBJECTIVE, CUSTOM }\n
-class ZoneDefinition {
-    string Name; EZoneType Type; string Shape; ref array<vector> Points; vector Center; float Radius; int Color; float Opacity;
-    void ZoneDefinition(string name, EZoneType type, string shape) { Name = name; Type = type; Shape = shape; Points = new array<vector>(); }
+        return `class ZoneDefinition {
+    string Name; string Type; string Shape; ref array<vector> Points; vector Center; float Radius; int Color; float Opacity;
+    void ZoneDefinition(string name, string type, string shape) { Name = name; Type = type; Shape = shape; Points = new array<vector>(); }
 }\n
 [ComponentEditorProps(category: "Game Mode", description: "Manages map zones")]
 class SCR_ZoneManagerComponent: SCR_BaseGameModeComponent {
     protected ref array<ref ZoneDefinition> m_Zones;
+
+    override void OnPostInit(IEntity owner) {
+        super.OnPostInit(owner);
+        InitZones();
+    }
+
     protected void InitZones() {
         m_Zones = new array<ref ZoneDefinition>();\n`;
     }
@@ -69,36 +75,12 @@ class SCR_ZoneManagerComponent: SCR_BaseGameModeComponent {
     }
 
     /**
-     * Generate Workbench Plugin Script
+     * Generate Workbench Plugin Script.
+     * Delegates to WorkbenchPluginGenerator, which emits a self-contained
+     * plugin against the documented WorldEditorAPI.
      */
-    static generateWorkbenchPlugin(zones, escapeString, getPolygonBounds) {
-        let script = `[WorkbenchPluginAttribute(name: "Import Zones", shortcut: "Ctrl+Shift+I", icon: "infopoint")]
-class ImportZonesPlugin : WorkbenchPlugin {
-    override void Run() {
-        WorldEditorAPI api = GenericComponent.GetWorldEditorAPI();
-        if (!api) return;
-        api.BeginEntityAction("ImportZones");\n`;
-
-        for (const zone of zones) {
-            let cx = 0, cy = 0, r = 1, w = 2, h = 2, type = "box", pts = "null";
-            
-            if (zone.shape === 'circle') {
-                cx = zone.cx; cy = zone.cy; r = zone.radius; type = "circle";
-            } else {
-                const bounds = zone.points ? getPolygonBounds(zone.points) : (zone.shape === 'rectangle' ? {x:zone.x, y:zone.y, width:zone.width, height:zone.height} : null);
-                if (bounds) {
-                    cx = bounds.x + bounds.width/2; cy = bounds.y + bounds.height/2;
-                    w = bounds.width; h = bounds.height; r = Math.max(w, h)/2;
-                }
-                type = zone.shape === 'rectangle' ? "box" : "spline";
-                if (zone.points) pts = `"${zone.points.map(p => `${p.x.toFixed(2)},0,${p.y.toFixed(2)}`).join('|')}"`;
-            }
-
-            script += `        CreateZone(api, "${escapeString(zone.name)}", "${type}", ${cx.toFixed(2)}, ${cy.toFixed(2)}, ${r.toFixed(2)}, ${w.toFixed(2)}, ${h.toFixed(2)}, "${(zone.profileId || 'custom').toUpperCase()}", ${pts});\n`;
-        }
-
-        script += `        api.EndEntityAction();\n    }\n}\n`;
-        return script;
+    static generateWorkbenchPlugin(zones, options = {}) {
+        return WorkbenchPluginGenerator.generate(zones, options);
     }
 }
 

@@ -23,6 +23,7 @@ class MapBrowserUI {
         this.installedFiles = new Set();
         this.activeDownloads = new Map(); // id -> { percent }
         this.cardsById = new Map();
+        this.tokenTooltip = window.MapTokenTooltip ? new window.MapTokenTooltip() : null;
 
         if (window.electronAPI?.onCatalogDownloadProgress) {
             window.electronAPI.onCatalogDownloadProgress((data) => this.handleDownloadProgress(data));
@@ -58,6 +59,7 @@ class MapBrowserUI {
                 window.electronAPI?.listMapAssets?.() ?? Promise.resolve([])
             ]);
             this.catalog = catalog && Array.isArray(catalog.maps) ? catalog : { maps: [] };
+            this.app?.officialCalibrationService?.setCatalog(this.catalog);
             this.installedFiles = new Set(installed.map(item => item.file));
             this.installedAssets = installed;
             this.render();
@@ -69,6 +71,7 @@ class MapBrowserUI {
 
     render() {
         if (!this.container) return;
+        this.tokenTooltip?.hide();
         this.container.innerHTML = '';
         this.cardsById.clear();
 
@@ -99,7 +102,7 @@ class MapBrowserUI {
         const item = document.createElement('div');
         item.className = 'map-list-item' + (installed ? '' : ' map-list-item-pending');
         item.dataset.mapId = entry.id;
-        item.title = entry.name;
+        item.setAttribute('aria-label', entry.name);
 
         const thumb = document.createElement('img');
         thumb.className = 'map-thumbnail';
@@ -120,21 +123,28 @@ class MapBrowserUI {
         }
         thumb.onerror = () => { thumb.src = this.fallbackThumbnail; };
 
-        // Status badge (top-right corner)
+        // Compact status token (top-right corner). Installed maps use an
+        // icon; download size and progress keep the short text they need.
+        const statusInfo = MapBrowserUI.describeCatalogStatus({
+            installed,
+            downloading,
+            percent: this.activeDownloads.get(entry.id)?.percent ?? 0,
+            sizeLabel: this.formatSize(entry.sizeBytes)
+        });
         const badge = document.createElement('span');
-        badge.className = 'map-status-badge';
+        badge.className = 'map-status-badge' + (statusInfo.icon ? ' map-status-badge--icon' : '');
         badge.dataset.role = 'status';
-        if (downloading) {
-            const pct = this.activeDownloads.get(entry.id)?.percent ?? 0;
-            badge.textContent = `${pct}%`;
-            badge.dataset.state = 'downloading';
-        } else if (installed) {
-            badge.textContent = 'Installed';
-            badge.dataset.state = 'installed';
+        badge.dataset.state = statusInfo.state;
+        this.tokenTooltip?.attach(badge, statusInfo);
+        if (statusInfo.icon) {
+            badge.innerHTML = `<i data-lucide="${statusInfo.icon}"></i>`;
+            setTimeout(() => { try { window.LucideIconUtils?.hydrate(badge); } catch {} }, 0);
         } else {
-            badge.textContent = this.formatSize(entry.sizeBytes);
-            badge.dataset.state = 'available';
+            badge.textContent = statusInfo.text;
         }
+
+        // Calibration badge (top-left corner) — hover explains the state.
+        const calibrationBadge = this.buildCalibrationBadge(entry);
 
         // Progress bar (only visible while downloading)
         const progressWrap = document.createElement('div');
@@ -159,7 +169,7 @@ class MapBrowserUI {
         actions.className = 'map-actions';
 
         if (installed) {
-            const btnDelete = this.makeIconButton('trash-2', 'Remove from this PC');
+            const btnDelete = this.makeIconButton('trash-2', 'Remove from this PC', { danger: true });
             btnDelete.onclick = (e) => {
                 e.stopPropagation();
                 this.handleDelete(entry);
@@ -177,7 +187,7 @@ class MapBrowserUI {
         infoRow.appendChild(nameSpan);
         infoRow.appendChild(actions);
 
-        item.append(thumb, badge, progressWrap, infoRow);
+        item.append(thumb, badge, calibrationBadge, progressWrap, infoRow);
 
         if (installed) {
             item.addEventListener('click', () => {
@@ -193,7 +203,7 @@ class MapBrowserUI {
     buildExtraCard(asset) {
         const item = document.createElement('div');
         item.className = 'map-list-item';
-        item.title = asset.name || asset.file;
+        item.setAttribute('aria-label', asset.name || asset.file);
 
         const thumb = document.createElement('img');
         thumb.className = 'map-thumbnail';
@@ -212,7 +222,7 @@ class MapBrowserUI {
         if (MapBrowserUI.canDeleteCustomAsset(asset)) {
             const actions = document.createElement('div');
             actions.className = 'map-actions';
-            const btnDelete = this.makeIconButton('trash-2', 'Permanently delete uploaded map');
+            const btnDelete = this.makeIconButton('trash-2', 'Permanently delete uploaded map', { danger: true });
             btnDelete.onclick = (e) => {
                 e.stopPropagation();
                 this.handleDelete(asset, { permanent: true });
@@ -297,8 +307,10 @@ class MapBrowserUI {
         const wrap = card.querySelector('[data-role="progress"]');
         if (wrap) wrap.style.display = 'block';
         if (badge) {
-            badge.textContent = `${state.percent}%`;
-            badge.dataset.state = 'downloading';
+            const statusInfo = MapBrowserUI.describeCatalogStatus({ downloading: true, percent: state.percent });
+            badge.textContent = statusInfo.text;
+            badge.dataset.state = statusInfo.state;
+            this.tokenTooltip?.update(badge, statusInfo);
         }
         if (fill) fill.style.width = `${state.percent}%`;
     }
@@ -306,6 +318,7 @@ class MapBrowserUI {
     refreshCard(id) {
         const entry = this.catalog.maps.find(m => m.id === id);
         if (!entry || !this.container) return;
+        this.tokenTooltip?.hide();
         const old = this.cardsById.get(id);
         const replacement = this.buildCatalogCard(entry);
         if (old && old.parentNode) {
@@ -320,10 +333,111 @@ class MapBrowserUI {
         return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
     }
 
-    makeIconButton(iconName, title) {
+    static describeCatalogStatus({ installed = false, downloading = false, percent = 0, sizeLabel = '?' } = {}) {
+        if (downloading) {
+            const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+            return {
+                state: 'downloading',
+                icon: null,
+                text: `${safePercent}%`,
+                tooltipTitle: 'Downloading map',
+                tooltip: `${safePercent}% complete`,
+                tooltipTone: 'accent'
+            };
+        }
+        if (installed) {
+            return {
+                state: 'installed',
+                icon: 'check',
+                text: '',
+                tooltipTitle: 'Map installed',
+                tooltip: 'Stored locally and ready to open.',
+                tooltipTone: 'success'
+            };
+        }
+        return {
+            state: 'available',
+            icon: null,
+            text: sizeLabel,
+            tooltipTitle: 'Download map',
+            tooltip: `${sizeLabel} download`,
+            tooltipTone: 'neutral'
+        };
+    }
+
+    static describeCalibrationToken(entry) {
+        const info = MapBrowserUI.describeCalibration(entry);
+        return {
+            state: info.status,
+            icon: 'crosshair',
+            tooltipTitle: info.verified ? 'Calibration ready' : 'Calibration required',
+            tooltip: info.verified
+                ? info.tooltip
+                : 'Open Map Calibration and enter the terrain size. ARMOZE will remember it for this map.',
+            tooltipTone: info.verified ? 'success' : 'attention'
+        };
+    }
+
+    /**
+     * Icon-only calibration token. Hovering explains the state without
+     * covering the map preview with a long label.
+     */
+    buildCalibrationBadge(entry) {
+        const token = MapBrowserUI.describeCalibrationToken(entry);
+
+        const badge = document.createElement('span');
+        badge.className = 'map-calibration-badge';
+        badge.dataset.role = 'calibration';
+        badge.dataset.state = token.state;
+        this.tokenTooltip?.attach(badge, token);
+        badge.innerHTML = `<i data-lucide="${token.icon}"></i>`;
+        setTimeout(() => { try { window.LucideIconUtils?.hydrate(badge); } catch {} }, 0);
+        return badge;
+    }
+
+    /**
+     * Calibration state for a catalog entry. Falls back to "not calibrated"
+     * when the service isn't loaded, so the badge is never missing.
+     */
+    static describeCalibration(entry) {
+        if (window.OfficialCalibrationService?.describe) {
+            return window.OfficialCalibrationService.describe(entry);
+        }
+
+        const calibration = entry?.calibration;
+        const scale = Number(calibration?.scale);
+        if (calibration?.status === 'verified' && Number.isFinite(scale) && scale > 0) {
+            const formatDimension = metres => {
+                const km = Number(metres) / 1000;
+                if (!Number.isFinite(km) || km <= 0) return null;
+                const rounded = Math.round(km * 10) / 10;
+                return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)} km`;
+            };
+            const width = formatDimension(calibration.worldWidth);
+            const depth = formatDimension(calibration.worldDepth);
+            const size = width && depth
+                ? (width === depth ? `${width} square` : `${width} x ${depth}`)
+                : 'known size';
+            return {
+                status: 'verified',
+                verified: true,
+                label: 'Calibrated',
+                tooltip: `Officially calibrated: ${size} terrain at ${Number(scale.toFixed(4))} m per pixel. Coordinates and exports are ready to use.`
+            };
+        }
+
+        return {
+            status: 'unverified',
+            verified: false,
+            label: 'Not calibrated',
+            tooltip: 'Not calibrated yet. Open Calibrate and enter the terrain size once; ARMOZE remembers it for this map.'
+        };
+    }
+
+    makeIconButton(iconName, title, { danger = false } = {}) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'action-icon';
+        btn.className = 'action-icon' + (danger ? ' action-icon--danger' : '');
         btn.title = title;
         btn.setAttribute('aria-label', title);
         btn.innerHTML = `<i data-lucide="${iconName}"></i>`;

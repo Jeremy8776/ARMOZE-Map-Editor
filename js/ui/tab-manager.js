@@ -170,9 +170,14 @@ class TabManager {
         this.app.core.loadMap(tab.image);
         this.app.coordinateSystem.setSettings(tab.coordinateSystem || { scale: 1, originX: 0, originZ: 0 });
         // Re-apply any calibration saved for this map's dimensions unless the
-        // tab carries its own explicit calibration.
+        // tab carries its own explicit calibration. When nothing is saved, an
+        // official catalog calibration seeds the map so the user never has to
+        // calibrate a pre-baked map by hand.
         if (!tab.coordinateSystem || tab.coordinateSystem.scale === 1) {
-            this.app.calibrationService?.restoreSavedCalibration();
+            const restored = this.app.calibrationService?.restoreSavedCalibration();
+            if (!restored) {
+                this.app.officialCalibrationService?.applyForLoadedMap(tab.name);
+            }
         }
         this.app.elements.uploadPrompt.style.display = 'none';
         this.app.elements.canvas.classList.add('visible');

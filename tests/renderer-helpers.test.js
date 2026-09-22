@@ -38,6 +38,7 @@ const InspectorLayoutService = loadScriptExport('js/services/inspector-layout-se
 const TabManager = loadScriptExport('js/ui/tab-manager.js', 'TabManager', { window: {} });
 const FileHandler = loadScriptExport('js/services/file-handler.js', 'FileHandler');
 const MapBrowserUI = loadScriptExport('js/ui/map-browser-ui.js', 'MapBrowserUI', { window: {}, btoa: (value) => Buffer.from(value).toString('base64') });
+const MapTokenTooltip = loadScriptExport('js/ui/map-token-tooltip.js', 'MapTokenTooltip');
 const CanvasCore = loadScriptExport('js/core/canvas-core.js', 'CanvasCore', {
     window: { addEventListener: () => {}, requestAnimationFrame: (callback) => callback() },
     Constants: { SNAP_GRID_SIZE: 100 }
@@ -378,6 +379,56 @@ test('CanvasCore snaps map points on the Enfusion world grid', () => {
     assert.deepEqual(toPlainJson(core.snapToGrid({ x: 48, y: 57 })), { x: 47.5, y: 53.5 });
 });
 
+test('CanvasCore grid visibility is controlled independently from snap to grid', () => {
+    let gridDraws = 0;
+    const context = {
+        clearRect: () => {}, save: () => {}, restore: () => {},
+        translate: () => {}, scale: () => {}, drawImage: () => {}
+    };
+    const canvas = {
+        width: 800,
+        height: 600,
+        getContext: () => context,
+        classList: { add: () => {}, remove: () => {} }
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+    core.mapImage = { width: 1000, height: 1000 };
+    core.drawGrid = () => { gridDraws++; };
+
+    core.gridEnabled = true;
+    core.snapEnabled = false;
+    core.renderBase();
+    assert.equal(gridDraws, 1, 'enabled grid must draw even when snapping is off');
+
+    core.gridEnabled = false;
+    core.snapEnabled = true;
+    core.renderBase();
+    assert.equal(gridDraws, 1, 'snap must not force the visual grid on');
+});
+
+test('CanvasCore applies a user-defined grid spacing to display and snapping', () => {
+    const canvas = {
+        getContext: () => ({}),
+        classList: { add: () => {}, remove: () => {} }
+    };
+    const container = { getBoundingClientRect: () => ({ width: 800, height: 600 }) };
+    const core = new CanvasCore(canvas, container);
+    const CoordinateSystemService = loadScriptExport(
+        'js/services/coordinate-system-service.js',
+        'CoordinateSystemService'
+    );
+    core.mapHeight = 2000;
+    core.coordinateSystem = new CoordinateSystemService(core);
+    core.coordinateSystem.setSettings({ scale: 1, originX: 0, originZ: 0 });
+    core.zoom = 0.2;
+    core.setGridSize(250);
+    core.snapEnabled = true;
+
+    assert.equal(core.getVisibleGridSize(), 250);
+    assert.deepEqual(toPlainJson(core.snapToGrid({ x: 360, y: 1640 })), { x: 250, y: 1750 });
+});
+
 test('LayerOrderService treats legacy overlays as above legacy zones', () => {
     const zones = [{ id: 'zone-a' }, { id: 'zone-b' }];
     const overlays = [{ id: 'overlay-a' }];
@@ -634,6 +685,86 @@ test('MapBrowserUI uses permanent delete copy for uploaded maps', () => {
     const message = MapBrowserUI.getDeleteConfirmationMessage({ name: 'RUS (4)', file: 'RUS (4).png' }, { permanent: true });
     assert.equal(message.includes('Permanently delete RUS (4)'), true);
     assert.equal(message.includes('future use'), true);
+});
+
+test('toolbar buttons suppress the native persistent focus ring', () => {
+    const layoutCss = fs.readFileSync(path.join(__dirname, '..', 'css/layout.css'), 'utf8');
+    assert.match(layoutCss, /\.tool-btn:focus[\s\S]*outline:\s*none/);
+    assert.match(layoutCss, /\.tool-btn\.active/);
+});
+
+test('MapBrowserUI uses compact icon tokens with designed tooltip content', () => {
+    assert.deepEqual(toPlainJson(MapBrowserUI.describeCatalogStatus({ installed: true })), {
+        state: 'installed',
+        icon: 'check',
+        text: '',
+        tooltipTitle: 'Map installed',
+        tooltip: 'Stored locally and ready to open.',
+        tooltipTone: 'success'
+    });
+    assert.deepEqual(toPlainJson(MapBrowserUI.describeCalibrationToken({
+        calibration: { status: 'verified', scale: 2, worldWidth: 12032, worldDepth: 12032 }
+    })), {
+        state: 'verified',
+        icon: 'crosshair',
+        tooltipTitle: 'Calibration ready',
+        tooltip: 'Officially calibrated: 12 km square terrain at 2 m per pixel. Coordinates and exports are ready to use.',
+        tooltipTone: 'success'
+    });
+    assert.deepEqual(toPlainJson(MapBrowserUI.describeCalibrationToken({
+        calibration: { status: 'unverified' }
+    })), {
+        state: 'unverified',
+        icon: 'crosshair',
+        tooltipTitle: 'Calibration required',
+        tooltip: 'Open Map Calibration and enter the terrain size. ARMOZE will remember it for this map.',
+        tooltipTone: 'attention'
+    });
+});
+
+test('MapTokenTooltip positions beside the token and flips at the viewport edge', () => {
+    assert.deepEqual(toPlainJson(MapTokenTooltip.getPosition(
+        { left: 20, right: 44, top: 30, bottom: 54, width: 24, height: 24 },
+        { width: 260, height: 90 },
+        { width: 900, height: 600 }
+    )), { left: 54, top: 30, placement: 'right' });
+
+    assert.deepEqual(toPlainJson(MapTokenTooltip.getPosition(
+        { left: 760, right: 784, top: 560, bottom: 584, width: 24, height: 24 },
+        { width: 260, height: 90 },
+        { width: 900, height: 600 }
+    )), { left: 490, top: 498, placement: 'left' });
+});
+
+test('map token tooltips replace native title notifications and load before the map browser', () => {
+    const browserSource = fs.readFileSync(path.join(__dirname, '..', 'js/ui/map-browser-ui.js'), 'utf8');
+    const indexSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const tooltipIndex = indexSource.indexOf('js/ui/map-token-tooltip.js');
+    const browserIndex = indexSource.indexOf('js/ui/map-browser-ui.js');
+
+    assert.equal(tooltipIndex >= 0, true);
+    assert.equal(browserIndex > tooltipIndex, true);
+    assert.match(browserSource, /tokenTooltip\?\.attach/);
+    assert.doesNotMatch(browserSource, /badge\.title\s*=\s*.*tooltip/);
+});
+
+test('MapBrowserUI keeps size and download progress legible without verbose status labels', () => {
+    assert.deepEqual(toPlainJson(MapBrowserUI.describeCatalogStatus({ sizeLabel: '2.8 MB' })), {
+        state: 'available',
+        icon: null,
+        text: '2.8 MB',
+        tooltipTitle: 'Download map',
+        tooltip: '2.8 MB download',
+        tooltipTone: 'neutral'
+    });
+    assert.deepEqual(toPlainJson(MapBrowserUI.describeCatalogStatus({ downloading: true, percent: 37 })), {
+        state: 'downloading',
+        icon: null,
+        text: '37%',
+        tooltipTitle: 'Downloading map',
+        tooltip: '37% complete',
+        tooltipTone: 'accent'
+    });
 });
 
 test('CanvasCore clearMap resets loaded-map state after the last tab closes', () => {

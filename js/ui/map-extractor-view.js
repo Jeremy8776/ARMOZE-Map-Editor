@@ -82,8 +82,8 @@ class MapExtractorView {
                     <div class="setting-row">
                         <label>Scan Directory (PAK files)</label>
                         <div class="input-group">
-                            <input type="text" id="extractorScanDir" placeholder="e.g. C:\\Program Files\\Tactical Sandbox\\addons">
-                            <button class="btn-icon-only" data-browse="scan" title="Browse">
+                            <input type="text" id="extractorScanDir" placeholder="C:\\Program Files\\Tactical Sandbox\\addons">
+                            <button class="btn-icon-only" data-browse="scan" aria-label="Browse">
                                 <i data-lucide="folder"></i>
                             </button>
                         </div>
@@ -91,8 +91,8 @@ class MapExtractorView {
                     <div class="setting-row">
                         <label>Output Directory</label>
                         <div class="input-group">
-                            <input type="text" id="extractorOutputDir" placeholder="e.g. C:\\Users\\Name\\Documents\\Exports">
-                            <button class="btn-icon-only" data-browse="output" title="Browse">
+                            <input type="text" id="extractorOutputDir" placeholder="C:\\Users\\Name\\Documents\\Exports">
+                            <button class="btn-icon-only" data-browse="output" aria-label="Browse">
                                 <i data-lucide="folder"></i>
                             </button>
                         </div>
@@ -101,7 +101,7 @@ class MapExtractorView {
                         <label>Tools Directory</label>
                         <div class="input-group">
                             <input type="text" id="extractorToolsDir" placeholder="Path to project tools folder">
-                            <button class="btn-icon-only" data-browse="tools" title="Browse">
+                            <button class="btn-icon-only" data-browse="tools" aria-label="Browse">
                                 <i data-lucide="folder"></i>
                             </button>
                         </div>
@@ -120,12 +120,12 @@ class MapExtractorView {
 
                 <div class="property-group" id="searchTermGroup">
                     <label for="extractorSearchTerm">Resource Path / Search Term</label>
-                    <input type="text" id="extractorSearchTerm" placeholder="e.g. world/maps/Arland/materials/m_co.png">
+                    <input type="text" id="extractorSearchTerm" placeholder="world/maps/Arland/materials/m_co.png">
                 </div>
 
                 <div class="property-group" id="filterExtensionGroup" style="display:none;">
                     <label for="extractorFilterExtension">File Extension Filter</label>
-                    <input type="text" id="extractorFilterExtension" placeholder="e.g. .edds or .png">
+                    <input type="text" id="extractorFilterExtension" placeholder=".edds or .png">
                 </div>
 
                 <div class="property-group">

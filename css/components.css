@@ -17,7 +17,7 @@
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform 90ms ease;
 }
 
 .btn svg,
@@ -34,12 +34,11 @@
 .btn-primary {
     background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
     color: var(--color-bg-primary);
-    box-shadow: 0 2px 8px rgba(var(--color-accent-rgb), 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .btn-primary:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(var(--color-accent-rgb), 0.4);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.34);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -96,12 +95,12 @@
 @keyframes contextMenuFadeIn {
     from {
         opacity: 0;
-        transform: scale(0.95);
+        transform: translateY(-4px);
     }
 
     to {
         opacity: 1;
-        transform: scale(1);
+        transform: translateY(0);
     }
 }
 

@@ -85,23 +85,6 @@ class CalibrationService {
         this.elements.btnClose.addEventListener('click', () => this.hideModal());
         this.elements.btnCancel.addEventListener('click', () => this.hideModal());
         this.elements.btnApplyWorldSize.addEventListener('click', () => this.applyWorldSize());
-
-        this.elements.gridMajorColor = document.getElementById('gridMajorColor');
-        this.elements.gridMinorColor = document.getElementById('gridMinorColor');
-        this.elements.gridLabelColor = document.getElementById('gridLabelColor');
-        this.elements.btnResetGridColors = document.getElementById('btnResetGridColors');
-
-        ['gridMajorColor', 'gridMinorColor', 'gridLabelColor'].forEach(key => {
-            this.elements[key]?.addEventListener('input', () => this.applyGridColors());
-        });
-        this.elements.btnResetGridColors?.addEventListener('click', () => {
-            localStorage.removeItem('mapOverlay_grid_colors');
-            this.app.core.gridMajorColor = null;
-            this.app.core.gridMinorColor = null;
-            this.app.core.gridLabelColor = null;
-            this.syncGridColorInputs();
-            this.app.core.requestRender();
-        });
     }
 
     /**
@@ -110,7 +93,6 @@ class CalibrationService {
     showModal() {
         this.elements.modal.classList.add('visible');
         this.restoreWorldSizeInputs();
-        this.syncGridColorInputs();
     }
 
     /**
@@ -176,29 +158,6 @@ class CalibrationService {
         if (!saved || !Number.isFinite(saved.scale) || saved.scale <= 0) return false;
         this.app.coordinateSystem.setSettings(saved, { notify: false });
         return true;
-    }
-
-    applyGridColors() {
-        this.app.core.setGridColors({
-            major: this.elements.gridMajorColor?.value,
-            minor: this.elements.gridMinorColor?.value,
-            label: this.elements.gridLabelColor?.value
-        });
-    }
-
-    syncGridColorInputs() {
-        const toHex = value => {
-            if (!value) return '#ffe66d';
-            if (value.startsWith('#')) return value.slice(0, 7);
-            const match = value.match(/rgba?\(([^)]+)\)/);
-            if (!match) return '#ffe66d';
-            const [r, g, b] = match[1].split(',').map(Number);
-            const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-            return `#${hex}`;
-        };
-        if (this.elements.gridMajorColor) this.elements.gridMajorColor.value = toHex(this.app.core.gridMajorColor || 'rgba(255, 230, 109, 1)');
-        if (this.elements.gridMinorColor) this.elements.gridMinorColor.value = toHex(this.app.core.gridMinorColor || 'rgba(255, 230, 109, 1)');
-        if (this.elements.gridLabelColor) this.elements.gridLabelColor.value = toHex(this.app.core.gridLabelColor || 'rgba(255, 230, 109, 1)');
     }
 
     /**

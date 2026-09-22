@@ -340,7 +340,7 @@ const UITemplates = {
                         <label class="export-option"><input type="radio" name="exportFormat" value="image"><div class="export-option-content"><span class="export-option-title">Image Overlay</span><p>Transparent overlay for Map Configs.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="image_with_map"><div class="export-option-content"><span class="export-option-title">Map + Overlay</span><p>Full map image with zones drawn on top.</p></div></label>
                         <label class="export-option"><input type="radio" name="exportFormat" value="json"><div class="export-option-content"><span class="export-option-title">JSON Config</span><p>Portable state for sharing/re-editing.</p></div></label>
-                        <label class="export-option"><input type="radio" name="exportFormat" value="workbench"><div class="export-option-content"><span class="export-option-title">Workbench Plugin (.c)</span><p>Plugin for script-based map generation.</p></div></label>
+                        <label class="export-option export-option-disabled"><input type="radio" name="exportFormat" value="workbench" disabled><div class="export-option-content"><span class="export-option-title">Workbench Plugin (.c) <span class="coming-soon-tag">Coming soon</span></span><p>Imports zones into the World Editor as trigger entities. In testing, not yet ready for production use.</p></div></label>
                     </div>
 
                     <div class="export-settings-glass">
@@ -380,28 +380,64 @@ const UITemplates = {
                     <button class="modal-close" id="btnCloseCalibration">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p class="modal-hint">The map grid, snapping, cursor readout, and exact coordinates all use this calibration live. Saved per map size and restored automatically.</p>
+                    <p class="modal-hint">Cursor readout, snapping, grid spacing, and exact coordinates use this calibration. It is saved per map size and restored automatically.</p>
 
                     <div class="cal-step cal-step-quick">
                         <div class="cal-step-header"><span>Terrain World Size</span></div>
-                        <p class="modal-hint">For a full-terrain image, enter the terrain's world width and depth in metres (shown in Workbench's status bar). Assumes the world origin is the image's bottom-left corner.</p>
+                        <p class="modal-hint">For a full-terrain image, enter the terrain's world width and depth in metres, shown in Workbench's status bar. This assumes the world origin is the image's bottom-left corner.</p>
                         <div class="setting-row"><label>World Size (W × D metres)</label><div class="offset-inputs"><input type="number" id="worldSizeWidth" placeholder="12800"><input type="number" id="worldSizeDepth" placeholder="12800"></div></div>
                         <button class="btn-icon-auto" id="btnApplyWorldSize">Apply World Size</button>
-                    </div>
-
-                    <div class="cal-step cal-step-quick">
-                        <div class="cal-step-header"><span>Grid Colours</span></div>
-                        <p class="modal-hint">Colour of the 1 km and 100 m grid lines drawn over the map.</p>
-                        <div class="grid-color-row">
-                            <label class="grid-color-item"><input type="color" id="gridMajorColor" value="#ffe66d"><span>1 km lines</span></label>
-                            <label class="grid-color-item"><input type="color" id="gridMinorColor" value="#ffe66d"><span>100 m lines</span></label>
-                            <label class="grid-color-item"><input type="color" id="gridLabelColor" value="#ffe66d"><span>Grid label</span></label>
-                        </div>
-                        <button class="btn-icon-auto" id="btnResetGridColors">Reset</button>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-reset" id="btnCancelCalibration">Close</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    GRID_SETTINGS_MODAL: `
+        <div class="modal-overlay" id="gridSettingsModal">
+            <div class="modal grid-settings-modal">
+                <div class="modal-header">
+                    <h2><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg> Grid Settings</h2>
+                    <button class="modal-close" id="btnCloseGridSettings">&times;</button>
+                </div>
+                <div class="modal-body grid-settings-body">
+                    <div class="grid-toggle-stack">
+                        <label class="grid-toggle-row">
+                            <span class="grid-toggle-copy"><strong>Show grid</strong><small>Display the map grid at every zoom level.</small></span>
+                            <input type="checkbox" id="gridEnabled">
+                            <span class="grid-switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="grid-toggle-row">
+                            <span class="grid-toggle-copy"><strong>Snap to grid</strong><small>Align new and edited points to the visible grid interval.</small></span>
+                            <input type="checkbox" id="gridSnapEnabled">
+                            <span class="grid-switch" aria-hidden="true"></span>
+                        </label>
+                    </div>
+
+                    <div class="cal-step cal-step-quick">
+                        <div class="cal-step-header"><span>Grid Spacing</span></div>
+                        <div class="setting-row grid-size-setting">
+                            <label for="gridSize">Base interval</label>
+                            <div class="grid-size-input"><input type="number" id="gridSize" min="1" max="100000" step="1" value="100"><span>metres</span></div>
+                        </div>
+                        <p class="modal-hint">The grid automatically uses a coarser interval when zoomed out so it never disappears or becomes unreadably dense.</p>
+                    </div>
+
+                    <div class="cal-step cal-step-quick">
+                        <div class="cal-step-header"><span>Grid Colours</span></div>
+                        <div class="grid-color-row">
+                            <label class="grid-color-item"><input type="color" id="gridMajorColor" value="#ffe66d"><span>Major lines</span></label>
+                            <label class="grid-color-item"><input type="color" id="gridMinorColor" value="#ffe66d"><span>Minor lines</span></label>
+                            <label class="grid-color-item"><input type="color" id="gridLabelColor" value="#ffe66d"><span>Grid label</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer grid-settings-footer">
+                    <button class="btn btn-reset" id="btnResetGridSettings">Reset defaults</button>
+                    <button class="btn btn-primary" id="btnDoneGridSettings">Done</button>
                 </div>
             </div>
         </div>

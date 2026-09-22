@@ -27,10 +27,12 @@
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/floating-controls.css">
     <link rel="stylesheet" href="css/properties.css">
+    <link rel="stylesheet" href="css/color-picker.css">
     <link rel="stylesheet" href="css/zones.css">
     <link rel="stylesheet" href="css/canvas.css">
     <link rel="stylesheet" href="css/modal.css">
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="css/controls.css">
 
     <!-- Data - Load before UI -->
     <!-- Map list is now sourced from Maps/catalog.json via electronAPI.getMapCatalog(), populated by MapBrowserUI. -->
@@ -103,13 +105,14 @@
                     <button class="tool-btn" id="btnZoomIn" title="Zoom In"><i data-lucide="zoom-in"></i></button>
                     <button class="tool-btn" id="btnZoomOut" title="Zoom Out"><i data-lucide="zoom-out"></i></button>
                     <button class="tool-btn" id="btnFitView" title="Fit (F)"><i data-lucide="maximize"></i></button>
-                    <button class="tool-btn" id="btnToggleSnap" title="Snap (S)"><i data-lucide="grid"></i></button>
+                    <button class="tool-btn" id="btnOpenGridSettings" title="Grid Settings (S)"><i data-lucide="grid-3x3"></i></button>
                 </div>
                 <div class="tool-divider"></div>
                 <div class="tool-group">
                     <button class="tool-btn" id="btnAddOverlayImage" title="Add Branding Image"><i data-lucide="image-plus"></i></button>
                     <button class="tool-btn" id="btnOpenCalibrationToolbar" title="Calibrate Map Coordinates"><i data-lucide="locate-fixed"></i></button>
                     <button class="tool-btn" id="btnOpenExtractor" title="Texture Extractor (Ctrl+Shift+T)"><i data-lucide="package-search"></i></button>
+                    <button class="tool-btn" id="btnSendFeedback" title="Send Feedback"><i data-lucide="message-square-warning"></i></button>
                     <button class="tool-btn" id="btnShowHelp" title="Hotkeys & Help (?)"><i data-lucide="help-circle"></i></button>
                 </div>
             </aside>
@@ -165,7 +168,8 @@
         const modalContainer = document.getElementById('ui-modals');
         modalContainer.innerHTML = UITemplates.FLOATING_CONTROLS + 
                                  UITemplates.EXPORT_MODAL + 
-                                 UITemplates.CALIBRATION_MODAL;
+                                 UITemplates.CALIBRATION_MODAL +
+                                 UITemplates.GRID_SETTINGS_MODAL;
     </script>
 
     <script src="js/constants.js"></script>
@@ -196,9 +200,12 @@
     <script src="js/services/coordinate-system-service.js"></script>
     <script src="js/services/project-manager.js"></script>
     <script src="js/services/calibration-service.js"></script>
+    <script src="js/services/grid-settings-service.js"></script>
+    <script src="js/services/official-calibration-service.js"></script>
     <script src="js/services/file-handler.js"></script>
     <script src="js/services/hotkey-manager.js"></script>
     <script src="js/services/notification-service.js"></script>
+    <script src="js/services/workbench-plugin-generator.js"></script>
     <script src="js/services/script-generator.js"></script>
     <script src="js/services/map-extractor-service.js"></script>
 
@@ -206,6 +213,9 @@
     <script src="js/ui/lucide-icon-utils.js"></script>
     <script src="js/ui/tab-manager.js"></script>
     <script src="js/ui/zone-list-ui.js"></script>
+    <script src="js/ui/themed-color-picker.js"></script>
+    <script src="js/ui/themed-select.js"></script>
+    <script src="js/ui/themed-tooltip.js"></script>
     <script src="js/ui/zone-color-manager.js"></script>
     <script src="js/ui/zone-profile-manager.js"></script>
     <script src="js/ui/zone-properties-bindings.js"></script>
@@ -213,6 +223,9 @@
     <script src="js/ui/zone-inspector-shell.js"></script>
     <script src="js/ui/zone-properties-ui.js"></script>
     <script src="js/ui/toolbar-ui.js"></script>
+    <script src="js/ui/window-controls.js"></script>
+    <script src="js/ui/feedback-ui.js"></script>
+    <script src="js/ui/map-token-tooltip.js"></script>
     <script src="js/ui/map-browser-ui.js"></script>
     <script src="js/ui/map-extractor-view.js"></script>
     <script src="js/ui/map-extractor-ui.js"></script>

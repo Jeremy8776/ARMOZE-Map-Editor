@@ -46,6 +46,7 @@
     justify-content: space-between;
     gap: var(--spacing-md);
     padding: 0 var(--spacing-md);
+    padding-right: calc(var(--spacing-md) - 6px);
     background: rgba(10, 11, 14, 0.95);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     height: 64px;
@@ -56,7 +57,68 @@
     box-sizing: border-box;
 }
 
-.header-brand, .header-info, .header-actions {
+/* Custom window controls for the frameless window. */
+.window-controls {
+    display: flex;
+    align-items: stretch;
+    margin-left: var(--spacing-sm);
+}
+
+.window-control {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.62);
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.window-control svg {
+    display: block;
+}
+
+.window-control:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.window-control:active {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.window-control:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.window-control--close:hover {
+    background: rgba(232, 17, 35, 0.9);
+    color: #fff;
+}
+
+.window-control--close:active {
+    background: rgba(200, 14, 30, 0.95);
+}
+
+/* Maximize glyph swaps to restore while maximized. */
+#btnWinMax .window-control-restore-glyph {
+    display: none;
+}
+
+#btnWinMax.is-restored .window-control-max-glyph {
+    display: none;
+}
+
+#btnWinMax.is-restored .window-control-restore-glyph {
+    display: block;
+}
+
+.header-brand, .header-info, .header-actions, .window-controls {
     -webkit-app-region: no-drag;
 }
 
@@ -287,6 +349,13 @@
     background: rgba(255, 255, 255, 0.07);
     border-color: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
+}
+
+/* Chromium keeps clicked buttons focused and draws its own bright ring.
+   Tool state is already communicated by .active, so remove that artifact. */
+.tool-btn:focus,
+.tool-btn:focus-visible {
+    outline: none;
 }
 
 .tool-btn:active {

@@ -20,9 +20,11 @@ class CanvasCore {
         this.panX = 0;
         this.panY = 0;
 
-        // Snapping state
+        // Grid display and snapping are separate settings. The grid can remain
+        // visible as a reference without forcing authored geometry to snap.
+        this.gridEnabled = false;
         this.snapEnabled = false;
-        this.gridSize = window.Constants?.SNAP_GRID_SIZE || 100; // Map units
+        this.gridSize = window.Constants?.SNAP_GRID_SIZE || 100; // World metres when calibrated
 
         // Render callback
         this.onRender = null;
@@ -181,9 +183,29 @@ class CanvasCore {
         };
     }
 
-    toggleSnap() {
-        this.snapEnabled = !this.snapEnabled;
+    setGridEnabled(enabled) {
+        this.gridEnabled = Boolean(enabled);
+        this.requestRender();
+        return this.gridEnabled;
+    }
+
+    setSnapEnabled(enabled) {
+        this.snapEnabled = Boolean(enabled);
         return this.snapEnabled;
+    }
+
+    setGridSize(size) {
+        const nextSize = Number(size);
+        if (!Number.isFinite(nextSize) || nextSize <= 0 || nextSize > 100000) {
+            throw new Error('Grid spacing must be between 1 and 100,000 metres.');
+        }
+        this.gridSize = nextSize;
+        this.requestRender();
+        return this.gridSize;
+    }
+
+    toggleSnap() {
+        return this.setSnapEnabled(!this.snapEnabled);
     }
 
     /**
@@ -212,7 +234,7 @@ class CanvasCore {
             ctx.scale(this.zoom, this.zoom);
             ctx.drawImage(this.mapImage, 0, 0);
             ctx.restore();
-            if (this.snapEnabled) {
+            if (this.gridEnabled) {
                 this.drawGrid();
             }
             return true;
@@ -221,12 +243,20 @@ class CanvasCore {
     }
 
     getVisibleGridSize() {
-        if (!this.coordinateSystem) return this.gridSize;
-        const minorScreenSize = this.coordinateSystem.worldLengthToMap(this.gridSize) * this.zoom;
-        const minimumMinorSpacing = window.Constants?.GRID_MINOR_MIN_SCREEN_PX || 18;
-        return minorScreenSize >= minimumMinorSpacing
-            ? this.gridSize
-            : (window.Constants?.GRID_MAJOR_SIZE || 1000);
+        let visibleSize = this.gridSize;
+        const minimumSpacing = window.Constants?.GRID_MINOR_MIN_SCREEN_PX || 18;
+        const mapSpacing = this.coordinateSystem
+            ? this.coordinateSystem.worldLengthToMap(visibleSize)
+            : visibleSize;
+        let screenSpacing = mapSpacing * this.zoom;
+
+        // Never hide an enabled grid. At distant zoom levels, promote it to a
+        // coarser power-of-ten interval so useful lines remain on screen.
+        while (Number.isFinite(screenSpacing) && screenSpacing < minimumSpacing && visibleSize < 1000000) {
+            visibleSize *= 10;
+            screenSpacing *= 10;
+        }
+        return visibleSize;
     }
 
     getGridColors() {
@@ -248,21 +278,23 @@ class CanvasCore {
         };
     }
 
-    setGridColors(colors = {}) {
+    setGridColors(colors = {}, { persist = true } = {}) {
         const isHexColor = value => /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value);
         const updated = {};
         if (isHexColor(colors.major)) updated.gridMajorColor = colors.major;
         if (isHexColor(colors.minor)) updated.gridMinorColor = colors.minor;
         if (isHexColor(colors.label)) updated.gridLabelColor = colors.label;
         Object.assign(this, updated);
-        try {
-            localStorage.setItem('mapOverlay_grid_colors', JSON.stringify({
-                major: this.gridMajorColor,
-                minor: this.gridMinorColor,
-                label: this.gridLabelColor
-            }));
-        } catch (error) {
-            // Grid colour persistence is optional.
+        if (persist) {
+            try {
+                localStorage.setItem('mapOverlay_grid_colors', JSON.stringify({
+                    major: this.gridMajorColor,
+                    minor: this.gridMinorColor,
+                    label: this.gridLabelColor
+                }));
+            } catch (error) {
+                // Grid colour persistence is optional.
+            }
         }
         this.requestRender();
         return this.getGridColors();
@@ -289,7 +321,7 @@ class CanvasCore {
             : visibleGridSize;
         const screenGridSize = mapGridSize * this.zoom;
 
-        if (screenGridSize < 8) return;
+        if (!Number.isFinite(screenGridSize) || screenGridSize <= 0) return;
 
         const colors = this.getGridColors();
         const startMap = this.screenToMap(0, 0);
@@ -301,7 +333,7 @@ class CanvasCore {
         ctx.setLineDash([]);
 
         if (this.coordinateSystem) {
-            const majorSize = window.Constants?.GRID_MAJOR_SIZE || 1000;
+            const majorSize = this.gridSize * 10;
             const minX = Math.min(startWorld.x, endWorld.x);
             const maxX = Math.max(startWorld.x, endWorld.x);
             const minZ = Math.min(startWorld.z, endWorld.z);
@@ -332,7 +364,10 @@ class CanvasCore {
                 drawLine(worldZ, false);
             }
 
-            const label = visibleGridSize === majorSize ? 'GRID 1 km' : 'GRID 100 m';
+            const labelValue = visibleGridSize >= 1000
+                ? `${Number((visibleGridSize / 1000).toFixed(2))} km`
+                : `${Number(visibleGridSize.toFixed(2))} m`;
+            const label = `GRID ${labelValue}`;
             ctx.font = '600 11px monospace';
             const labelWidth = ctx.measureText(label).width + 14;
             ctx.fillStyle = 'rgba(10, 14, 20, 0.78)';

@@ -14,6 +14,7 @@ class ToolbarUI {
 
         this.toolButtons = Array.from(this.element.querySelectorAll('.tool-btn[data-tool]'));
         this.helpButton = this.element.querySelector('#btnShowHelp');
+        this.feedbackButton = this.element.querySelector('#btnSendFeedback');
         this.toolButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const { tool } = btn.dataset;
@@ -24,6 +25,9 @@ class ToolbarUI {
 
         if (this.helpButton) {
             this.helpButton.addEventListener('click', () => this.app.openDocumentation());
+        }
+        if (this.feedbackButton) {
+            this.feedbackButton.addEventListener('click', () => this.app.feedbackUI.show());
         }
 
         this.setActiveTool(this.app.toolManager.currentTool || 'select');

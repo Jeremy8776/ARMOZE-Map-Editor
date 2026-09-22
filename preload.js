@@ -53,5 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     importMapAsset: (sourcePath, friendlyName) => ipcRenderer.invoke('import-map-asset', sourcePath, friendlyName),
     saveMapAssetDataUrl: (payload) => ipcRenderer.invoke('save-map-asset-data-url', payload),
-    openLogsFolder: () => ipcRenderer.invoke('open-logs-folder')
+    openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
+    submitFeedback: (feedback) => ipcRenderer.invoke('submit-feedback', feedback),
+    windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+    windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+    windowClose: () => ipcRenderer.invoke('window-close'),
+    windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized')
 });

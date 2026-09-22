@@ -3,7 +3,28 @@
 <div align="center">
   <img src="logo.svg" alt="ARMOZE Logo" width="120" height="auto">
   <br><br>
+
+  <a href="https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20Windows-Installer-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download ARMOZE for Windows">
+  </a>
+
+  <a href="https://github.com/Jeremy8776/ARMOZE-Map-Editor/releases/latest"><img src="https://img.shields.io/github/v/release/Jeremy8776/ARMOZE-Map-Editor?style=flat-square&label=latest" alt="Latest release"></a>
+  <img src="https://img.shields.io/github/downloads/Jeremy8776/ARMOZE-Map-Editor/total?style=flat-square&label=downloads" alt="Total downloads">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT license">
+  <br><br>
 </div>
+
+---
+
+## Install
+
+Download the latest Windows installer, run it, and pick an install location. No admin rights needed, it installs per-user.
+
+> Windows SmartScreen will warn that the publisher is unknown, because the installer is not code-signed. Choose **More info**, then **Run anyway**.
+
+Once installed, ARMOZE updates itself: new releases are detected in-app and can be installed with one click.
+
+Prefer to run from source? See [Running locally](#running-locally).
 
 ---
 

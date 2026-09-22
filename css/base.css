@@ -98,22 +98,31 @@ body.is-zone-dragging * {
 }
 
 /* Scrollbar Styles */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
-::-webkit-scrollbar-track {
-    background: var(--color-bg-primary);
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 4px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-hover);
+    background: rgba(255, 255, 255, 0.24);
+    background-clip: padding-box;
 }
 
 /* Selection */

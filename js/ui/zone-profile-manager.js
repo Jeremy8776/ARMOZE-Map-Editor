@@ -88,7 +88,7 @@ class ZoneProfileManager {
         const notifier = this.ui.app.notificationService;
         const name = await (notifier?.showPrompt('', {
             title: 'Profile Name',
-            placeholder: 'e.g. AAC Patrol',
+            placeholder: 'AAC Patrol',
             confirmLabel: 'Save Profile'
         }) ?? Promise.resolve(null));
         if (!name) return;

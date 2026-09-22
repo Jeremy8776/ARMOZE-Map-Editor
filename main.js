@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const packageMetadata = require('./package.json');
 const { getBundledToolsDir } = require('./extractor-runtime');
 const { createAppLogger, installConsoleCapture } = require('./app-logger');
+const { registerDesktopIntegrations } = require('./desktop-integrations');
 
 // Persistent diagnostics: main-process lifecycle, renderer errors
 // forwarded over IPC, and extractor runs. Logs live in userData/logs.
@@ -43,6 +44,7 @@ function createWindow() {
         autoHideMenuBar: true,
         backgroundColor: '#080a0d',
         title: 'ARMOZE',
+        frame: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -418,6 +420,7 @@ ipcMain.handle('window-maximize', () => {
     if (win?.isMaximized()) win.unmaximize(); else win?.maximize();
 });
 ipcMain.handle('window-close', () => { BrowserWindow.getFocusedWindow()?.close(); });
+ipcMain.handle('window-is-maximized', () => BrowserWindow.getFocusedWindow()?.isMaximized() ?? false);
 
 // IPC Handler for folder selection
 ipcMain.handle('select-folder', async () => {
@@ -683,197 +686,14 @@ ipcMain.handle('save-map-asset-data-url', async (event, payload) => {
     }
 });
 
-// Auto-Update Checker
-//
-// Two-tier strategy:
-//   1. electron-updater handles in-app download + install when a release with
-//      proper electron-builder artifacts (latest.yml + signed installer) is
-//      available on GitHub.
-//   2. Falls back to a manual GitHub Releases API check that surfaces a banner
-//      with a link to the release page, for cases where electron-updater can't
-//      find its metadata (e.g. older releases predating the build pipeline, or
-//      when running on a platform without a published artifact).
-let autoUpdater = null;
-try {
-    ({ autoUpdater } = require('electron-updater'));
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = true;
-    // Verbose log to help diagnose update issues — written to the user's
-    // logs dir (Windows: %APPDATA%/ARMOZE/logs/main.log) and to stdout.
-    autoUpdater.logger = console;
-    // Allow installing over an unsigned Windows build (matches our current
-    // release pipeline — code signing is on the roadmap). Without this,
-    // squirrel rejects the package on signature mismatch.
-    autoUpdater.disableWebInstaller = false;
-    autoUpdater.allowDowngrade = false;
-} catch (err) {
-    console.warn('electron-updater not installed; falling back to manual update check.', err.message);
-}
-
-const sendToRenderer = (channel, payload) => {
-    BrowserWindow.getAllWindows()[0]?.webContents.send(channel, payload);
-};
-
-const startManualGitHubCheck = () => {
-    const repositoryPath = getGitHubRepositoryPath();
-    const currentVersion = packageMetadata.version;
-    const request = net.request(`https://api.github.com/repos/${repositoryPath}/releases/latest`);
-
-    request.on('response', (response) => {
-        let body = '';
-        response.on('data', (chunk) => { body += chunk; });
-        response.on('end', () => {
-            try {
-                if (response.statusCode === 200) {
-                    const data = JSON.parse(body);
-                    const latestVersion = data.tag_name.replace('v', '');
-                    if (isNewerVersion(currentVersion, latestVersion) && isSafeGitHubReleaseUrl(data.html_url, repositoryPath)) {
-                        sendToRenderer('update-available', {
-                            version: latestVersion,
-                            url: data.html_url,
-                            notes: data.body,
-                            canAutoInstall: false
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('Update check failed parse:', err);
-            }
-        });
-    });
-
-    request.on('error', (err) => {
-        console.error('Update check error:', err);
-    });
-
-    request.end();
-};
-
-// Track per-check fallback state so listeners can dispatch without stacking.
-let currentCheckFellBack = false;
-let updateListenersWired = false;
-
-const wireAutoUpdaterListeners = () => {
-    if (!autoUpdater || updateListenersWired) return;
-    updateListenersWired = true;
-
-    autoUpdater.on('update-available', (info) => {
-        const repositoryPath = getGitHubRepositoryPath();
-        sendToRenderer('update-available', {
-            version: info.version,
-            url: `https://github.com/${repositoryPath}/releases/tag/v${info.version}`,
-            notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : '',
-            canAutoInstall: true
-        });
-    });
-
-    autoUpdater.on('update-not-available', () => {
-        // Up to date; nothing to do.
-    });
-
-    autoUpdater.on('download-progress', (progress) => {
-        sendToRenderer('update-progress', {
-            percent: Math.round(progress.percent || 0),
-            bytesPerSecond: progress.bytesPerSecond,
-            transferred: progress.transferred,
-            total: progress.total
-        });
-    });
-
-    autoUpdater.on('update-downloaded', (info) => {
-        sendToRenderer('update-downloaded', {
-            version: info.version
-        });
-    });
-
-    autoUpdater.on('error', (err) => {
-        console.error('autoUpdater error:', err);
-        sendToRenderer('update-error', {
-            message: err?.message || 'Update failed'
-        });
-        // Fallback once per check cycle so we don't spam the manual check.
-        if (!currentCheckFellBack) {
-            currentCheckFellBack = true;
-            startManualGitHubCheck();
-        }
-    });
-};
-
-const startAutoUpdateCheck = () => {
-    if (!autoUpdater) {
-        startManualGitHubCheck();
-        return;
-    }
-
-    wireAutoUpdaterListeners();
-    currentCheckFellBack = false;
-
-    const fallback = (reason) => {
-        if (currentCheckFellBack) return;
-        currentCheckFellBack = true;
-        console.warn('electron-updater fallback:', reason);
-        startManualGitHubCheck();
-    };
-
-    try {
-        autoUpdater.checkForUpdates().catch((err) => fallback(err?.message || 'checkForUpdates rejected'));
-    } catch (err) {
-        fallback(err?.message || 'checkForUpdates threw');
-    }
-};
-
-function isNewerVersion(current, latest) {
-    const sCurrent = current.split('.').map(Number);
-    const sLatest = latest.split('.').map(Number);
-
-    for (let i = 0; i < Math.max(sCurrent.length, sLatest.length); i++) {
-        const v1 = sCurrent[i] || 0;
-        const v2 = sLatest[i] || 0;
-        if (v2 > v1) return true;
-        if (v2 < v1) return false;
-    }
-    return false;
-}
-
-// Check for updates shortly after startup, then on a recurring interval
-// while the app is running. The renderer banner de-dupes so re-firing
-// for the same already-known version is a no-op.
-const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-app.whenReady().then(() => {
-    if (!app.isPackaged) {
-        return;
-    }
-
-    setTimeout(startAutoUpdateCheck, 3000);
-    setInterval(startAutoUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
-});
-
-// IPC: manual "Check for updates" trigger from the renderer.
-ipcMain.handle('check-for-updates', async () => {
-    if (!app.isPackaged) {
-        return { skipped: true, reason: 'dev build' };
-    }
-    startAutoUpdateCheck();
-    return { ok: true };
-});
-
-// IPC to open external links (for the update button)
-ipcMain.handle('open-external', async (event, url) => {
-    if (!isSafeGitHubReleaseUrl(url, getGitHubRepositoryPath())) {
-        throw new Error('Blocked unsafe external URL.');
-    }
-    await shell.openExternal(url);
-});
-
-// IPC: kick off in-app download via electron-updater (called from "Download" button)
-ipcMain.handle('start-update-download', async () => {
-    if (!autoUpdater) throw new Error('Auto-updater unavailable in this build.');
-    return autoUpdater.downloadUpdate();
-});
-
-// IPC: install the downloaded update and relaunch.
-ipcMain.handle('quit-and-install', () => {
-    if (!autoUpdater) throw new Error('Auto-updater unavailable in this build.');
-    // Force restart, force run after install. Only invoked once "update-downloaded" has fired.
-    autoUpdater.quitAndInstall(false, true);
+registerDesktopIntegrations({
+    app,
+    BrowserWindow,
+    ipcMain,
+    shell,
+    net,
+    packageMetadata,
+    logger,
+    getGitHubRepositoryPath,
+    isSafeGitHubReleaseUrl
 });

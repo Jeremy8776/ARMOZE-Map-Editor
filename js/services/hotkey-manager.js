@@ -72,7 +72,7 @@ class HotkeyManager {
                     break;
                 case 's': 
                     e.preventDefault();
-                    this.app.elements.btnToggleSnap.click();
+                    this.app.gridSettingsService?.show();
                     break;
                 case 'f':
                     e.preventDefault();

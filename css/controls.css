@@ -1,0 +1,265 @@
+/* Shared ARMOZE form controls
+   Native select popups are replaced by ThemedSelect so every open menu is
+   rendered inside the same dark control language as the rest of the app. */
+.themed-select {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+}
+
+.profile-select-group .themed-select,
+.extractor-format-row .themed-select {
+    flex: 1 1 auto;
+}
+
+.themed-select__native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    white-space: nowrap !important;
+}
+
+.themed-select__trigger {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(7, 9, 12, 0.66);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--font-primary);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.themed-select__value {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.themed-select__chevron {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.52);
+    transition: color 140ms ease, transform 140ms ease;
+}
+
+.themed-select__trigger:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.055);
+}
+
+.themed-select__trigger:focus-visible,
+.themed-select.is-open .themed-select__trigger {
+    outline: none;
+    border-color: rgba(var(--color-accent-rgb), 0.72);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.1);
+}
+
+.themed-select.is-open .themed-select__chevron {
+    color: var(--color-accent);
+    transform: rotate(180deg);
+}
+
+.themed-select__trigger:disabled {
+    cursor: not-allowed;
+    opacity: 0.46;
+}
+
+.themed-select__popup {
+    position: fixed;
+    z-index: 1900;
+    max-height: min(280px, calc(100vh - 20px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(15, 18, 22, 0.99);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    transform: translateY(-3px) scale(0.99);
+    transform-origin: top left;
+    transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.themed-select__popup[hidden] {
+    display: none;
+}
+
+.themed-select__popup.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.themed-select__group {
+    padding: 7px 9px 4px;
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+}
+
+.themed-select__option {
+    display: flex;
+    width: 100%;
+    min-height: 31px;
+    align-items: center;
+    padding: 6px 9px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.78);
+    font-family: var(--font-primary);
+    font-size: 13px;
+    font-weight: 550;
+    line-height: 1.25;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.themed-select__option.is-focused {
+    background: rgba(255, 255, 255, 0.065);
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.themed-select__option.is-selected {
+    border-color: rgba(var(--color-accent-rgb), 0.2);
+    background: rgba(var(--color-accent-rgb), 0.12);
+    color: var(--color-accent);
+}
+
+.themed-select__option.is-selected.is-focused {
+    border-color: rgba(var(--color-accent-rgb), 0.38);
+    background: rgba(var(--color-accent-rgb), 0.18);
+}
+
+.themed-select__option:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+}
+
+/* Shared field details that were previously left to Chromium. */
+input::placeholder,
+textarea::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    opacity: 1;
+}
+
+input:disabled,
+textarea:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+}
+
+textarea {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+textarea::-webkit-scrollbar {
+    width: 7px;
+}
+
+textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    background-clip: padding-box;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--color-accent);
+}
+
+.btn:focus-visible,
+.modal-close:focus-visible,
+.btn-icon-only:focus-visible,
+.btn-icon-small:focus-visible,
+.btn-icon-auto:focus-visible,
+.btn-chip:focus-visible,
+.accordion-trigger:focus-visible,
+.zone-action-btn:focus-visible,
+.tab-close:focus-visible,
+.floating-controls-actions button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.themed-tooltip {
+    position: fixed;
+    z-index: 1950;
+    max-width: 240px;
+    padding: 6px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    background: rgba(16, 19, 23, 0.98);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 0.15px;
+    line-height: 1.35;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 90ms ease, transform 90ms ease;
+}
+
+.themed-tooltip[hidden] {
+    display: none;
+}
+
+.themed-tooltip.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.themed-tooltip.is-below {
+    transform: translateY(-3px);
+}
+
+.themed-tooltip.is-below.is-visible {
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .themed-select__trigger,
+    .themed-select__chevron,
+    .themed-select__popup,
+    .themed-select__option,
+    .themed-tooltip {
+        transition: none;
+    }
+}

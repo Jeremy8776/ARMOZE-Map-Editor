@@ -1,0 +1,290 @@
+/* ARMOZE colour picker
+   Owns colour selection so Chromium never opens its unthemeable native popup. */
+.themed-color-picker {
+    --picker-color: #00ff88;
+    --picker-hue: #00ff00;
+    position: fixed;
+    z-index: 1800;
+    width: 268px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(17, 19, 22, 0.98);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(0, 0, 0, 0.24);
+    color: rgba(255, 255, 255, 0.94);
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+    transform-origin: top left;
+    transition: opacity 120ms ease, transform 120ms ease;
+    box-sizing: border-box;
+}
+
+.themed-color-picker[hidden] {
+    display: none;
+}
+
+.themed-color-picker.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.themed-color-picker__header,
+.themed-color-picker__footer,
+.themed-color-picker__identity,
+.themed-color-picker__hue-row {
+    display: flex;
+    align-items: center;
+}
+
+.themed-color-picker__header {
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.themed-color-picker__identity {
+    min-width: 0;
+    gap: 9px;
+}
+
+.themed-color-picker__identity > span:last-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.themed-color-picker__identity strong {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.themed-color-picker__identity small {
+    color: rgba(255, 255, 255, 0.96);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.themed-color-picker__swatch {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 7px;
+    background: var(--picker-color);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+.themed-color-picker__close {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.themed-color-picker__close:hover,
+.themed-color-picker__close:focus-visible {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.themed-color-picker__sv {
+    position: relative;
+    height: 154px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    background:
+        linear-gradient(to top, #000, transparent),
+        linear-gradient(to right, #fff, var(--picker-hue));
+    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.2);
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.themed-color-picker__sv:focus-visible {
+    outline: none;
+    border-color: rgba(var(--color-accent-rgb), 0.8);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.themed-color-picker__cursor {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--picker-color);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.62);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.themed-color-picker__hue-row {
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.themed-color-picker__hue-row > span {
+    width: 26px;
+    flex: 0 0 auto;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+}
+
+.themed-color-picker__hue-row input[type="range"] {
+    width: 100%;
+    height: 12px;
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    appearance: none;
+    background: linear-gradient(to right, #ff3b30, #ffd60a, #30d158, #00c7be, #0a84ff, #bf5af2, #ff375f, #ff3b30);
+    cursor: pointer;
+}
+
+.themed-color-picker__hue-row input[type="range"]::-webkit-slider-thumb {
+    width: 15px;
+    height: 15px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    appearance: none;
+    background: var(--picker-color);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
+}
+
+.themed-color-picker__hue-row input[type="range"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.themed-color-picker__fields {
+    display: grid;
+    grid-template-columns: 1.5fr repeat(3, 0.78fr);
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.themed-color-picker__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.themed-color-picker__field > span {
+    padding-left: 2px;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.65px;
+    text-transform: uppercase;
+}
+
+.themed-color-picker__field input {
+    width: 100%;
+    height: 32px;
+    min-width: 0;
+    padding: 0 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    box-sizing: border-box;
+    background: rgba(8, 10, 12, 0.72);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-align: center;
+}
+
+.themed-color-picker__field input:focus {
+    outline: none;
+    border-color: rgba(var(--color-accent-rgb), 0.72);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.1);
+}
+
+.themed-color-picker__footer {
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.themed-color-picker__eyedropper,
+.themed-color-picker__done {
+    display: inline-flex;
+    height: 31px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.45px;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.themed-color-picker__eyedropper[hidden] {
+    display: none;
+}
+
+.themed-color-picker__eyedropper {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.themed-color-picker__done {
+    min-width: 62px;
+    border: 1px solid rgba(var(--color-accent-rgb), 0.42);
+    background: rgba(var(--color-accent-rgb), 0.12);
+    color: var(--color-accent);
+}
+
+.themed-color-picker__eyedropper:hover,
+.themed-color-picker__eyedropper:focus-visible,
+.themed-color-picker__done:hover,
+.themed-color-picker__done:focus-visible {
+    outline: none;
+    border-color: rgba(var(--color-accent-rgb), 0.62);
+    background: rgba(var(--color-accent-rgb), 0.16);
+    color: var(--color-accent);
+}
+
+/* Chromium's number steppers are a native white control and cannot inherit the
+   surrounding dark surface. Direct entry and keyboard arrows remain available. */
+input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .themed-color-picker {
+        transition: none;
+    }
+}

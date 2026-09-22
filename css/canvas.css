@@ -192,33 +192,225 @@
     filter: grayscale(0) brightness(1);
 }
 
-.map-status-badge {
+.map-status-badge,
+.map-calibration-badge {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 2px 8px;
-    border-radius: 999px;
+    top: 8px;
+    z-index: 2;
+    height: 24px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(8, 10, 13, 0.74);
+    color: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.map-status-badge {
+    right: 8px;
+    min-width: 24px;
+    padding: 0 7px;
+    border-radius: 8px;
     font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    background: rgba(0, 0, 0, 0.6);
-    color: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(4px);
-    pointer-events: none;
+    font-weight: 650;
+    letter-spacing: 0.15px;
+    pointer-events: auto;
 }
+
+.map-status-badge--icon {
+    width: 24px;
+    padding: 0;
+}
+
+.map-status-badge svg,
+.map-calibration-badge svg {
+    display: block;
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    stroke-width: 2.35;
+}
+
+/* Pin the calibration glyph to the exact pill centre. Flex/baseline quirks
+   (lucide replaces an inline <i> placeholder) can nudge the icon toward a
+   corner; absolute + translate is immune to them. */
+.map-calibration-badge svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.map-status-badge--icon {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+}
+
 .map-status-badge[data-state="installed"] {
-    background: rgba(0, 200, 110, 0.85);
-    color: #04140a;
+    background: rgba(12, 16, 14, 0.94);
+    border-color: rgba(46, 229, 157, 0.58);
+    color: #2ee59d;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
 }
+
 .map-status-badge[data-state="downloading"] {
-    background: rgba(var(--color-accent-rgb), 0.85);
-    color: #04140a;
+    background: rgba(12, 16, 14, 0.94);
+    border-color: rgba(var(--color-accent-rgb), 0.55);
+    color: var(--color-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
 }
+
 .map-status-badge[data-state="available"] {
-    background: rgba(0, 0, 0, 0.78);
-    color: rgba(255, 255, 255, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.88);
+}
+
+/* Calibration state, top-left. The icon stays quiet until hovered. */
+.map-calibration-badge {
+    left: 8px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 8px;
+    cursor: help;
+}
+
+.map-calibration-badge:hover,
+.map-status-badge:hover {
+    background: rgba(18, 22, 27, 0.92);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.map-calibration-badge[data-state="verified"] {
+    background: rgba(12, 16, 14, 0.94);
+    border-color: rgba(46, 229, 157, 0.58);
+    color: #2ee59d;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+
+.map-calibration-badge[data-state="verified"]:hover {
+    background: rgba(18, 26, 22, 0.96);
+    border-color: rgba(46, 229, 157, 0.72);
+}
+
+.map-calibration-badge[data-state="unverified"] {
+    background: rgba(20, 17, 10, 0.94);
+    border-color: rgba(255, 199, 0, 0.55);
+    color: #ffc400;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+
+.map-calibration-badge[data-state="unverified"]:hover {
+    background: rgba(26, 22, 12, 0.96);
+    border-color: rgba(255, 199, 0, 0.72);
+}
+
+/* Designed status tooltip, rendered outside the scrollable map library. */
+.map-token-tooltip {
+    --tooltip-accent: rgba(255, 255, 255, 0.58);
+    position: fixed;
+    z-index: 1600;
+    width: min(286px, calc(100vw - 24px));
+    box-sizing: border-box;
+    padding: 10px 12px 11px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 2px solid var(--tooltip-accent);
+    border-radius: 10px;
+    background: rgba(8, 11, 15, 0.96);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(18px) saturate(135%);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    color: var(--color-text-primary);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.map-token-tooltip[hidden] {
+    display: none;
+}
+
+.map-token-tooltip[data-placement="left"] {
+    transform: translateX(4px);
+}
+
+.map-token-tooltip.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.map-token-tooltip[data-tone="success"] {
+    --tooltip-accent: #2ee59d;
+}
+
+.map-token-tooltip[data-tone="attention"] {
+    --tooltip-accent: #f0bd66;
+}
+
+.map-token-tooltip[data-tone="accent"] {
+    --tooltip-accent: var(--color-accent);
+}
+
+.map-token-tooltip::before {
+    content: '';
+    position: absolute;
+    top: var(--tooltip-arrow-offset, 16px);
+    width: 8px;
+    height: 8px;
+    background: rgba(8, 11, 15, 0.96);
+    border: solid rgba(255, 255, 255, 0.12);
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.map-token-tooltip[data-placement="right"]::before {
+    left: -5px;
+    border-width: 0 0 1px 1px;
+}
+
+.map-token-tooltip[data-placement="left"]::before {
+    right: -5px;
+    border-width: 1px 1px 0 0;
+}
+
+.map-token-tooltip__header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 5px;
+}
+
+.map-token-tooltip__marker {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 2px;
+    background: var(--tooltip-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tooltip-accent) 16%, transparent);
+}
+
+.map-token-tooltip__title {
+    color: var(--tooltip-accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.85px;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.map-token-tooltip__message {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.42;
 }
 
 .map-progress {
@@ -241,14 +433,47 @@
 }
 
 .action-icon {
-    color: var(--color-text-muted);
-    padding: 2px;
-    border-radius: 4px;
+    display: inline-flex;
+    height: 24px;
+    min-width: 24px;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    padding: 0 7px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(8, 10, 13, 0.74);
+    color: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.action-icon svg,
+.action-icon .lucide {
+    display: block;
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
 }
 
 .action-icon:hover {
-    background: var(--color-bg-primary);
+    border-color: rgba(var(--color-accent-rgb), 0.55);
+    background: rgba(12, 15, 18, 0.95);
     color: var(--color-accent);
+}
+
+.action-icon:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.action-icon--danger:hover {
+    border-color: rgba(var(--color-danger-rgb), 0.6);
+    background: rgba(22, 11, 13, 0.95);
+    color: #ff6b78;
 }
 
 #mapCanvas {

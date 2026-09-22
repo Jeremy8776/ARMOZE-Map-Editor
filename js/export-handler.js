@@ -2,6 +2,10 @@
  * Export Handler - Orchestrates various export formats
  */
 class ExportHandler {
+    // Formats not yet ready for users. The UI disables them; this is the
+    // second gate so a saved setting or stale call can't reach them.
+    static get COMING_SOON_FORMATS() { return ['workbench']; }
+
     constructor(core, zoneManager, renderer, imageOverlayManager = null, notificationService = null, coordinateSystem = null) {
         this.core = core;
         this.zoneManager = zoneManager;
@@ -12,6 +16,14 @@ class ExportHandler {
     }
 
     export(format, settings = {}) {
+        if (ExportHandler.COMING_SOON_FORMATS.includes(format)) {
+            this.notificationService?.showAlert(
+                'Workbench Plugin export is still in testing and will be enabled in a future release.',
+                { title: 'Coming Soon' }
+            );
+            return;
+        }
+
         const zones = this.zoneManager.getZones();
         const overlays = this.imageOverlayManager?.serializeOverlays?.() || [];
         const needsZoneGeometry = format === 'enfusion' || format === 'json' || format === 'workbench' || format === 'all';
@@ -71,8 +83,8 @@ class ExportHandler {
     }
 
     exportWorkbenchPlugin(zones) {
-        const script = ScriptGenerator.generateWorkbenchPlugin(zones, this.escapeString, Utils.getPolygonBounds);
-        Utils.downloadFile(script, 'ImportZonesPlugin.c', 'text/plain');
+        const script = ScriptGenerator.generateWorkbenchPlugin(zones);
+        Utils.downloadFile(script, 'ARMOZE_ImportZonesPlugin.c', 'text/plain');
     }
 
     exportAll(zones, settings = {}) {
@@ -91,7 +103,7 @@ class ExportHandler {
         return res;
     }
 
-    getEnfusionType(id) { return `EZoneType.${(id || 'CUSTOM').replace(/[^A-Za-z0-9_]/g, '_').toUpperCase()}`; }
+    getEnfusionType(id) { return `"${(id || 'custom').replace(/[^A-Za-z0-9_]/g, '_').toLowerCase()}"`; }
     hexToInt(hex) { return parseInt(hex.replace('#', ''), 16); }
     escapeString(str) { return str.replace(/"/g, '\\"').replace(/\n/g, '\\n'); }
 }

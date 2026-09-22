@@ -5,13 +5,13 @@
 .property-grid {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
 }
 
 .overlay-property-group {
     display: none;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
 }
 
 .zone-inspector-panel.is-overlay-mode .overlay-property-group {
@@ -45,10 +45,8 @@
 
 /* Inputs & Controls */
 .property-group input[type="text"],
-.property-group select,
 .property-item input[type="text"],
-.property-item select,
-.compact-select {
+.compact-input {
     width: 100%;
     box-sizing: border-box;
     padding: var(--spacing-sm);
@@ -58,72 +56,15 @@
     color: var(--color-text-primary);
     font-family: var(--font-primary);
     font-size: 14px;
-    transition: all var(--transition-fast);
-}
-
-/* Dark dropdown styling — applied to every <select> in the app so
-   the open option list never falls back to native white. The closed
-   state inherits a chevron + dark gradient via the ruleset below. */
-.property-group select,
-.property-item select,
-.setting-row select,
-.compact-select,
-select.app-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    padding-right: 36px;
-    background-color: rgba(0, 0, 0, 0.22);
-    background-image:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.72)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat, no-repeat;
-    background-position: 0 0, calc(100% - 12px) 50%;
-    background-size: auto, 14px 14px;
-    cursor: pointer;
-}
-
-/* Dark popup options — Chromium honours these for the dropdown list. */
-select option,
-select optgroup {
-    background-color: #101317;
-    color: #f2f4f8;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
 }
 
 .property-group input[type="text"]:focus,
-.property-group select:focus,
 .property-item input[type="text"]:focus,
-.property-item select:focus,
-.compact-select:focus {
+.compact-input:focus {
     outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
-}
-
-.compact-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    padding-right: 40px;
-    background-color: rgba(0, 0, 0, 0.22);
-    background-image:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.72)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat, no-repeat;
-    background-position: 0 0, calc(100% - 12px) 50%;
-    background-size: auto, 14px 14px;
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.compact-select:hover {
-    border-color: rgba(255, 255, 255, 0.22);
-    background-color: rgba(255, 255, 255, 0.06);
-}
-
-.compact-select option {
-    background: #101317;
-    color: #f2f4f8;
+    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.14);
 }
 
 .compact-input {
@@ -159,9 +100,18 @@ select optgroup {
     appearance: none;
     width: 12px;
     height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.88);
     background: var(--color-accent);
     border-radius: 50%;
-    box-shadow: 0 0 10px var(--color-accent-glow);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.1);
+}
+
+.slider-row input[type="range"]:focus-visible {
+    outline: none;
+}
+
+.slider-row input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(var(--color-accent-rgb), 0.18);
 }
 
 /* Color Pickers */
@@ -210,12 +160,12 @@ select optgroup {
 }
 
 .color-dot:hover {
-    transform: scale(1.2);
+    transform: scale(1.06);
 }
 
 .color-dot.active {
     border-color: white;
-    transform: scale(1.1);
+    transform: scale(1.04);
 }
 
 .color-wheel-control {
@@ -328,8 +278,8 @@ select optgroup {
 }
 
 .recent-color-chip:hover {
-    transform: scale(1.12);
-    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.06);
+    border-color: rgba(255, 255, 255, 0.42);
 }
 
 /* Accordion Sections */
@@ -407,14 +357,14 @@ select optgroup {
 .accordion-section.is-open .accordion-panel {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
     padding-top: 16px;
 }
 
 .label-options {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
     transition: opacity 0.2s ease;
 }
 
@@ -448,7 +398,7 @@ select optgroup {
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .toggle-chip input:checked + span {
@@ -639,7 +589,7 @@ select optgroup {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .btn-icon-small:hover {

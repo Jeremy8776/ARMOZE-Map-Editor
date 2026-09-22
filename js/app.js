@@ -56,14 +56,13 @@ class ZoneEditorApp {
             textureSuffix: document.getElementById('textureSuffix'),
             resizePow2: document.getElementById('resizePow2'),
             baseName: document.getElementById('baseName'),
-            btnToggleSnap: document.getElementById('btnToggleSnap'),
+            btnOpenGridSettings: document.getElementById('btnOpenGridSettings'),
             toolbar: document.querySelector('.toolbar')
         };
     }
 
     initCore() {
         this.core = new CanvasCore(this.elements.canvas, this.elements.canvasContainer);
-        this.core.loadGridColors();
         this.zoneManager = new ZoneManager(() => this.requestRender());
         this.imageOverlayManager = new ImageOverlayManager(() => this.requestRender());
         this.imageOverlayManager.hydrateCore(this.core);
@@ -98,6 +97,8 @@ class ZoneEditorApp {
         this.fileHandler = new FileHandler(this);
         this.exportHandler = new ExportHandler(this.core, this.zoneManager, this.renderer, this.imageOverlayManager, this.notificationService, this.coordinateSystem);
         this.calibrationService = new CalibrationService(this);
+        this.gridSettingsService = new GridSettingsService(this);
+        this.officialCalibrationService = new OfficialCalibrationService(this);
         this.extractorService = new MapExtractorService(this);
         this.hotkeyManager = new HotkeyManager(this);
     }
@@ -106,13 +107,22 @@ class ZoneEditorApp {
         this.tabManager = new TabManager(this);
         this.zoneListUI = new ZoneListUI(this);
         this.zonePropertiesUI = new ZonePropertiesUI(this);
+        this.themedColorPicker = new ThemedColorPicker();
+        this.themedSelect = new ThemedSelect();
+        this.themedTooltip = new ThemedTooltip();
         this.toolbarUI = new ToolbarUI(this, this.elements.toolbar);
+        this.windowControls = new WindowControls(this);
+        this.feedbackUI = new FeedbackUI(this);
         this.mapBrowserUI = new MapBrowserUI(this);
         this.extractorUI = new MapExtractorUI(this);
         this.contextMenu = new ContextMenu(this);
     }
 
     init() {
+        this.themedColorPicker.init();
+        this.themedSelect.init();
+        this.themedTooltip.init();
+        this.windowControls.init();
         this.tabManager.init(this.elements.tabBar);
         this.zoneListUI.init({
             zoneCount: this.elements.zoneCount,
@@ -144,9 +154,11 @@ class ZoneEditorApp {
             worldSizeDepth: document.getElementById('worldSizeDepth'),
             btnApplyWorldSize: document.getElementById('btnApplyWorldSize')
         });
+        this.gridSettingsService.init();
         this.extractorService.init();
         this.extractorUI.init();
         this.mapBrowserUI.init(this.elements.localMapList);
+        this.feedbackUI.init();
         this.toolbarUI.init();
         this.toolManager.setTool('select');
         this.toolbarUI.setActiveTool('select');
@@ -171,6 +183,7 @@ class ZoneEditorApp {
         if (window.electronAPI && window.electronAPI.onWindowState) {
             window.electronAPI.onWindowState((state) => {
                 document.getElementById('app').classList.toggle('is-maximized', state === 'maximized');
+                this.windowControls?.syncMaximizeState(state);
             });
             document.getElementById('app').classList.add('is-maximized');
 
@@ -346,11 +359,6 @@ class ZoneEditorApp {
         this.elements.btnZoomIn.addEventListener('click', () => this.core.setZoom(0.2));
         this.elements.btnZoomOut.addEventListener('click', () => this.core.setZoom(-0.2));
         this.elements.btnFitView.addEventListener('click', () => this.core.fitToView());
-
-        this.elements.btnToggleSnap.addEventListener('click', () => {
-            const enabled = this.core.toggleSnap();
-            this.elements.btnToggleSnap.classList.toggle('active', enabled);
-        });
 
         this.elements.btnUndo.addEventListener('click', () => this.historyManager.undo());
         this.elements.btnRedo.addEventListener('click', () => this.historyManager.redo());
