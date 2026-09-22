@@ -26,14 +26,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          # Node 20 is deprecated on GitHub runners. Test discovery itself is
+          # shell- and version-independent (tests/run.js enumerates files), so
+          # this only needs to be a supported LTS.
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies

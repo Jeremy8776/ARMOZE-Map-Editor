@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.37] - 2026-09-22
+
+### Fixed
+- **Release pipeline**: test discovery no longer depends on shell glob expansion. `npm test` now runs `tests/run.js`, which enumerates `tests/*.test.js` in Node and fails on an empty suite. PowerShell on the Windows runner never expanded the glob, so the 1.6.36 release build failed before packaging and the installer was never published.
+- **Dependency advisories**: updated `electron-updater` to 6.8.9 and `js-yaml` to 4.3.2, clearing the cross-origin credential leak in the updater's HTTP path. Production dependencies now report no known vulnerabilities.
+
+### Changed
+- **Build contents**: agent and editor metadata (`.claude/`, `.claude-memory/`, `CLAUDE.md`, `AGENT_GUIDE.md`) are excluded from the packaged app.
+- **CI**: release workflow moved to Node 22 and `checkout@v5` / `setup-node@v5`.
+
+## [1.6.36] - 2026-09-21
+
+Built but never published; its contents ship in 1.6.37.
+
+### Added
+- **Structured logging**: `app-logger.js` writes to `userData/logs` with secret redaction, 5 MB rotation, renderer error forwarding, and extractor run diagnostics including hex exit codes and captured stderr.
+- **Extractor Terms of Use gate**: versioned acknowledgement modal covering as-is use, absence of warranty and provider indemnity, user responsibility, and liability limits.
+- **Open Logs button** on the extractor error state.
+
+### Fixed
+- **Packaged extractor failure** (exit `4294770688`): bundled tools now resolve from `process.resourcesPath/tools` via `extractor-runtime.js` and ship as `extraResources` rather than inside `app.asar`.
+- **Exact-path search never matching**: PakInspector ANSI colour codes are stripped before matching listings, on both PowerShell 5.1 and 7.
+- **False success on empty extraction**: search and bulk extraction exit non-zero when nothing is found or produced, so the UI reports failure.
+
 ## [1.6.35] - 2026-09-21
 
 ### Added
